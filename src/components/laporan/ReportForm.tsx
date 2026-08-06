@@ -129,14 +129,14 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       const res = await fetch('/api/gemini/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ namaKegiatan, deskripsiKegiatan }),
+        body: JSON.stringify({ namaKegiatan, deskripsiKegiatan, namaPegawai }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Gagal generate ringkasan');
 
       setRingkasanKegiatan(data.ringkasan);
-      showToast('Ringkasan kegiatan resmi BPS berhasil dibuat dengan Gemini AI!', 'success');
+      showToast('Ringkasan kegiatan pribadi resmi BPS berhasil dibuat dengan Gemini AI!', 'success');
     } catch (err: any) {
       showToast(err.message || 'Gagal menghubungi Gemini API', 'error');
     } finally {
@@ -208,9 +208,9 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-6 space-y-6">
         <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
           <div>
-            <h3 className="font-extrabold text-slate-900 text-lg">Form Bukti Dukung Kegiatan</h3>
+            <h3 className="font-extrabold text-slate-900 text-lg">Form Bukti Dukung Kegiatan Harian</h3>
             <p className="text-xs text-slate-500">
-              Isi formulir untuk membuat laporan kegiatan harian BPS Kabupaten Lebak
+              Isi formulir untuk membuat laporan kegiatan harian pegawai BPS Kabupaten Lebak
             </p>
           </div>
           {draftSavedAt && (
@@ -315,24 +315,30 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
 
         {/* Deskripsi Kegiatan for AI prompt */}
         <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-            Deskripsi Kegiatan (Poin-poin / Penjelasan singkat untuk AI)
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              Deskripsi Kegiatan (Poin-poin / Catatan Kegiatan)
+            </label>
+            <span className="text-[10px] text-slate-400">Dapat ditarik/diperbesar ukurannya</span>
+          </div>
           <textarea
-            rows={3}
+            rows={5}
             value={deskripsiKegiatan}
             onChange={(e) => setDeskripsiKegiatan(e.target.value)}
-            placeholder="- Mengikuti briefing pelaksanaan&#10;- Melakukan verifikasi data kuesioner digital&#10;- Berdiskusi dengan tim pengolahan"
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors leading-relaxed"
+            placeholder="- Mendampingi petugas pencacah di wilayah sampel&#10;- Melakukan validasi isian kuesioner digital/fisik&#10;- Desa Aweh&#10;- PML Bu Sundari dan PPL Fahmi&#10;- Menyampaikan perbaikan anomali data"
+            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors leading-relaxed min-h-[120px] resize-y"
           />
         </div>
 
         {/* Ringkasan Kegiatan & Gemini Button */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Ringkasan Kegiatan (Bahasa Resmi Laporan BPS) *
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Ringkasan Kegiatan (Bahasa Laporan Resmi BPS) *
+              </label>
+              <span className="text-[10px] text-slate-400 hidden sm:inline">(Dapat diperbesar)</span>
+            </div>
             <button
               type="button"
               onClick={handleGenerateGemini}
@@ -349,11 +355,11 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
           </div>
 
           <textarea
-            rows={4}
+            rows={6}
             value={ringkasanKegiatan}
             onChange={(e) => setRingkasanKegiatan(e.target.value)}
-            placeholder="Ringkasan kegiatan formal akan dihasilkan secara otomatis oleh Gemini AI setelah Anda menekan tombol 'Generate dengan Gemini', atau Anda dapat mengetiknya secara manual..."
-            className="w-full px-3.5 py-2.5 bg-sky-50/50 border border-sky-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors leading-relaxed font-medium text-slate-800"
+            placeholder="Ringkasan narasi kegiatan harian pribadi akan dihasilkan otomatis oleh Gemini AI berdasarkan nama pegawai dan deskripsi kegiatan..."
+            className="w-full px-3.5 py-2.5 bg-sky-50/50 border border-sky-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors leading-relaxed font-medium text-slate-800 min-h-[160px] resize-y"
           />
         </div>
 
