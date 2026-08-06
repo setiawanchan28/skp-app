@@ -7,27 +7,24 @@ export async function generateBpsSummary(
   deskripsiKegiatan: string,
   namaPegawai?: string
 ): Promise<string> {
-  const pelaksana = namaPegawai ? namaPegawai.trim() : '';
-
-  const prompt = `Anda adalah asisten pembuatan Laporan Harian Kerja PRIBADI pegawai BPS.
-Tugas Anda adalah merangkai poin-poin kegiatan mentah menjadi **SATU PARAGRAF NARASI RESMI LAPORAN PRIBADI PEGAWAI**.
+  const prompt = `Anda adalah asisten penyusunan ringkasan Bukti Dukung Kegiatan Harian Pegawai BPS.
+Tugas Anda adalah merangkai poin-poin kegiatan mentah menjadi **SATU PARAGRAF NARASI RESMI DENGAN LANGSUNG KE INTI KEGIATAN**.
 
 Informasi Input:
-- Pelaksana / Nama Pegawai: ${pelaksana || 'Pegawai'}
 - Nama Kegiatan: ${namaKegiatan}
 - Catatan Poin Kegiatan:
 ${deskripsiKegiatan}
 
 Instruksi Penulisan Penting:
-1. SUDUT PANDANG PRIBADI: Ini adalah Laporan Harian PRIBADI. JANGAN menyebut "BPS Kabupaten Lebak melaksanakan...". Sebutkan nama pelaksana (${pelaksana || 'pegawai'}) atau langsung gunakan kata kerja "Melaksanakan...".
+1. LANGSUNG KE INTI KEGIATAN: DILARANG menyebut nama instansi ("BPS Kabupaten Lebak...") dan DILARANG menyebut nama pegawai/orang di awal kalimat. LANGSUNG awali paragraf dengan KATA KERJA AKTIF (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...").
 2. CONTOH HASIL YANG DIHARAPKAN:
-   "Dalam upaya menjamin mutu dan akurasi data hasil lapangan, ${pelaksana || 'Pelaksana'} melaksanakan kegiatan ${namaKegiatan} di Desa Aweh bersama PML Sundari dan PPL Fahmi. Kegiatan berfokus pada pendampingan langsung di wilayah sampel, validasi kelengkapan serta konsistensi isian kuesioner digital maupun fisik, sekaligus menyampaikan arahan teknis mengenai perbaikan anomali data demi menjaga integritas data yang dihasilkan."
-3. DILARANG menggunakan kata seremonial kaku "berjalan tertib dan lancar".
-4. DILARANG menambahkan kata pembuka seperti "Berikut narasi laporan:". LANGSUNG ke isi paragraf.`;
+   "Melaksanakan kegiatan ${namaKegiatan} di Desa Aweh bersama PML Sundari dan PPL Fahmi. Rangkaian kegiatan berfokus pada pendampingan langsung di wilayah sampel, validasi kelengkapan serta konsistensi isian kuesioner digital maupun fisik, sekaligus menyampaikan arahan teknis mengenai perbaikan anomali data demi menjaga mutu dan akurasi data hasil lapangan."
+3. DILARANG menggunakan frasa seremonial kaku seperti "berjalan tertib dan lancar".
+4. DILARANG menambahkan kata pembuka seperti "Berikut ringkasan:". LANGSUNG ke isi paragraf ringkasan.`;
 
   try {
     if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy')) {
-      return composePersonalBpsNarrative(namaKegiatan, deskripsiKegiatan, pelaksana);
+      return composeDirectActionNarrative(namaKegiatan, deskripsiKegiatan);
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -50,30 +47,27 @@ Instruksi Penulisan Penting:
       }
     }
 
-    return composePersonalBpsNarrative(namaKegiatan, deskripsiKegiatan, pelaksana);
+    return composeDirectActionNarrative(namaKegiatan, deskripsiKegiatan);
   } catch (error) {
-    console.warn('Gemini API error, using personal narrative composer:', error);
-    return composePersonalBpsNarrative(namaKegiatan, deskripsiKegiatan, pelaksana);
+    console.warn('Gemini API error, using direct action narrative composer:', error);
+    return composeDirectActionNarrative(namaKegiatan, deskripsiKegiatan);
   }
 }
 
 /**
- * Clean Personal Narrative Composer for Offline Mode
+ * Direct Action Verb Narrative Composer for Offline Mode
  */
-function composePersonalBpsNarrative(
+function composeDirectActionNarrative(
   namaKegiatan: string,
-  deskripsiKegiatan: string,
-  namaPegawai: string
+  deskripsiKegiatan: string
 ): string {
   const lines = deskripsiKegiatan
     .split('\n')
     .map((line) => line.replace(/^[-*•\d.]+\s*/, '').trim())
     .filter((line) => line.length > 0);
 
-  const subject = namaPegawai ? namaPegawai : 'Pelaksana';
-
   if (lines.length === 0) {
-    return `${subject} melaksanakan kegiatan ${namaKegiatan} sesuai petunjuk teknis dan standar operasional prosedur yang berlaku.`;
+    return `Melaksanakan kegiatan ${namaKegiatan} sesuai dengan petunjuk teknis dan standar operasional prosedur yang berlaku.`;
   }
 
   let locations: string[] = [];
@@ -98,7 +92,7 @@ function composePersonalBpsNarrative(
     }
   }
 
-  let narrative = `Dalam upaya menjaga kualitas data, ${subject} melaksanakan kegiatan ${namaKegiatan}`;
+  let narrative = `Melaksanakan kegiatan ${namaKegiatan}`;
 
   if (locations.length > 0) {
     narrative += ` di ${locations.join(', ')}`;
@@ -125,7 +119,7 @@ function composePersonalBpsNarrative(
       narrative += `Kegiatan berfokus pada ${formattedActions[0]} serta ${formattedActions[1]}.`;
     } else {
       const lastAction = formattedActions.pop();
-      narrative += `Rangkaian kegiatan berfokus pada ${formattedActions.join(', ')}, serta ${lastAction}.`;
+      narrative += `Rangkaian kegiatan meliputi ${formattedActions.join(', ')}, serta ${lastAction}.`;
     }
   }
 
