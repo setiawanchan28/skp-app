@@ -6,23 +6,41 @@ import { getYearAndMonthName } from '@/utils/formatters';
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
 
 function getDriveClient() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+
+  // 1. Try OAuth2 Client ID + Refresh Token (User Preferred Method)
+  if (clientId && clientSecret && refreshToken && !clientId.includes('dummy')) {
+    const oauth2Client = new google.auth.OAuth2(
+      clientId,
+      clientSecret,
+      'https://developers.google.com/oauthplayground'
+    );
+
+    oauth2Client.setCredentials({
+      refresh_token: refreshToken,
+    });
+
+    return google.drive({ version: 'v3', auth: oauth2Client });
+  }
+
+  // 2. Fallback to Service Account JWT if present
   const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
   let privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
-  if (!clientEmail || !privateKey || clientEmail.includes('dummy')) {
-    return null;
+  if (clientEmail && privateKey && !clientEmail.includes('dummy')) {
+    privateKey = privateKey.replace(/\\n/g, '\n');
+    const auth = new google.auth.JWT({
+      email: clientEmail,
+      key: privateKey,
+      scopes: SCOPES,
+    });
+
+    return google.drive({ version: 'v3', auth });
   }
 
-  // Format private key properly
-  privateKey = privateKey.replace(/\\n/g, '\n');
-
-  const auth = new google.auth.JWT({
-    email: clientEmail,
-    key: privateKey,
-    scopes: SCOPES,
-  });
-
-  return google.drive({ version: 'v3', auth });
+  return null;
 }
 
 /**
@@ -38,7 +56,6 @@ export async function getOrCreateFolderHierarchy(dateString: string): Promise<Dr
     : null;
 
   if (!drive) {
-    // Fallback response for offline/demo mode
     return {
       yearFolderId: `mock_year_${year}`,
       monthFolderId: `mock_month_${monthName}`,
@@ -48,19 +65,13 @@ export async function getOrCreateFolderHierarchy(dateString: string): Promise<Dr
   }
 
   try {
-    // 1. Ensure Root Folder "Laporan Harian Kerja" exists
     let mainRootId = rootParentId;
     if (!mainRootId) {
       mainRootId = await findOrCreateFolder(drive, 'Laporan Harian Kerja', 'root');
     }
 
-    // 2. Ensure Year Folder exists (e.g. "2026")
     const yearFolderId = await findOrCreateFolder(drive, year, mainRootId);
-
-    // 3. Ensure Month Folder exists (e.g. "Agustus")
     const monthFolderId = await findOrCreateFolder(drive, monthName, yearFolderId);
-
-    // 4. Ensure "Dokumentasi" and "PDF" subfolders exist
     const dokumentasiFolderId = await findOrCreateFolder(drive, 'Dokumentasi', monthFolderId);
     const pdfFolderId = await findOrCreateFolder(drive, 'PDF', monthFolderId);
 
@@ -97,7 +108,6 @@ async function findOrCreateFolder(drive: any, folderName: string, parentId: stri
     return searchRes.data.files[0].id || '';
   }
 
-  // Create folder if not found
   const createRes = await drive.files.create({
     requestBody: {
       name: folderName,
@@ -122,7 +132,6 @@ export async function uploadFileToDrive(
   const drive = getDriveClient();
 
   if (!drive || folderId.startsWith('mock_') || folderId.startsWith('fallback_')) {
-    // Return mock URLs for testing when credentials aren't present
     const fakeId = `file_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     return {
       id: fakeId,
@@ -150,7 +159,6 @@ export async function uploadFileToDrive(
 
   const fileId = res.data.id || `file_${Date.now()}`;
 
-  // Set file permissions to 'anyone with link can view' for convenience
   try {
     await drive.permissions.create({
       fileId,
