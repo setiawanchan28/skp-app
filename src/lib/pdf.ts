@@ -9,109 +9,132 @@ export interface PdfReportData {
   tanggal: string;
   namaKegiatan: string;
   ringkasanKegiatan: string;
-  photosBase64?: string[]; // Array of photo base64 strings or buffer images
+  photosBase64?: string[];
 }
 
 /**
- * Generate official BPS Bukti Dukung Kegiatan PDF document
+ * Generate official BPS Bukti Dukung Kegiatan PDF matching exact BPS Lebak template
  */
 export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  // A4 size in points: 595.28 x 841.89
+  // A4 dimensions: 595.28 x 841.89
   const pageWidth = 595.28;
   const pageHeight = 841.89;
   const margin = 40;
   const contentWidth = pageWidth - margin * 2;
 
-  let page = pdfDoc.addPage([pageWidth, pageHeight]);
-  let y = pageHeight - margin;
+  const page = pdfDoc.addPage([pageWidth, pageHeight]);
+  let y = pageHeight - 35;
 
-  // Colors
-  const bpsBlue = rgb(0.01, 0.52, 0.78);
-  const darkText = rgb(0.1, 0.1, 0.1);
-  const borderGray = rgb(0.7, 0.7, 0.7);
-  const headerBg = rgb(0.93, 0.96, 0.99);
+  const black = rgb(0, 0, 0);
+  const peachBg = rgb(0.97, 0.78, 0.56); // #F8C48C exact BPS header color
+  const grayLine = rgb(0.2, 0.2, 0.2);
 
-  // 1. HEADER SECTION
-  // Draw Top Accent Bar
-  page.drawRectangle({
-    x: margin,
-    y: y - 4,
-    width: contentWidth,
-    height: 4,
-    color: bpsBlue,
+  // 1. LOGO & HEADER TITLE
+  // Draw Top BPS Logo (3 Polygons: Blue, Orange, Green)
+  const logoX = pageWidth / 2;
+  const logoY = y - 20;
+
+  // Blue Polygon
+  page.drawRectangle({ x: logoX - 25, y: logoY + 12, width: 22, height: 18, color: rgb(0, 0.63, 0.91) });
+  // Orange Polygon
+  page.drawRectangle({ x: logoX, y: logoY + 3, width: 22, height: 18, color: rgb(0.95, 0.44, 0.14) });
+  // Green Polygon
+  page.drawRectangle({ x: logoX - 25, y: logoY - 6, width: 22, height: 18, color: rgb(0.55, 0.78, 0.25) });
+
+  y -= 55;
+
+  // Logo Subtext
+  const logoSubtext = BPS_CONFIG.instansi;
+  const logoSubtextWidth = fontBold.widthOfTextAtSize(logoSubtext, 11);
+  page.drawText(logoSubtext, {
+    x: (pageWidth - logoSubtextWidth) / 2,
+    y: y,
+    size: 11,
+    font: fontBold,
+    color: black,
   });
-  y -= 24;
+  y -= 25;
 
-  // Header Title
-  page.drawText(BPS_CONFIG.instansi, {
-    x: margin,
+  // Title 1: BUKTI DUKUNG KEGIATAN
+  const title1 = BPS_CONFIG.judulLaporan;
+  const title1Width = fontBold.widthOfTextAtSize(title1, 13);
+  page.drawText(title1, {
+    x: (pageWidth - title1Width) / 2,
     y: y,
     size: 13,
     font: fontBold,
-    color: bpsBlue,
+    color: black,
   });
   y -= 16;
 
-  page.drawText(BPS_CONFIG.alamat, {
-    x: margin,
+  // Title 2: BADAN PUSAT STATISTIK KABUPATEN LEBAK TAHUN 2026
+  const dateYear = new Date(data.tanggal || Date.now()).getFullYear();
+  const title2 = `BADAN PUSAT STATISTIK KABUPATEN LEBAK TAHUN ${dateYear}`;
+  const title2Width = fontBold.widthOfTextAtSize(title2, 12);
+  page.drawText(title2, {
+    x: (pageWidth - title2Width) / 2,
     y: y,
-    size: 8,
-    font: fontRegular,
-    color: rgb(0.4, 0.4, 0.4),
-  });
-  y -= 15;
-
-  // Line separator
-  page.drawLine({
-    start: { x: margin, y: y },
-    end: { x: pageWidth - margin, y: y },
-    thickness: 1,
-    color: borderGray,
+    size: 12,
+    font: fontBold,
+    color: black,
   });
   y -= 25;
 
-  // Document Title
-  const titleText = BPS_CONFIG.judulLaporan;
-  const titleWidth = fontBold.widthOfTextAtSize(titleText, 14);
-  page.drawText(titleText, {
-    x: (pageWidth - titleWidth) / 2,
-    y: y,
-    size: 14,
-    font: fontBold,
-    color: darkText,
-  });
-  y -= 25;
-
-  // 2. BAGIAN I: KETERANGAN PELAKSANA
-  page.drawText('BAGIAN I: KETERANGAN PELAKSANA', {
+  // 2. BAGIAN I: I. KETERANGAN PELAKSANA
+  // Header Bar Box
+  const headerHeight = 22;
+  page.drawRectangle({
     x: margin,
-    y: y,
-    size: 10,
-    font: fontBold,
-    color: bpsBlue,
+    y: y - headerHeight,
+    width: contentWidth,
+    height: headerHeight,
+    color: peachBg,
+    borderColor: black,
+    borderWidth: 1,
   });
-  y -= 15;
 
-  // Helper for drawing wrapped table rows
-  const drawTableRow = (label: string, value: string, currentY: number): number => {
-    const labelWidth = 140;
-    const valueWidth = contentWidth - labelWidth - 10;
-    const fontSize = 9;
-    const lineHeight = 14;
+  const sec1Text = 'I. KETERANGAN PELAKSANA';
+  const sec1Width = fontBold.widthOfTextAtSize(sec1Text, 11);
+  page.drawText(sec1Text, {
+    x: (pageWidth - sec1Width) / 2,
+    y: y - 15,
+    size: 11,
+    font: fontBold,
+    color: black,
+  });
+  y -= headerHeight;
 
-    // Wrap value text
+  // Table Rows: NAMA, JABATAN, NIP, KEGIATAN, RINGKASAN
+  const rows = [
+    { no: '1.', label: 'NAMA', val: data.namaPegawai },
+    { no: '2.', label: 'JABATAN', val: data.jabatan },
+    { no: '3.', label: 'NIP', val: data.nip },
+    { no: '4.', label: 'KEGIATAN', val: data.namaKegiatan },
+    { no: '5.', label: 'RINGKASAN', val: data.ringkasanKegiatan },
+  ];
+
+  const col1Width = 30; // No
+  const col2Width = 100; // Field Name
+  const col3Width = 15; // Colon :
+  const col4Width = contentWidth - col1Width - col2Width - col3Width;
+
+  const fontSize = 10;
+  const lineHeight = 14;
+
+  for (const row of rows) {
+    // Text wrapping for Column 4
     const lines: string[] = [];
-    const words = value.split(' ');
+    const words = row.val.split(' ');
     let currentLine = '';
 
     for (const word of words) {
       const testLine = currentLine ? `${currentLine} ${word}` : word;
       const testWidth = fontRegular.widthOfTextAtSize(testLine, fontSize);
-      if (testWidth <= valueWidth) {
+      if (testWidth <= col4Width - 10) {
         currentLine = testLine;
       } else {
         lines.push(currentLine);
@@ -120,107 +143,148 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     }
     if (currentLine) lines.push(currentLine);
 
-    const rowHeight = Math.max(lines.length * lineHeight + 8, 24);
+    const rowHeight = Math.max(lines.length * lineHeight + 10, 24);
 
-    // Row Background
+    // Row Border Outer Box
     page.drawRectangle({
       x: margin,
-      y: currentY - rowHeight,
+      y: y - rowHeight,
       width: contentWidth,
       height: rowHeight,
-      color: rgb(0.98, 0.98, 0.98),
-      borderColor: borderGray,
-      borderWidth: 0.5,
+      borderColor: black,
+      borderWidth: 1,
     });
 
-    // Vertical Divider
+    // Column Dividers
     page.drawLine({
-      start: { x: margin + labelWidth, y: currentY },
-      end: { x: margin + labelWidth, y: currentY - rowHeight },
-      thickness: 0.5,
-      color: borderGray,
+      start: { x: margin + col1Width, y: y },
+      end: { x: margin + col1Width, y: y - rowHeight },
+      thickness: 1,
+      color: black,
+    });
+    page.drawLine({
+      start: { x: margin + col1Width + col2Width, y: y },
+      end: { x: margin + col1Width + col2Width, y: y - rowHeight },
+      thickness: 1,
+      color: black,
+    });
+    page.drawLine({
+      start: { x: margin + col1Width + col2Width + col3Width, y: y },
+      end: { x: margin + col1Width + col2Width + col3Width, y: y - rowHeight },
+      thickness: 1,
+      color: black,
     });
 
-    // Label Text
-    page.drawText(label, {
+    // Draw Column 1: No
+    page.drawText(row.no, {
       x: margin + 8,
-      y: currentY - 15,
+      y: y - 16,
       size: fontSize,
-      font: fontBold,
-      color: darkText,
+      font: fontRegular,
+      color: black,
     });
 
-    // Value Text Lines
+    // Draw Column 2: Label
+    page.drawText(row.label, {
+      x: margin + col1Width + 8,
+      y: y - 16,
+      size: fontSize,
+      font: fontRegular,
+      color: black,
+    });
+
+    // Draw Column 3: Colon :
+    page.drawText(':', {
+      x: margin + col1Width + col2Width + 4,
+      y: y - 16,
+      size: fontSize,
+      font: fontRegular,
+      color: black,
+    });
+
+    // Draw Column 4: Value Lines
     lines.forEach((line, idx) => {
       page.drawText(line, {
-        x: margin + labelWidth + 8,
-        y: currentY - 15 - idx * lineHeight,
+        x: margin + col1Width + col2Width + col3Width + 6,
+        y: y - 16 - idx * lineHeight,
         size: fontSize,
         font: fontRegular,
-        color: darkText,
+        color: black,
       });
     });
 
-    return currentY - rowHeight;
-  };
+    y -= rowHeight;
+  }
 
-  y = drawTableRow('Nama Pegawai', data.namaPegawai, y);
-  y = drawTableRow('NIP', data.nip, y);
-  y = drawTableRow('Jabatan', data.jabatan, y);
-  y = drawTableRow('Tanggal Kegiatan', formatDateIndonesian(data.tanggal), y);
-  y = drawTableRow('Nama Kegiatan', data.namaKegiatan, y);
-  y = drawTableRow('Ringkasan Kegiatan', data.ringkasanKegiatan, y);
-
-  y -= 25;
-
-  // 3. BAGIAN II: DOKUMENTASI
-  page.drawText('BAGIAN II: DOKUMENTASI KEGIATAN', {
-    x: margin,
-    y: y,
-    size: 10,
-    font: fontBold,
-    color: bpsBlue,
-  });
   y -= 15;
 
-  // Embed and draw photos in 2-column grid
+  // 3. BAGIAN II: II. DOKUMENTASI
+  // Header Bar Box
+  page.drawRectangle({
+    x: margin,
+    y: y - headerHeight,
+    width: contentWidth,
+    height: headerHeight,
+    color: peachBg,
+    borderColor: black,
+    borderWidth: 1,
+  });
+
+  const sec2Text = 'II. DOKUMENTASI';
+  const sec2Width = fontBold.widthOfTextAtSize(sec2Text, 11);
+  page.drawText(sec2Text, {
+    x: (pageWidth - sec2Width) / 2,
+    y: y - 15,
+    size: 11,
+    font: fontBold,
+    color: black,
+  });
+  y -= headerHeight;
+
+  // Photo Section Box
+  const photoBoxHeight = 250;
+  const photoInnerY = y - photoBoxHeight;
+
+  // Outer Border Box for Documentation Section
+  page.drawRectangle({
+    x: margin,
+    y: photoInnerY,
+    width: contentWidth,
+    height: photoBoxHeight,
+    borderColor: black,
+    borderWidth: 1,
+  });
+
+  const captionAreaHeight = 45;
+  const imageAreaHeight = photoBoxHeight - captionAreaHeight;
+
+  // Horizontal divider for caption area
+  page.drawLine({
+    start: { x: margin, y: photoInnerY + captionAreaHeight },
+    end: { x: margin + contentWidth, y: photoInnerY + captionAreaHeight },
+    thickness: 1,
+    color: black,
+  });
+
+  // Vertical Divider between 2 photo slots
+  page.drawLine({
+    start: { x: pageWidth / 2, y: y },
+    end: { x: pageWidth / 2, y: photoInnerY + captionAreaHeight },
+    thickness: 1,
+    color: black,
+  });
+
+  // Embed Photos in 2 columns
   if (data.photosBase64 && data.photosBase64.length > 0) {
-    const colGap = 15;
-    const colWidth = (contentWidth - colGap) / 2;
-    const imgHeight = 130;
-    const captionHeight = 35;
-    const cardHeight = imgHeight + captionHeight;
+    const halfWidth = contentWidth / 2;
 
-    let colIndex = 0;
-    let cardY = y - cardHeight;
+    for (let i = 0; i < Math.min(data.photosBase64.length, 2); i++) {
+      const slotX = margin + i * halfWidth;
 
-    for (let i = 0; i < data.photosBase64.length; i++) {
-      // Check if space left on current page, add new page if necessary
-      if (cardY < margin + 40) {
-        page = pdfDoc.addPage([pageWidth, pageHeight]);
-        y = pageHeight - margin;
-        cardY = y - cardHeight;
-        colIndex = 0;
-      }
-
-      const photoX = margin + colIndex * (colWidth + colGap);
-
-      // Card border
-      page.drawRectangle({
-        x: photoX,
-        y: cardY,
-        width: colWidth,
-        height: cardHeight,
-        borderColor: borderGray,
-        borderWidth: 0.5,
-        color: rgb(1, 1, 1),
-      });
-
-      // Embed photo
       try {
         const base64Clean = data.photosBase64[i].replace(/^data:image\/\w+;base64,/, '');
         const imageBytes = Buffer.from(base64Clean, 'base64');
-        
+
         let embeddedImg;
         if (data.photosBase64[i].includes('data:image/png')) {
           embeddedImg = await pdfDoc.embedPng(imageBytes);
@@ -229,97 +293,65 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
         }
 
         page.drawImage(embeddedImg, {
-          x: photoX + 5,
-          y: cardY + captionHeight + 5,
-          width: colWidth - 10,
-          height: imgHeight - 10,
+          x: slotX + 4,
+          y: photoInnerY + captionAreaHeight + 4,
+          width: halfWidth - 8,
+          height: imageAreaHeight - 8,
         });
-      } catch (imgErr) {
-        // Fallback placeholder box if image fails to render
-        page.drawRectangle({
-          x: photoX + 5,
-          y: cardY + captionHeight + 5,
-          width: colWidth - 10,
-          height: imgHeight - 10,
-          color: headerBg,
-        });
-        page.drawText('[ Dokumentasi Photo ]', {
-          x: photoX + 25,
-          y: cardY + captionHeight + (imgHeight / 2),
-          size: 8,
+      } catch (err) {
+        // Fallback photo box placeholder
+        page.drawText('[ Foto Dokumentasi ]', {
+          x: slotX + 40,
+          y: photoInnerY + captionAreaHeight + (imageAreaHeight / 2),
+          size: 9,
           font: fontRegular,
-          color: darkText,
+          color: black,
         });
-      }
-
-      // Caption Background
-      page.drawRectangle({
-        x: photoX,
-        y: cardY,
-        width: colWidth,
-        height: captionHeight,
-        color: headerBg,
-      });
-
-      // Caption Text
-      const capNama = data.namaKegiatan.length > 30 ? data.namaKegiatan.substring(0, 28) + '...' : data.namaKegiatan;
-      page.drawText(capNama, {
-        x: photoX + 6,
-        y: cardY + 20,
-        size: 7.5,
-        font: fontBold,
-        color: darkText,
-      });
-
-      page.drawText(`Tanggal: ${formatDateIndonesian(data.tanggal)}`, {
-        x: photoX + 6,
-        y: cardY + 8,
-        size: 7,
-        font: fontRegular,
-        color: rgb(0.4, 0.4, 0.4),
-      });
-
-      // Grid toggle column index
-      if (colIndex === 1) {
-        colIndex = 0;
-        y = cardY - 15;
-        cardY = y - cardHeight;
-      } else {
-        colIndex = 1;
       }
     }
-  } else {
-    page.drawText('Tidak ada foto dokumentasi terlampir.', {
-      x: margin,
-      y: y - 10,
-      size: 9,
-      font: fontRegular,
-      color: rgb(0.5, 0.5, 0.5),
-    });
   }
 
-  // Footer on all pages
-  const totalPages = pdfDoc.getPageCount();
-  for (let i = 0; i < totalPages; i++) {
-    const currentPage = pdfDoc.getPage(i);
-    currentPage.drawText(`${BPS_CONFIG.instansi} - Bukti Dukung Harian Kerja`, {
-      x: margin,
-      y: margin - 20,
-      size: 7,
-      font: fontRegular,
-      color: rgb(0.5, 0.5, 0.5),
-    });
+  // Draw Centered Documentation Captions at Bottom
+  const capLine1 = data.namaKegiatan;
+  const capLine1Width = fontRegular.widthOfTextAtSize(capLine1, 10);
+  page.drawText(capLine1, {
+    x: (pageWidth - capLine1Width) / 2,
+    y: photoInnerY + 26,
+    size: 10,
+    font: fontRegular,
+    color: black,
+  });
 
-    const pageStr = `Halaman ${i + 1} dari ${totalPages}`;
-    const pageStrWidth = fontRegular.widthOfTextAtSize(pageStr, 7);
-    currentPage.drawText(pageStr, {
-      x: pageWidth - margin - pageStrWidth,
-      y: margin - 20,
-      size: 7,
-      font: fontRegular,
-      color: rgb(0.5, 0.5, 0.5),
-    });
-  }
+  const capLine2 = formatDateIndonesian(data.tanggal);
+  const capLine2Width = fontRegular.widthOfTextAtSize(capLine2, 10);
+  page.drawText(capLine2, {
+    x: (pageWidth - capLine2Width) / 2,
+    y: photoInnerY + 10,
+    size: 10,
+    font: fontRegular,
+    color: black,
+  });
+
+  // 4. FOOTER AT BOTTOM OF PAGE
+  const footer1 = BPS_CONFIG.alamatFooter;
+  const footer1Width = fontRegular.widthOfTextAtSize(footer1, 9);
+  page.drawText(footer1, {
+    x: (pageWidth - footer1Width) / 2,
+    y: 35,
+    size: 9,
+    font: fontRegular,
+    color: black,
+  });
+
+  const footer2 = BPS_CONFIG.contactFooter;
+  const footer2Width = fontRegular.widthOfTextAtSize(footer2, 9);
+  page.drawText(footer2, {
+    x: (pageWidth - footer2Width) / 2,
+    y: 22,
+    size: 9,
+    font: fontRegular,
+    color: black,
+  });
 
   const pdfBytes = await pdfDoc.save();
   return Buffer.from(pdfBytes);

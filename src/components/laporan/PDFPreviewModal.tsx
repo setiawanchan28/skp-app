@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Laporan } from '@/types/laporan';
 import { formatDateIndonesian } from '@/utils/formatters';
 import { BPS_CONFIG } from '@/constants/bpsConfig';
-import { ExternalLink, Download, FileText } from 'lucide-react';
+import { ExternalLink, FileText } from 'lucide-react';
 
 interface PDFPreviewModalProps {
   isOpen: boolean;
@@ -20,95 +20,122 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
 }) => {
   if (!laporan) return null;
 
+  const dateYear = new Date(laporan.tanggal || Date.now()).getFullYear();
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Preview Bukti Dukung BPS" maxWidth="4xl">
       <div className="space-y-6">
         {/* PDF Document Render Preview */}
-        <div className="bg-white border border-slate-300 shadow-xl rounded-xl p-8 max-w-2xl mx-auto space-y-6 font-sans text-slate-800">
+        <div className="bg-white border border-slate-400 shadow-2xl rounded-sm p-8 max-w-2xl mx-auto space-y-6 font-sans text-black">
           {/* Header */}
-          <div className="border-b-2 border-sky-600 pb-4 text-center space-y-1">
-            <h2 className="text-sm font-extrabold text-sky-800 uppercase tracking-wide">
-              {BPS_CONFIG.instansi}
-            </h2>
-            <p className="text-[11px] text-slate-500">{BPS_CONFIG.alamat}</p>
-            <div className="pt-3">
-              <h1 className="text-base font-extrabold text-slate-900 border-b border-slate-800 inline-block px-2">
+          <div className="text-center space-y-2">
+            <div className="flex justify-center mb-1">
+              <div className="text-center">
+                {/* 3-Color BPS Logo representation */}
+                <div className="inline-flex flex-col items-center">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="w-5 h-4 bg-sky-500 rounded-2xs inline-block" />
+                    <span className="w-5 h-4 bg-orange-500 rounded-2xs inline-block" />
+                  </div>
+                  <span className="w-5 h-4 bg-emerald-500 rounded-2xs inline-block" />
+                </div>
+                <h2 className="text-xs font-extrabold text-black tracking-tight mt-1 uppercase">
+                  {BPS_CONFIG.instansi}
+                </h2>
+              </div>
+            </div>
+
+            <div className="pt-2 space-y-0.5">
+              <h1 className="text-sm font-extrabold tracking-wide uppercase">
                 {BPS_CONFIG.judulLaporan}
               </h1>
+              <h2 className="text-xs font-extrabold tracking-wide uppercase">
+                BADAN PUSAT STATISTIK KABUPATEN LEBAK TAHUN {dateYear}
+              </h2>
             </div>
           </div>
 
           {/* Bagian I Table */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold text-sky-700 uppercase tracking-wider">
-              Bagian I: Keterangan Pelaksana
-            </h3>
-            <table className="w-full text-xs border-collapse border border-slate-300">
+          <div className="border border-black">
+            {/* Header Bar */}
+            <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-xs text-black uppercase tracking-wider">
+              I. KETERANGAN PELAKSANA
+            </div>
+            <table className="w-full text-xs border-collapse">
               <tbody>
-                <tr>
-                  <td className="w-1/3 bg-slate-50 p-2 font-bold border border-slate-300">
-                    Nama Pegawai
-                  </td>
-                  <td className="p-2 border border-slate-300 font-semibold">{laporan.nama_pegawai}</td>
+                <tr className="border-b border-black">
+                  <td className="w-8 p-2 text-center border-r border-black font-semibold">1.</td>
+                  <td className="w-32 p-2 border-r border-black font-bold uppercase">NAMA</td>
+                  <td className="w-4 p-2 text-center border-r border-black font-bold">:</td>
+                  <td className="p-2 font-medium">{laporan.nama_pegawai}</td>
+                </tr>
+                <tr className="border-b border-black">
+                  <td className="p-2 text-center border-r border-black font-semibold">2.</td>
+                  <td className="p-2 border-r border-black font-bold uppercase">JABATAN</td>
+                  <td className="p-2 text-center border-r border-black font-bold">:</td>
+                  <td className="p-2 font-medium">{laporan.jabatan}</td>
+                </tr>
+                <tr className="border-b border-black">
+                  <td className="p-2 text-center border-r border-black font-semibold">3.</td>
+                  <td className="p-2 border-r border-black font-bold uppercase">NIP</td>
+                  <td className="p-2 text-center border-r border-black font-bold">:</td>
+                  <td className="p-2 font-mono font-medium">{laporan.nip}</td>
+                </tr>
+                <tr className="border-b border-black">
+                  <td className="p-2 text-center border-r border-black font-semibold">4.</td>
+                  <td className="p-2 border-r border-black font-bold uppercase">KEGIATAN</td>
+                  <td className="p-2 text-center border-r border-black font-bold">:</td>
+                  <td className="p-2 font-bold">{laporan.nama_kegiatan}</td>
                 </tr>
                 <tr>
-                  <td className="bg-slate-50 p-2 font-bold border border-slate-300">NIP</td>
-                  <td className="p-2 border border-slate-300 font-mono">{laporan.nip}</td>
-                </tr>
-                <tr>
-                  <td className="bg-slate-50 p-2 font-bold border border-slate-300">Jabatan</td>
-                  <td className="p-2 border border-slate-300">{laporan.jabatan}</td>
-                </tr>
-                <tr>
-                  <td className="bg-slate-50 p-2 font-bold border border-slate-300">
-                    Tanggal Kegiatan
-                  </td>
-                  <td className="p-2 border border-slate-300 font-medium">
-                    {formatDateIndonesian(laporan.tanggal)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="bg-slate-50 p-2 font-bold border border-slate-300">
-                    Nama Kegiatan
-                  </td>
-                  <td className="p-2 border border-slate-300 font-bold text-sky-900">
-                    {laporan.nama_kegiatan}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="bg-slate-50 p-2 font-bold border border-slate-300">
-                    Ringkasan Kegiatan
-                  </td>
-                  <td className="p-2 border border-slate-300 leading-relaxed">
-                    {laporan.ringkasan_kegiatan}
-                  </td>
+                  <td className="p-2 text-center border-r border-black font-semibold">5.</td>
+                  <td className="p-2 border-r border-black font-bold uppercase">RINGKASAN</td>
+                  <td className="p-2 text-center border-r border-black font-bold">:</td>
+                  <td className="p-2 leading-relaxed text-justify">{laporan.ringkasan_kegiatan}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           {/* Bagian II Dokumentasi */}
-          <div className="space-y-2">
-            <h3 className="text-xs font-bold text-sky-700 uppercase tracking-wider">
-              Bagian II: Dokumentasi Kegiatan
-            </h3>
-            {laporan.fotos && laporan.fotos.length > 0 ? (
-              <div className="grid grid-cols-2 gap-3">
-                {laporan.fotos.map((foto, idx) => (
-                  <div key={idx} className="border border-slate-300 rounded-lg overflow-hidden">
-                    <div className="bg-slate-100 aspect-video flex items-center justify-center text-slate-400">
-                      <FileText className="w-8 h-8" />
-                    </div>
-                    <div className="p-2 bg-slate-50 border-t border-slate-200 text-[10px]">
-                      <p className="font-bold truncate">{laporan.nama_kegiatan}</p>
-                      <p className="text-slate-500">{formatDateIndonesian(laporan.tanggal)}</p>
-                    </div>
+          <div className="border border-black">
+            {/* Header Bar */}
+            <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-xs text-black uppercase tracking-wider">
+              II. DOKUMENTASI
+            </div>
+            {/* Photo Grid */}
+            <div className="p-2 grid grid-cols-2 gap-2 border-b border-black min-h-[160px]">
+              {laporan.fotos && laporan.fotos.length > 0 ? (
+                laporan.fotos.slice(0, 2).map((foto, idx) => (
+                  <div key={idx} className="border border-slate-300 rounded overflow-hidden aspect-video bg-slate-100 flex items-center justify-center">
+                    {foto.previewUrl || foto.drive_file_url ? (
+                      <img
+                        src={foto.previewUrl || foto.drive_file_url}
+                        alt="Dokumentasi"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <FileText className="w-8 h-8 text-slate-400" />
+                    )}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs italic text-slate-400">Tidak ada foto dokumentasi.</p>
-            )}
+                ))
+              ) : (
+                <div className="col-span-2 text-center py-8 text-slate-400 text-xs italic">
+                  Tidak ada foto dokumentasi terlampir
+                </div>
+              )}
+            </div>
+            {/* Centered Caption */}
+            <div className="p-2.5 text-center text-xs space-y-0.5">
+              <p className="font-semibold text-black">{laporan.nama_kegiatan}</p>
+              <p className="text-slate-700">{formatDateIndonesian(laporan.tanggal)}</p>
+            </div>
+          </div>
+
+          {/* Footer Address */}
+          <div className="pt-4 text-center text-[10px] text-slate-700 space-y-0.5">
+            <p>{BPS_CONFIG.alamatFooter}</p>
+            <p>{BPS_CONFIG.contactFooter}</p>
           </div>
         </div>
 
