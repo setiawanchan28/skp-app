@@ -3,25 +3,25 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const apiKey = process.env.GEMINI_API_KEY || '';
 
 export async function generateBpsSummary(namaKegiatan: string, deskripsiKegiatan: string): Promise<string> {
-  const prompt = `Anda adalah seorang Penulis Laporan Resmi dan Statistisi Senior di Badan Pusat Statistik (BPS) Kabupaten Lebak.
-Tugas Anda adalah mengubah poin-poin atau deskripsi singkat kegiatan menjadi **PARAGRAF NARRATIF FORMAL (GAYA BAHASA LAPORAN BUKTI DUKUNG BPS)**.
+  const prompt = `Anda adalah Penyusun Laporan Resmi Badan Pusat Statistik (BPS) Kabupaten Lebak yang sangat berpengalaman.
+Tugas Anda adalah merangkai poin-poin mentah (yang berisi aksi kegiatan, lokasi/desa, serta nama PML/PPL/petugas) menjadi **SATU PARAGRAF NARRATIF FORMAL BERGAYA BPS RESMI**.
 
 Informasi Input:
 - Nama Kegiatan: ${namaKegiatan}
-- Poin-Poin / Catatan Kegiatan:
+- Catatan / Poin Kegiatan:
 ${deskripsiKegiatan}
 
-Instruksi Penulisan Paragraf Ringkasan BPS:
-1. TULIS DALAM PARAGRAF UTUH (bukan berupa daftar poin atau sekadar menggabungkan kalimat dengan koma).
-2. Susun narasi secara mengalir dan sistematis. Gunakan kata penghubung formal seperti: "Kegiatan diawali dengan...", "kemudian dilanjutkan dengan...", "selain itu disampaikan...", "serta merumuskan solusi dan langkah-langkah...".
-3. Gunakan Bahasa Indonesia baku resmi (EYD/EBI) dengan kata kerja aktif berimbuhan me- (Melaksanakan, Mengikuti, Menyusun, Melakukan, Merumuskan, Mengolah).
-4. Contoh Gaya Bahasa BPS Resmi yang diharapkan:
-   "${namaKegiatan} yang dilaksanakan secara tatap muka/daring diikuti oleh seluruh tim kerja. Kegiatan diawali dengan pembukaan dan arahan terkait target kinerja, kemudian dilanjutkan dengan pembahasan progres capaian pendataan di masing-masing wilayah. Selain itu, peserta menyampaikan berbagai kendala yang dihadapi selama di lapangan serta mendiskusikan solusi dan langkah-langkah yang perlu dilakukan untuk menjaga kualitas data."
-5. DILARANG menambahkan teks pembuka seperti "Berikut adalah ringkasannya:" atau tanda petik. LANGSUNG ke isi paragraf laporan.`;
+Instruksi Penting Penulisan:
+1. OLOSH DAN RANGKAI MENJADI PARAGRAF UTUH YANG SANGAT MENGALIR DAN NATURAL (JANGAN sekadar menempelkan kata "serta" atau mentranskrip poin secara kaku).
+2. Jika ada informasi Lokasi/Desa/Kecamatan, integrasikan dengan alami (misal: "bertempat di Desa Aweh", "berlokasi di wilayah Blok Sensus Desa...").
+3. Jika ada nama petugas/PML/PPL, integrasikan dengan alami (misal: "didampingi oleh PML Ibu Sundari dan PPL Fahmi", "bersama tim pencacah...").
+4. Hubungkan aksi kegiatan secara logis (misal: "Supervisi diawali dengan mendampingi petugas di lapangan guna memastikan batas wilayah blok sensus, kemudian dilanjutkan dengan memvalidasi isian kuesioner...").
+5. Gunakan Bahasa Indonesia baku resmi BPS (EYD/EBI).
+6. LANGSUNG tulis isi paragraf ringkasan tanpa kata pembuka seperti "Berikut ringkasannya:".`;
 
   try {
     if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy')) {
-      return composeSmartBpsNarrative(namaKegiatan, deskripsiKegiatan);
+      return composeNaturalBpsNarrative(namaKegiatan, deskripsiKegiatan);
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -34,39 +34,85 @@ Instruksi Penulisan Paragraf Ringkasan BPS:
     if (text && text.trim().length > 20) {
       return text.trim();
     }
-    return composeSmartBpsNarrative(namaKegiatan, deskripsiKegiatan);
+    return composeNaturalBpsNarrative(namaKegiatan, deskripsiKegiatan);
   } catch (error) {
-    console.warn('Gemini API call warning, using smart narrative composer:', error);
-    return composeSmartBpsNarrative(namaKegiatan, deskripsiKegiatan);
+    console.warn('Gemini API call warning, using natural narrative composer:', error);
+    return composeNaturalBpsNarrative(namaKegiatan, deskripsiKegiatan);
   }
 }
 
 /**
- * Smart Offline/Fallback Narrative Composer for Official BPS Report Style
+ * Intelligent Natural Narrative Composer for Official BPS Reports
+ * Automatically categorizes actions, location (Desa/Kec), and personnel (PML/PPL)
  */
-function composeSmartBpsNarrative(namaKegiatan: string, deskripsiKegiatan: string): string {
-  const points = deskripsiKegiatan
+function composeNaturalBpsNarrative(namaKegiatan: string, deskripsiKegiatan: string): string {
+  const lines = deskripsiKegiatan
     .split('\n')
     .map((line) => line.replace(/^[-*•\d.]+\s*/, '').trim())
     .filter((line) => line.length > 0);
 
-  if (points.length === 0) {
-    return `${namaKegiatan} yang dilaksanakan oleh Tim Kerja BPS Kabupaten Lebak berjalan dengan lancar sesuai Standar Operasional Prosedur (SOP) dan petunjuk teknis yang berlaku guna mendukung penyediaan data statistik yang berkualitas.`;
+  if (lines.length === 0) {
+    return `Melaksanakan kegiatan ${namaKegiatan} sesuai dengan standar operasional prosedur BPS Kabupaten Lebak guna menjamin kualitas data statistik yang dihasilkan.`;
   }
 
-  let paragraph = `${namaKegiatan} yang dilaksanakan oleh jajaran BPS Kabupaten Lebak berjalan secara tertib dan lancar. `;
+  // Categorize inputs
+  let locations: string[] = [];
+  let personnel: string[] = [];
+  let actions: string[] = [];
 
-  if (points.length === 1) {
-    paragraph += `Kegiatan ini berfokus pada ${points[0].toLowerCase()} guna memastikan kelancaran pelaksanaan tugas dan ketercapaian target yang telah ditetapkan.`;
-  } else if (points.length === 2) {
-    paragraph += `Tahapan kegiatan diawali dengan ${points[0].toLowerCase()}, kemudian dilanjutkan dengan ${points[1].toLowerCase()} untuk menjaga kualitas hasil pelaksanaan kerja.`;
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    if (lower.startsWith('desa ') || lower.startsWith('kecamatan ') || lower.startsWith('wilayah ') || lower.includes('lokasi ')) {
+      locations.push(line);
+    } else if (lower.includes('pml') || lower.includes('ppl') || lower.includes('petugas') || lower.includes('tim ')) {
+      personnel.push(line);
+    } else {
+      actions.push(line);
+    }
+  }
+
+  // Build fluid narrative
+  let narrative = `Kegiatan ${namaKegiatan}`;
+
+  // Add location if present
+  if (locations.length > 0) {
+    const locText = locations.join(', ');
+    narrative += ` yang dilaksanakan di ${locText}`;
   } else {
-    const first = points[0].toLowerCase();
-    const second = points[1].toLowerCase();
-    const rest = points.slice(2).map((p) => p.toLowerCase()).join(' serta ');
-
-    paragraph += `Kegiatan diawali dengan ${first}, kemudian dilanjutkan dengan ${second}. Selain itu, peserta juga melakukan ${rest} guna mempercepat pencapaian target dan menjaga mutu data statistik BPS Kabupaten Lebak.`;
+    narrative += ` yang dilaksanakan oleh jajaran BPS Kabupaten Lebak`;
   }
 
-  return paragraph;
+  // Add personnel if present
+  if (personnel.length > 0) {
+    const persText = personnel.join(' serta ');
+    narrative += ` bersama ${persText}`;
+  }
+
+  narrative += ` berjalan dengan tertib dan lancar. `;
+
+  // Add actions gracefully
+  if (actions.length === 1) {
+    const act = cleanActionText(actions[0]);
+    narrative += `Fokus utama kegiatan ini meliputi ${act} untuk memastikan kelancaran pencacahan di lapangan.`;
+  } else if (actions.length === 2) {
+    const act1 = cleanActionText(actions[0]);
+    const act2 = cleanActionText(actions[1]);
+    narrative += `Pelaksanaan diawali dengan ${act1}, kemudian dilanjutkan dengan ${act2} guna menjaga keakuratan data.`;
+  } else if (actions.length >= 3) {
+    const act1 = cleanActionText(actions[0]);
+    const act2 = cleanActionText(actions[1]);
+    const actRest = actions.slice(2).map(cleanActionText).join(', serta ');
+    narrative += `Pelaksanaan diawali dengan ${act1}, dilanjutkan dengan ${act2}, serta ${actRest} untuk memastikan seluruh tahapan sesuai dengan SOP BPS.`;
+  }
+
+  return narrative;
+}
+
+function cleanActionText(text: string): string {
+  let cleaned = text.trim();
+  // Lowercase first letter if starting with capital action verb
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toLowerCase() + cleaned.slice(1);
+  }
+  return cleaned;
 }
