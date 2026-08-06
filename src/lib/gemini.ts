@@ -3,26 +3,19 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const apiKey = process.env.GEMINI_API_KEY || '';
 
 export async function generateBpsSummary(namaKegiatan: string, deskripsiKegiatan: string): Promise<string> {
-  const prompt = `Anda adalah editor laporan resmi Badan Pusat Statistik (BPS) Kabupaten Lebak.
-Tugas Anda adalah merangkai poin-poin kegiatan mentah (aksi, lokasi, petugas, tanggal) menjadi **SATU PARAGRAF NARRATIF RESMI BPS YANG ALAMI DAN SANGAT TEPAT TATA BAHASANYA**.
+  const prompt = `Anda adalah Penulis Laporan Resmi Badan Pusat Statistik (BPS) Kabupaten Lebak.
+Tugas Anda adalah merangkai poin-poin mentah kegiatan (termasuk aksi, lokasi desa, petugas PML/PPL, dan perbaikan anomali data) menjadi **SATU PARAGRAF RESMI LAPORAN BPS (NARRATIF, MENGALIR, DAN SANGAT PROFESIONAL)**.
 
-Input Data:
+Informasi Input:
 - Nama Kegiatan: ${namaKegiatan}
-- Catatan Poin-Poin:
+- Catatan Poin:
 ${deskripsiKegiatan}
 
 Instruksi Penulisan:
-1. Pisahkan secara cerdas antara:
-   - Aksi / Kegiatan (misal: mendampingi petugas, melakukan validasi, menyampaikan perbaikan data)
-   - Lokasi (misal: Desa Aweh)
-   - Petugas / Personil (misal: PML Bu Sundari dan PPL Fahmi)
-   - Keterangan Waktu/Tanggal (abaikan atau padukan secara alami)
-2. Rangkai menjadi paragraf naratif utuh yang logis dan enak dibaca.
-3. CONTOH HASIL YANG DIHARAPKAN:
-   "${namaKegiatan} dilaksanakan di Desa Aweh bersama PML Bu Sundari dan PPL Fahmi. Rangkaian kegiatan meliputi mendampingi petugas pencacah di wilayah sampel, melakukan validasi isian kuesioner digital/fisik, memastikan kewilayahan pencacahan sesuai batas blok sensus, serta menyampaikan perbaikan anomali data."
-4. DILARANG menggunakan kata seremonial seperti "berjalan tertib dan lancar".
-5. DILARANG salah mengelompokkan kata (misal: kata "mendampingi petugas" ADALAH AKSI, BUKAN NAMA PERSONIL).
-6. LANGSUNG tuliskan kalimat ringkasan tanpa pembuka seperti "Berikut ringkasannya:".`;
+1. Rangkai menjadi 1 paragraf naratif resmi BPS yang elegan, padat, dan mengalir.
+2. DILARANG menggunakan kata-kata pembuka seperti "Berikut adalah narasi...", "Berikut ringkasannya:", atau tanda petik. LANGSUNG ke kalimat awal paragraf laporan.
+3. DILARANG menggunakan kata seremonial kaku seperti "berjalan tertib dan lancar".
+4. Hubungkan nama lokasi, PML/PPL, dan aksi kegiatan secara natural dan tepat tata bahasanya.`;
 
   try {
     if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy')) {
@@ -30,24 +23,37 @@ Instruksi Penulisan:
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    
+    // Use working model aliases for Gemini API
+    const modelCandidates = ['gemini-flash-latest', 'gemini-2.0-flash-lite', 'gemini-2.0-flash'];
+    
+    for (const modelName of modelCandidates) {
+      try {
+        const model = genAI.getGenerativeModel({ model: modelName });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let text = response.text();
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    if (text && text.trim().length > 20) {
-      return text.trim();
+        if (text && text.trim().length > 20) {
+          // Clean intro phrases if any
+          text = text.replace(/^(berikut adalah|berikut ringkasan|berikut narasi)[^:\n]*[:\n]\s*/i, '').trim();
+          text = text.replace(/^"|"$/g, '').trim();
+          return text;
+        }
+      } catch (modelErr) {
+        console.warn(`Model ${modelName} call failed, trying next candidate...`);
+      }
     }
+
     return composeNaturalBpsNarrative(namaKegiatan, deskripsiKegiatan);
   } catch (error) {
-    console.warn('Gemini API call warning, using natural narrative composer:', error);
+    console.warn('Gemini API call error, using natural narrative composer:', error);
     return composeNaturalBpsNarrative(namaKegiatan, deskripsiKegiatan);
   }
 }
 
 /**
- * Robust Smart Categorizer & Narrative Composer
+ * Clean & Direct Narrative Composer for Offline Mode
  */
 function composeNaturalBpsNarrative(namaKegiatan: string, deskripsiKegiatan: string): string {
   const lines = deskripsiKegiatan
@@ -66,38 +72,21 @@ function composeNaturalBpsNarrative(namaKegiatan: string, deskripsiKegiatan: str
   const datePattern = /(\d{1,2}\s+(januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember|\d{1,2})\s+\d{2,4})|(\d{4}-\d{2}-\d{2})/i;
 
   for (const line of lines) {
-    // 1. Check if date line (e.g. "6 agustus 2026")
-    if (datePattern.test(line)) {
-      continue; // Skip date line as it's already in the date field
-    }
-
+    if (datePattern.test(line)) continue;
     const lower = line.toLowerCase();
-
-    // 2. Check if action verb (mendampingi, melakukan, memastikan, menyampaikan, memeriksa, membahas, mengikuti, dll)
     const isActionVerb = /^(mendampingi|melakukan|memastikan|menyampaikan|memeriksa|membahas|mengikuti|menyusun|mengolah|memandu|melaksanakan|mengevaluasi)/i.test(line);
 
     if (isActionVerb) {
       actions.push(line);
-      continue;
-    }
-
-    // 3. Check if location line (Desa, Kecamatan, Blok Sensus, BS, Kelurahan, dll)
-    if (lower.startsWith('desa ') || lower.startsWith('kecamatan ') || lower.startsWith('kelurahan ') || lower.startsWith('blok sensus') || lower.startsWith('bs ') || lower.startsWith('wilayah ')) {
+    } else if (lower.startsWith('desa ') || lower.startsWith('kecamatan ') || lower.startsWith('kelurahan ') || lower.startsWith('blok sensus') || lower.startsWith('bs ') || lower.startsWith('wilayah ')) {
       locations.push(line);
-      continue;
-    }
-
-    // 4. Check if personnel line (PML, PPL, Koordinator, Tim, dll)
-    if (lower.startsWith('pml') || lower.startsWith('ppl') || lower.startsWith('koordinator') || lower.startsWith('tim ') || lower.startsWith('oleh ')) {
+    } else if (lower.startsWith('pml') || lower.startsWith('ppl') || lower.startsWith('koordinator') || lower.startsWith('tim ') || lower.startsWith('oleh ')) {
       personnel.push(line);
-      continue;
+    } else {
+      actions.push(line);
     }
-
-    // Default to action
-    actions.push(line);
   }
 
-  // Build fluid BPS Narrative
   let narrative = `Kegiatan ${namaKegiatan}`;
 
   if (locations.length > 0) {
@@ -112,7 +101,6 @@ function composeNaturalBpsNarrative(namaKegiatan: string, deskripsiKegiatan: str
 
   narrative += `. `;
 
-  // Process Action Points cleanly
   if (actions.length > 0) {
     const formattedActions = actions.map((act) => {
       let clean = act.trim();
