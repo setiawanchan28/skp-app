@@ -1,0 +1,127 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getOrCreateFolderHierarchy, uploadFileToDrive, deleteFileFromDrive } from '@/lib/drive';
+import { generateBpsPdfBuffer } from '@/lib/pdf';
+import { saveLaporanRecord, fetchLaporanById } from '@/services/laporanService';
+import { generatePhotoFilename, generatePdfFilename } from '@/utils/sanitizeFilename';
+import { LaporanFoto } from '@/types/laporan';
+
+export async function POST(req: NextRequest) {
+  try {
+    const formData = await req.formData();
+
+    const id = formData.get('id') as string | null;
+    const nama_pegawai = formData.get('nama_pegawai') as string;
+    const nip = formData.get('nip') as string;
+    const jabatan = formData.get('jabatan') as string;
+    const tanggal = formData.get('tanggal') as string;
+    const nama_kegiatan = formData.get('nama_kegiatan') as string;
+    const deskripsi_kegiatan = formData.get('deskripsi_kegiatan') as string;
+    const ringkasan_kegiatan = formData.get('ringkasan_kegiatan') as string;
+    const kategori = (formData.get('kategori') as string) || 'Lainnya';
+
+    if (!nama_pegawai || !nip || !tanggal || !nama_kegiatan || !ringkasan_kegiatan) {
+      return NextResponse.json(
+        { error: 'Mohon lengkapi semua bidang wajib!' },
+        { status: 400 }
+      );
+    }
+
+    // Existing report check if edit mode
+    let existingLaporan = id ? await fetchLaporanById(id) : null;
+
+    // 1. Resolve Drive Hierarchy
+    const folderStructure = await getOrCreateFolderHierarchy(tanggal);
+
+    // 2. Extract and Upload Photos to Drive "Dokumentasi" folder
+    const photoFiles = formData.getAll('photos') as File[];
+    const photosData: LaporanFoto[] = [];
+    const photoBase64Array: string[] = [];
+
+    // If edit mode and retaining previous photos
+    if (existingLaporan && existingLaporan.fotos && photoFiles.length === 0) {
+      existingLaporan.fotos.forEach((f) => photosData.push(f));
+    }
+
+    for (let i = 0; i < photoFiles.length; i++) {
+      const file = photoFiles[i];
+      if (file && file.size > 0) {
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const photoName = generatePhotoFilename(tanggal, i, file.name);
+        
+        // Save base64 for PDF rendering
+        const base64Str = `data:${file.type};base64,${buffer.toString('base64')}`;
+        photoBase64Array.push(base64Str);
+
+        // Upload photo directly to Google Drive 'Dokumentasi' subfolder
+        const driveRes = await uploadFileToDrive(
+          buffer,
+          photoName,
+          file.type || 'image/jpeg',
+          folderStructure.dokumentasiFolderId
+        );
+
+        photosData.push({
+          drive_file_id: driveRes.id,
+          drive_file_url: driveRes.webViewLink,
+          file_name: photoName,
+        });
+      }
+    }
+
+    // 3. Generate Official BPS PDF
+    const pdfBuffer = await generateBpsPdfBuffer({
+      namaPegawai: nama_pegawai,
+      nip,
+      jabatan,
+      tanggal,
+      namaKegiatan: nama_kegiatan,
+      ringkasanKegiatan: ringkasan_kegiatan,
+      photosBase64: photoBase64Array,
+    });
+
+    // 4. Delete old PDF on Drive if updating
+    if (existingLaporan?.drive_pdf_file_id) {
+      await deleteFileFromDrive(existingLaporan.drive_pdf_file_id);
+    }
+
+    // 5. Upload new PDF to Google Drive 'PDF' subfolder
+    const pdfFileName = generatePdfFilename(tanggal, nama_kegiatan);
+    const pdfDriveRes = await uploadFileToDrive(
+      pdfBuffer,
+      pdfFileName,
+      'application/pdf',
+      folderStructure.pdfFolderId
+    );
+
+    // 6. Save/Update Complete Record in Supabase DB
+    const savedLaporan = await saveLaporanRecord(
+      {
+        id: id || undefined,
+        nama_pegawai,
+        nip,
+        jabatan,
+        tanggal,
+        nama_kegiatan,
+        deskripsi_kegiatan,
+        ringkasan_kegiatan,
+        kategori,
+        drive_pdf_url: pdfDriveRes.webViewLink,
+        drive_pdf_file_id: pdfDriveRes.id,
+        drive_folder_id: folderStructure.monthFolderId,
+      },
+      photosData
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: savedLaporan,
+      message: 'Laporan harian, foto dokumentasi, dan PDF resmi BPS berhasil disimpan!',
+    });
+  } catch (error: any) {
+    console.error('API Save Complete Laporan Error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Gagal menyelaraskan laporan ke database dan Google Drive' },
+      { status: 500 }
+    );
+  }
+}
