@@ -17,30 +17,34 @@ const ThemeContext = createContext<ThemeContextType>({
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>('light');
 
+  const applyTheme = (t: Theme) => {
+    setTheme(t);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bps_app_theme', t);
+      if (t === 'dark') {
+        document.documentElement.classList.add('dark');
+        document.body.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+        document.body.classList.remove('dark');
+      }
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('bps_app_theme') as Theme;
       if (saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        setTheme('dark');
-        document.documentElement.classList.add('dark');
+        applyTheme('dark');
       } else {
-        setTheme('light');
-        document.documentElement.classList.remove('dark');
+        applyTheme('light');
       }
     }
   }, []);
 
   const toggleTheme = () => {
-    const nextTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(nextTheme);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('bps_app_theme', nextTheme);
-      if (nextTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
-    }
+    const next = theme === 'light' ? 'dark' : 'light';
+    applyTheme(next);
   };
 
   return (
