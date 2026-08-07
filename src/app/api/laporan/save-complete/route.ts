@@ -5,6 +5,7 @@ import { generateBpsDocxBuffer } from '@/lib/docx';
 import { saveLaporanRecord, fetchLaporanById } from '@/services/laporanService';
 import { generatePhotoFilename, generatePdfFilename, sanitizeFilename } from '@/utils/sanitizeFilename';
 import { LaporanFoto } from '@/types/laporan';
+import { getStoredLaporanList, saveStoredLaporanList } from '../list/route';
 
 export async function POST(req: NextRequest) {
   try {
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
       folderStructure.pdfFolderId
     );
 
-    // 6. Save Record in Supabase DB
+    // 6. Save Record in Supabase DB & Server Store
     const savedLaporan = await saveLaporanRecord(
       {
         id: id || undefined,
@@ -142,6 +143,18 @@ export async function POST(req: NextRequest) {
       },
       photosData
     );
+
+    // Also persist to server JSON store for instant cross-device availability
+    const serverList = getStoredLaporanList();
+    const existingIndex = serverList.findIndex((l) => l.id === savedLaporan.id);
+    let updatedServerList;
+    if (existingIndex >= 0) {
+      updatedServerList = [...serverList];
+      updatedServerList[existingIndex] = savedLaporan;
+    } else {
+      updatedServerList = [savedLaporan, ...serverList];
+    }
+    saveStoredLaporanList(updatedServerList);
 
     return NextResponse.json({
       success: true,

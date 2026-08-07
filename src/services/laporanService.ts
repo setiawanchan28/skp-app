@@ -4,8 +4,23 @@ import { Laporan, LaporanFoto } from '@/types/laporan';
 const LOCAL_STORAGE_LAPORAN = 'bps_laporan_data';
 
 export async function fetchLaporanList(): Promise<Laporan[]> {
-  let supabaseData: Laporan[] = [];
+  let serverData: Laporan[] = [];
 
+  // 1. Fetch from Server API store for cross-device synchronization (PC & Mobile HP)
+  try {
+    const res = await fetch('/api/laporan/list', { cache: 'no-store' });
+    if (res.ok) {
+      const result = await res.json();
+      if (result.data && Array.isArray(result.data)) {
+        serverData = result.data;
+      }
+    }
+  } catch (err) {
+    console.warn('API fetch laporan list notice:', err);
+  }
+
+  // 2. Fetch from Supabase DB if configured
+  let supabaseData: Laporan[] = [];
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase
@@ -24,7 +39,7 @@ export async function fetchLaporanList(): Promise<Laporan[]> {
     }
   }
 
-  // Local storage
+  // 3. Local storage fallback
   let localData: Laporan[] = [];
   if (typeof window !== 'undefined') {
     const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
@@ -42,16 +57,19 @@ export async function fetchLaporanList(): Promise<Laporan[]> {
     (url && (url.includes('demo_pdf_1') || url.includes('demo_pdf_2')));
 
   // Filter out any legacy dummy demo items
+  serverData = serverData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
   localData = localData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
   supabaseData = supabaseData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
 
-  // Merge both sources using Map keyed by ID to ensure user's saved reports appear cleanly
+  // Merge all sources using Map keyed by ID to ensure all user's reports sync seamlessly
   const mergedMap = new Map<string, Laporan>();
 
+  serverData.forEach((item) => {
+    if (item && item.id) mergedMap.set(item.id, item);
+  });
   localData.forEach((item) => {
     if (item && item.id) mergedMap.set(item.id, item);
   });
-
   supabaseData.forEach((item) => {
     if (item && item.id) mergedMap.set(item.id, item);
   });
@@ -59,6 +77,10 @@ export async function fetchLaporanList(): Promise<Laporan[]> {
   const finalResult = Array.from(mergedMap.values()).sort(
     (a, b) => new Date(b.tanggal || Date.now()).getTime() - new Date(a.tanggal || Date.now()).getTime()
   );
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(finalResult));
+  }
 
   return finalResult;
 }
