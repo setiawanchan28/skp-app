@@ -3,25 +3,6 @@ import { Laporan, LaporanFoto } from '@/types/laporan';
 
 const LOCAL_STORAGE_LAPORAN = 'bps_laporan_data';
 
-const DEFAULT_SAMPLE_LAPORAN: Laporan[] = [
-  {
-    id: 'lap_sample_1',
-    nama_pegawai: 'Dede Setiawan, S.Tr.Stat.',
-    nip: '199502282024211021',
-    jabatan: 'Pranata Komputer Ahli Pertama',
-    tanggal: '2026-08-06',
-    nama_kegiatan: 'Supervisi Lapangan Pendataan Survei di Desa Aweh',
-    deskripsi_kegiatan: '- Mendampingi petugas pencacah di wilayah sampel\n- Melakukan validasi isian kuesioner digital/fisik\n- Menyampaikan perbaikan anomali data',
-    ringkasan_kegiatan: 'Melaksanakan kegiatan Supervisi Lapangan Pendataan Survei di Desa Aweh. Melakukan pendampingan langsung kepada Petugas Pencacah Lapangan (PPL) di wilayah sampel, berfokus pada validasi kelengkapan serta konsistensi isian kuesioner digital maupun fisik, sekaligus menyampaikan arahan teknis mengenai perbaikan anomali data demi menjaga mutu dan akurasi data hasil lapangan.',
-    kategori: 'Supervisi',
-    status: 'terkirim',
-    drive_pdf_url: 'https://drive.google.com/drive/my-drive',
-    fotos: [],
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
-
 export async function fetchLaporanList(): Promise<Laporan[]> {
   let supabaseData: Laporan[] = [];
 
@@ -57,36 +38,27 @@ export async function fetchLaporanList(): Promise<Laporan[]> {
   const isDemoUrl = (url?: string, fileId?: string) =>
     fileId === 'demo_pdf_1' ||
     fileId === 'demo_pdf_2' ||
+    fileId === 'lap_sample_1' ||
     (url && (url.includes('demo_pdf_1') || url.includes('demo_pdf_2')));
 
-  // Filter out dummy demo records
-  localData = localData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id));
-  supabaseData = supabaseData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id));
+  // Filter out any legacy dummy demo items
+  localData = localData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
+  supabaseData = supabaseData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
 
-  // Merge both sources using Map keyed by ID to ensure newly saved reports ALWAYS appear immediately
+  // Merge both sources using Map keyed by ID to ensure user's saved reports appear cleanly
   const mergedMap = new Map<string, Laporan>();
 
-  // Insert local storage items first
   localData.forEach((item) => {
     if (item && item.id) mergedMap.set(item.id, item);
   });
 
-  // Insert Supabase items
   supabaseData.forEach((item) => {
     if (item && item.id) mergedMap.set(item.id, item);
   });
 
-  let finalResult = Array.from(mergedMap.values()).sort(
+  const finalResult = Array.from(mergedMap.values()).sort(
     (a, b) => new Date(b.tanggal || Date.now()).getTime() - new Date(a.tanggal || Date.now()).getTime()
   );
-
-  // Fallback to sample data if clean empty
-  if (finalResult.length === 0) {
-    finalResult = DEFAULT_SAMPLE_LAPORAN;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(DEFAULT_SAMPLE_LAPORAN));
-    }
-  }
 
   return finalResult;
 }
