@@ -2,7 +2,13 @@ import { createClient } from '@supabase/supabase-js';
 
 function cleanUrl(url?: string): string {
   if (!url) return 'https://xyz.supabase.co';
-  return url.trim().replace(/\/+$/, '').replace(/^["']|["']$/g, '');
+  const cleaned = url.trim().replace(/^["']|["']$/g, '');
+  try {
+    const parsed = new URL(cleaned);
+    return parsed.origin;
+  } catch (e) {
+    return cleaned.replace(/\/+$/, '');
+  }
 }
 
 function cleanKey(key?: string): string {
