@@ -8,8 +8,6 @@ import {
   TableCell,
   WidthType,
   AlignmentType,
-  HeadingLevel,
-  BorderStyle,
   ImageRun,
 } from 'docx';
 import { formatDateIndonesian } from '@/utils/formatters';
@@ -66,7 +64,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
         }),
       ],
     }),
-    new Paragraph({ text: '' }), // Spacer
+    new Paragraph({ text: '' }),
   ];
 
   // 2. Bagian I: Keterangan Pelaksana Table
@@ -96,26 +94,26 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
     new TableRow({
       children: [
         new TableCell({
-          width: { size: 5, unit: WidthType.PERCENTAGE },
+          width: { size: 5, type: WidthType.PERCENTAGE },
           children: [new Paragraph({ children: [new TextRun({ text: no, font: 'Arial', size: 20 })] })],
         }),
         new TableCell({
-          width: { size: 25, unit: WidthType.PERCENTAGE },
+          width: { size: 25, type: WidthType.PERCENTAGE },
           children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, font: 'Arial', size: 20 })] })],
         }),
         new TableCell({
-          width: { size: 3, unit: WidthType.PERCENTAGE },
+          width: { size: 3, type: WidthType.PERCENTAGE },
           children: [new Paragraph({ children: [new TextRun({ text: ':', font: 'Arial', size: 20 })] })],
         }),
         new TableCell({
-          width: { size: 67, unit: WidthType.PERCENTAGE },
+          width: { size: 67, type: WidthType.PERCENTAGE },
           children: [new Paragraph({ children: [new TextRun({ text: value, font: 'Arial', size: 20 })] })],
         }),
       ],
     });
 
   const tableSection1 = new Table({
-    width: { size: 100, unit: WidthType.PERCENTAGE },
+    width: { size: 100, type: WidthType.PERCENTAGE },
     rows: [
       sec1HeaderRow,
       createDetailRow('1.', 'NAMA', data.namaPegawai),
@@ -149,7 +147,6 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
     ],
   });
 
-  // Process photo cells
   const photoCells: TableCell[] = [];
   if (data.photosBase64 && data.photosBase64.length > 0) {
     for (let i = 0; i < Math.min(data.photosBase64.length, 2); i++) {
@@ -159,7 +156,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
 
         photoCells.push(
           new TableCell({
-            width: { size: 50, unit: WidthType.PERCENTAGE },
+            width: { size: 50, type: WidthType.PERCENTAGE },
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
@@ -180,7 +177,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
       } catch (e) {
         photoCells.push(
           new TableCell({
-            width: { size: 50, unit: WidthType.PERCENTAGE },
+            width: { size: 50, type: WidthType.PERCENTAGE },
             children: [new Paragraph({ text: '[ Foto Dokumentasi ]' })],
           })
         );
@@ -188,11 +185,10 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
     }
   }
 
-  // If only 1 photo, add empty second cell
   while (photoCells.length < 2) {
     photoCells.push(
       new TableCell({
-        width: { size: 50, unit: WidthType.PERCENTAGE },
+        width: { size: 50, type: WidthType.PERCENTAGE },
         children: [new Paragraph({ text: '' })],
       })
     );
@@ -223,7 +219,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
   });
 
   const tableSection2 = new Table({
-    width: { size: 100, unit: WidthType.PERCENTAGE },
+    width: { size: 100, type: WidthType.PERCENTAGE },
     rows: [sec2HeaderRow, photoRow, captionRow],
   });
 
