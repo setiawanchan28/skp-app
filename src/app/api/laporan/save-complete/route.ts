@@ -20,6 +20,14 @@ export async function POST(req: NextRequest) {
     const deskripsi_kegiatan = formData.get('deskripsi_kegiatan') as string;
     const ringkasan_kegiatan = formData.get('ringkasan_kegiatan') as string;
     const kategori = (formData.get('kategori') as string) || 'Lainnya';
+    const photosMetadataRaw = formData.get('photos_metadata') as string | null;
+
+    let photoMetadataParsed: { index: number; tanggal_foto?: string }[] = [];
+    if (photosMetadataRaw) {
+      try {
+        photoMetadataParsed = JSON.parse(photosMetadataRaw);
+      } catch (e) {}
+    }
 
     if (!nama_pegawai || !nip || !tanggal || !nama_kegiatan || !ringkasan_kegiatan) {
       return NextResponse.json(
@@ -36,7 +44,7 @@ export async function POST(req: NextRequest) {
     // 2. Extract and Upload Photos to Drive "Dokumentasi" folder
     const photoFiles = formData.getAll('photos') as File[];
     const photosData: LaporanFoto[] = [];
-    const photoBase64Array: string[] = [];
+    const photoObjects: { base64: string; tanggal_foto?: string }[] = [];
 
     if (existingLaporan && existingLaporan.fotos && photoFiles.length === 0) {
       existingLaporan.fotos.forEach((f) => photosData.push(f));
@@ -49,7 +57,10 @@ export async function POST(req: NextRequest) {
         const photoName = generatePhotoFilename(tanggal, i, file.name);
         
         const base64Str = `data:${file.type};base64,${buffer.toString('base64')}`;
-        photoBase64Array.push(base64Str);
+        const meta = photoMetadataParsed.find((m) => m.index === i);
+        const tglFoto = meta?.tanggal_foto;
+
+        photoObjects.push({ base64: base64Str, tanggal_foto: tglFoto });
 
         const driveRes = await uploadFileToDrive(
           buffer,
@@ -62,6 +73,7 @@ export async function POST(req: NextRequest) {
           drive_file_id: driveRes.id,
           drive_file_url: driveRes.webViewLink,
           file_name: photoName,
+          tanggal_foto: tglFoto,
         });
       }
     }
@@ -75,7 +87,7 @@ export async function POST(req: NextRequest) {
       tanggalSelesai: tanggal_selesai,
       namaKegiatan: nama_kegiatan,
       ringkasanKegiatan: ringkasan_kegiatan,
-      photosBase64: photoBase64Array,
+      photos: photoObjects,
     });
 
     // 4. Generate Official BPS Word Document (.docx)
@@ -84,9 +96,10 @@ export async function POST(req: NextRequest) {
       nip,
       jabatan,
       tanggal,
+      tanggalSelesai: tanggal_selesai,
       namaKegiatan: nama_kegiatan,
       ringkasanKegiatan: ringkasan_kegiatan,
-      photosBase64: photoBase64Array,
+      photos: photoObjects,
     });
 
     if (existingLaporan?.drive_pdf_file_id) {

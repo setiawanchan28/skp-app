@@ -5,6 +5,7 @@ export interface LaporanFoto {
   drive_file_url: string;
   file_name: string;
   previewUrl?: string;
+  tanggal_foto?: string;
 }
 
 export interface Laporan {
@@ -45,5 +46,6 @@ export type LaporanFormValues = {
     previewUrl: string;
     existingId?: string;
     existingUrl?: string;
+    tanggal_foto?: string;
   }[];
 };

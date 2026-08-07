@@ -6,16 +6,18 @@ import { Sparkles, Save, Loader2, RefreshCw, Eye, Calendar as CalendarIcon, User
 import { fetchPegawaiList } from '@/services/pegawaiService';
 import { Pegawai } from '@/types/pegawai';
 import { TemplateSelector } from './TemplateSelector';
-import { PhotoUploader, PhotoItem } from './PhotoUploader';
+import { PhotoUploader, PhotoItem, DateGroupOption } from './PhotoUploader';
 import { PDFPreviewModal } from './PDFPreviewModal';
 import { useToast } from '@/components/ui/Toast';
 import { ActivityTemplate } from '@/constants/templates';
 import { Laporan } from '@/types/laporan';
+import { formatDateIndonesian } from '@/utils/formatters';
+import { BULAN_INDONESIA } from '@/constants/bpsConfig';
 
 const DRAFT_KEY = 'laporan_form_draft';
 
 interface ReportFormProps {
-  initialData?: any; // If editing existing report
+  initialData?: any;
 }
 
 export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
@@ -107,6 +109,30 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
     return () => clearInterval(interval);
   }, [namaKegiatan, deskripsiKegiatan, ringkasanKegiatan, tanggal, tanggalSelesai, initialData]);
 
+  // Generate Date List Options for Multi-day Upload
+  const computedDateList: DateGroupOption[] = React.useMemo(() => {
+    if (!isRangeDate || !tanggalSelesai || tanggal === tanggalSelesai) {
+      return [{ dateStr: tanggal, formattedLabel: formatDateIndonesian(tanggal) }];
+    }
+    const start = new Date(tanggal);
+    const end = new Date(tanggalSelesai);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+      return [{ dateStr: tanggal, formattedLabel: formatDateIndonesian(tanggal) }];
+    }
+    const list: DateGroupOption[] = [];
+    const curr = new Date(start);
+    while (curr <= end) {
+      const yyyy = curr.getFullYear();
+      const mm = String(curr.getMonth() + 1).padStart(2, '0');
+      const dd = String(curr.getDate()).padStart(2, '0');
+      const iso = `${yyyy}-${mm}-${dd}`;
+      const label = `${curr.getDate()} ${BULAN_INDONESIA[curr.getMonth()]} ${yyyy}`;
+      list.push({ dateStr: iso, formattedLabel: label });
+      curr.setDate(curr.getDate() + 1);
+    }
+    return list;
+  }, [tanggal, tanggalSelesai, isRangeDate]);
+
   // Pegawai Dropdown Change Handler
   const handlePegawaiChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value;
@@ -186,6 +212,12 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       formData.append('ringkasan_kegiatan', ringkasanKegiatan);
       formData.append('kategori', kategori);
 
+      const photosMeta = photos.map((p, idx) => ({
+        index: idx,
+        tanggal_foto: p.tanggal_foto,
+      }));
+      formData.append('photos_metadata', JSON.stringify(photosMeta));
+
       for (const item of photos) {
         if (item.file) {
           formData.append('photos', item.file, item.name);
@@ -233,6 +265,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       drive_file_url: p.previewUrl || p.existingUrl || '',
       file_name: p.name,
       previewUrl: p.previewUrl || p.existingUrl,
+      tanggal_foto: p.tanggal_foto,
     })),
   };
 
@@ -302,7 +335,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             </div>
           </div>
 
-          {/* Date Picker Mode & Category Section (Always Visible) */}
+          {/* Date Picker Mode & Category Section */}
           <div className="space-y-4 p-4 bg-slate-50 border border-slate-200/70 rounded-xl">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
@@ -443,8 +476,14 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             />
           </div>
 
-          {/* Photo Uploader */}
-          <PhotoUploader photos={photos} onChange={setPhotos} maxPhotos={6} />
+          {/* Photo Uploader with per-date upload capability */}
+          <PhotoUploader
+            photos={photos}
+            onChange={setPhotos}
+            maxPhotos={6}
+            dateList={computedDateList}
+            isRangeDate={isRangeDate}
+          />
         </div>
 
         {/* Submit & Preview Button Bar */}

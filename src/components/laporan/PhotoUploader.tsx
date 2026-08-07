@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Upload, Trash2, Maximize2, Minimize2, AlertCircle } from 'lucide-react';
+import { Upload, Trash2, Maximize2, Minimize2, AlertCircle, Calendar } from 'lucide-react';
 import { compressImage } from '@/lib/image';
 
 export interface PhotoItem {
@@ -11,6 +11,12 @@ export interface PhotoItem {
   name: string;
   existingUrl?: string;
   fitMode?: 'contain' | 'cover';
+  tanggal_foto?: string;
+}
+
+export interface DateGroupOption {
+  dateStr: string;
+  formattedLabel: string;
 }
 
 interface PhotoUploaderProps {
@@ -18,6 +24,8 @@ interface PhotoUploaderProps {
   onChange: (photos: PhotoItem[]) => void;
   maxPhotos?: number;
   maxSizeMB?: number;
+  dateList?: DateGroupOption[];
+  isRangeDate?: boolean;
 }
 
 export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
@@ -25,11 +33,13 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
   onChange,
   maxPhotos = 6,
   maxSizeMB = 10,
+  dateList = [],
+  isRangeDate = false,
 }) => {
-  const [dragActive, setDragActive] = useState(false);
+  const [dragActive, setDragActive] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const processFiles = async (files: FileList | File[]) => {
+  const processFilesForDate = async (files: FileList | File[], targetDateStr?: string) => {
     setError(null);
     const validFiles: PhotoItem[] = [...photos];
 
@@ -37,7 +47,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
       const file = files[i];
 
       if (validFiles.length >= maxPhotos) {
-        setError(`Maksimal ${maxPhotos} foto dokumentasi`);
+        setError(`Maksimal ${maxPhotos} foto dokumentasi secara keseluruhan`);
         break;
       }
 
@@ -60,7 +70,8 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
           file: compressed,
           previewUrl,
           name: compressed.name,
-          fitMode: 'contain', // Default to 100% full uncropped image
+          fitMode: 'contain',
+          tanggal_foto: targetDateStr || (dateList.length > 0 ? dateList[0].dateStr : undefined),
         });
       } catch (err) {
         console.error('Image compression failed:', err);
@@ -68,25 +79,6 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
     }
 
     onChange(validFiles);
-  };
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processFiles(e.dataTransfer.files);
-    }
   };
 
   const handleRemove = (id: string) => {
@@ -107,6 +99,120 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
     onChange(updated);
   };
 
+  // If Range Date is active with multiple dates
+  if (isRangeDate && dateList.length > 1) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+          <div>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+              Dokumentasi Foto Per Tanggal Pelaksanaan
+            </label>
+            <p className="text-xs text-slate-500">
+              Unggah foto dokumentasi khusus untuk masing-masing tanggal pelaksanaan
+            </p>
+          </div>
+          <span className="text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-200">
+            Total {photos.length} / {maxPhotos} Foto
+          </span>
+        </div>
+
+        {error && (
+          <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-700 text-xs">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {dateList.map((dItem) => {
+            const datePhotos = photos.filter(
+              (p) => p.tanggal_foto === dItem.dateStr || (!p.tanggal_foto && dateList[0].dateStr === dItem.dateStr)
+            );
+
+            return (
+              <div
+                key={dItem.dateStr}
+                className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-sky-600" />
+                    <span className="text-xs font-bold text-slate-800 uppercase">
+                      Dokumentasi Tanggal: {dItem.formattedLabel}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    {datePhotos.length} Foto
+                  </span>
+                </div>
+
+                {/* Upload Box for this date */}
+                <div className="border-2 border-dashed border-slate-300 hover:border-sky-500 rounded-xl p-4 text-center bg-white transition-colors">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp"
+                    id={`photo-input-${dItem.dateStr}`}
+                    className="hidden"
+                    onChange={(e) => e.target.files && processFilesForDate(e.target.files, dItem.dateStr)}
+                  />
+                  <label
+                    htmlFor={`photo-input-${dItem.dateStr}`}
+                    className="cursor-pointer flex items-center justify-center gap-2 text-xs font-bold text-sky-600 hover:text-sky-700"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>+ Tambah Foto Dokumentasi ({dItem.formattedLabel})</span>
+                  </label>
+                </div>
+
+                {/* Photos Grid for this date */}
+                {datePhotos.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                    {datePhotos.map((item, idx) => {
+                      const fit = item.fitMode || 'contain';
+                      return (
+                        <div
+                          key={item.id}
+                          className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-950 h-44 flex items-center justify-center shadow-xs p-1"
+                        >
+                          <img
+                            src={item.previewUrl || item.existingUrl}
+                            alt={item.name}
+                            className={`w-full h-full transition-all duration-300 ${
+                              fit === 'contain' ? 'object-contain' : 'object-cover'
+                            }`}
+                          />
+                          <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+                            <button
+                              type="button"
+                              onClick={() => toggleFitMode(item.id)}
+                              className="p-1.5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-lg transition-colors shadow-sm text-[10px] font-semibold flex items-center gap-1 backdrop-blur-sm"
+                            >
+                              {fit === 'contain' ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemove(item.id)}
+                              className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors shadow-sm"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Single Date Upload View
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -123,15 +229,20 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
         </span>
       </div>
 
-      {/* Upload Drag & Drop Zone */}
       {photos.length < maxPhotos && (
         <div
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
+          onDragEnter={() => setDragActive('single')}
+          onDragLeave={() => setDragActive(null)}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragActive(null);
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+              processFilesForDate(e.dataTransfer.files);
+            }
+          }}
           className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
-            dragActive
+            dragActive === 'single'
               ? 'border-sky-500 bg-sky-50/80 scale-[0.99]'
               : 'border-slate-300 hover:border-sky-500 bg-slate-50/50'
           }`}
@@ -140,11 +251,11 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
             type="file"
             multiple
             accept="image/jpeg,image/png,image/webp"
-            id="photo-input"
+            id="photo-input-single"
             className="hidden"
-            onChange={(e) => e.target.files && processFiles(e.target.files)}
+            onChange={(e) => e.target.files && processFilesForDate(e.target.files)}
           />
-          <label htmlFor="photo-input" className="cursor-pointer flex flex-col items-center gap-2">
+          <label htmlFor="photo-input-single" className="cursor-pointer flex flex-col items-center gap-2">
             <div className="w-12 h-12 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center">
               <Upload className="w-6 h-6" />
             </div>
@@ -167,10 +278,9 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
         </div>
       )}
 
-      {/* Photo Previews Grid */}
       {photos.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {photos.map((item, index) => {
+          {photos.map((item) => {
             const fit = item.fitMode || 'contain';
             return (
               <div
@@ -184,44 +294,21 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
                     fit === 'contain' ? 'object-contain max-h-[280px]' : 'object-cover'
                   }`}
                 />
-
-                {/* Top Action Controls */}
                 <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
                   <button
                     type="button"
                     onClick={() => toggleFitMode(item.id)}
                     className="p-1.5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-lg transition-colors shadow-sm text-[10px] font-semibold flex items-center gap-1 backdrop-blur-sm"
-                    title={fit === 'contain' ? 'Mode Penuh Kotak (Crop)' : 'Mode Tampilkan Utuh (Fit)'}
                   >
-                    {fit === 'contain' ? (
-                      <>
-                        <Maximize2 className="w-3.5 h-3.5" />
-                        <span>Fit Utuh</span>
-                      </>
-                    ) : (
-                      <>
-                        <Minimize2 className="w-3.5 h-3.5" />
-                        <span>Crop</span>
-                      </>
-                    )}
+                    {fit === 'contain' ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
                   </button>
-
                   <button
                     type="button"
                     onClick={() => handleRemove(item.id)}
                     className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors shadow-sm"
-                    title="Hapus Foto"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
-                </div>
-
-                {/* Bottom Label Badge */}
-                <div className="absolute bottom-2 left-2 right-2 bg-slate-950/80 backdrop-blur-sm p-2 rounded-xl text-white text-[11px] font-medium flex items-center justify-between pointer-events-none">
-                  <span className="truncate">Foto #{index + 1}</span>
-                  <span className="text-[10px] font-bold text-sky-400 uppercase">
-                    {fit === 'contain' ? '100% Utuh' : 'Crop'}
-                  </span>
                 </div>
               </div>
             );

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Modal } from '@/components/ui/Modal';
-import { Laporan } from '@/types/laporan';
+import { Laporan, LaporanFoto } from '@/types/laporan';
 import { formatDateIndonesian } from '@/utils/formatters';
 import { BPS_CONFIG, BULAN_INDONESIA } from '@/constants/bpsConfig';
 import { ExternalLink, FileText } from 'lucide-react';
@@ -13,23 +13,26 @@ interface PDFPreviewModalProps {
   laporan: Laporan | null;
 }
 
-function generateDateList(startDateStr: string, endDateStr?: string): string[] {
+function generateDateList(startDateStr: string, endDateStr?: string): { dateStr: string; label: string }[] {
   if (!endDateStr || startDateStr === endDateStr) {
-    return [formatDateIndonesian(startDateStr)];
+    return [{ dateStr: startDateStr, label: formatDateIndonesian(startDateStr) }];
   }
 
   const start = new Date(startDateStr);
   const end = new Date(endDateStr);
   if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
-    return [formatDateIndonesian(startDateStr)];
+    return [{ dateStr: startDateStr, label: formatDateIndonesian(startDateStr) }];
   }
 
-  const list: string[] = [];
+  const list: { dateStr: string; label: string }[] = [];
   const curr = new Date(start);
   while (curr <= end) {
-    list.push(
-      `${curr.getDate()} ${BULAN_INDONESIA[curr.getMonth()]} ${curr.getFullYear()}`
-    );
+    const yyyy = curr.getFullYear();
+    const mm = String(curr.getMonth() + 1).padStart(2, '0');
+    const dd = String(curr.getDate()).padStart(2, '0');
+    const iso = `${yyyy}-${mm}-${dd}`;
+    const label = `${curr.getDate()} ${BULAN_INDONESIA[curr.getMonth()]} ${yyyy}`;
+    list.push({ dateStr: iso, label });
     curr.setDate(curr.getDate() + 1);
   }
   return list;
@@ -44,8 +47,8 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
 
   const dateYear = new Date(laporan.tanggal || Date.now()).getFullYear();
   const formattedDateRange = formatDateIndonesian(laporan.tanggal, laporan.tanggal_selesai);
-  const dateList = generateDateList(laporan.tanggal, laporan.tanggal_selesai);
-  const photos = laporan.fotos || [];
+  const dates = generateDateList(laporan.tanggal, laporan.tanggal_selesai);
+  const allPhotos = laporan.fotos || [];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Preview Bukti Dukung BPS" maxWidth="4xl">
@@ -128,71 +131,79 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
             </table>
           </div>
 
-          {/* Bagian II Dokumentasi */}
-          <div className="border border-black">
-            <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-xs text-black uppercase tracking-wider">
-              II. DOKUMENTASI
-            </div>
+          {/* Bagian II Dokumentasi Tables (Repeated per date if multi-day) */}
+          <div className="space-y-6">
+            {dates.map((dItem, dIdx) => {
+              const isMultiDate = dates.length > 1;
+              let datePhotos: LaporanFoto[] = [];
 
-            {/* Photo Preview Container */}
-            <div className="p-3">
-              {photos.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 text-xs italic">
-                  Tidak ada foto dokumentasi terlampir
-                </div>
-              ) : photos.length === 1 ? (
-                /* SINGLE PHOTO: CENTERED IN THE MIDDLE OF CELL */
-                <div className="flex flex-col items-center justify-center p-2 border-b border-black">
-                  <div className="border border-slate-300 rounded overflow-hidden max-w-sm h-56 bg-slate-950 flex items-center justify-center p-1 w-full">
-                    <img
-                      src={photos[0].previewUrl || photos[0].drive_file_url}
-                      alt="Dokumentasi"
-                      className="max-w-full max-h-full object-contain"
-                    />
+              if (isMultiDate) {
+                datePhotos = allPhotos.filter((p) => p.tanggal_foto === dItem.dateStr);
+                if (datePhotos.length === 0 && dIdx === 0 && allPhotos.length > 0) {
+                  datePhotos = allPhotos.filter((p) => !p.tanggal_foto);
+                }
+              } else {
+                datePhotos = allPhotos;
+              }
+
+              const secHeaderTitle = isMultiDate
+                ? `II. DOKUMENTASI (${dItem.label.toUpperCase()})`
+                : 'II. DOKUMENTASI';
+
+              return (
+                <div key={dItem.dateStr} className="border border-black">
+                  <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-xs text-black uppercase tracking-wider">
+                    {secHeaderTitle}
                   </div>
-                  <div className="mt-2 text-center text-xs">
-                    <p className="font-bold text-black">{laporan.nama_kegiatan}</p>
-                    <p className="text-slate-700 text-[11px]">{formattedDateRange}</p>
-                  </div>
-                </div>
-              ) : (
-                /* MULTI PHOTO GRID: ALL PHOTOS RENDERED ROW BY ROW */
-                <div className="grid grid-cols-2 gap-3">
-                  {photos.map((foto, idx) => {
-                    const photoDate = dateList[idx % dateList.length] || formattedDateRange;
-                    return (
-                      <div
-                        key={idx}
-                        className="border border-slate-300 rounded overflow-hidden bg-slate-950 flex flex-col items-center justify-between p-1 text-center"
-                      >
-                        <div className="h-44 w-full flex items-center justify-center">
-                          {foto.previewUrl || foto.drive_file_url ? (
-                            <img
-                              src={foto.previewUrl || foto.drive_file_url}
-                              alt={`Dokumentasi #${idx + 1}`}
-                              className="max-w-full max-h-full object-contain"
-                            />
-                          ) : (
-                            <FileText className="w-8 h-8 text-slate-400" />
-                          )}
-                        </div>
-                        <div className="w-full bg-white border-t border-slate-200 py-1.5 px-1 text-[10px] text-slate-800 font-semibold truncate">
-                          Foto #{idx + 1} ({photoDate})
+
+                  {/* Photos Grid Container */}
+                  <div className="p-3">
+                    {datePhotos.length === 0 ? (
+                      <div className="text-center py-6 text-slate-400 text-xs italic">
+                        Tidak ada foto dokumentasi terlampir
+                      </div>
+                    ) : datePhotos.length === 1 ? (
+                      /* SINGLE PHOTO: CENTERED IN THE MIDDLE OF CELL */
+                      <div className="flex flex-col items-center justify-center p-2">
+                        <div className="border border-slate-300 rounded overflow-hidden max-w-sm h-56 bg-slate-950 flex items-center justify-center p-1 w-full">
+                          <img
+                            src={datePhotos[0].previewUrl || datePhotos[0].drive_file_url}
+                            alt="Dokumentasi"
+                            className="max-w-full max-h-full object-contain"
+                          />
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                    ) : (
+                      /* MULTI PHOTO GRID: CLEAN NO OVERLAY TEXT */
+                      <div className="grid grid-cols-2 gap-3">
+                        {datePhotos.map((foto, idx) => (
+                          <div
+                            key={idx}
+                            className="border border-slate-300 rounded overflow-hidden h-44 bg-slate-950 flex items-center justify-center p-1"
+                          >
+                            {foto.previewUrl || foto.drive_file_url ? (
+                              <img
+                                src={foto.previewUrl || foto.drive_file_url}
+                                alt={`Dokumentasi #${idx + 1}`}
+                                className="max-w-full max-h-full object-contain"
+                              />
+                            ) : (
+                              <FileText className="w-8 h-8 text-slate-400" />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
-            {/* Bottom Caption for Multi Photo */}
-            {photos.length > 1 && (
-              <div className="p-2.5 text-center text-xs space-y-0.5 border-t border-black bg-slate-50">
-                <p className="font-semibold text-black">{laporan.nama_kegiatan}</p>
-                <p className="text-slate-700">{formattedDateRange}</p>
-              </div>
-            )}
+                  {/* Clean Separate Caption Bar */}
+                  <div className="p-2 text-center text-xs space-y-0.5 border-t border-black bg-slate-50">
+                    <p className="font-bold text-black">{laporan.nama_kegiatan}</p>
+                    <p className="text-slate-700 text-[11px]">{dItem.label}</p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Footer Address */}
