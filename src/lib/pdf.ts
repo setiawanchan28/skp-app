@@ -7,13 +7,25 @@ export interface PdfReportData {
   nip: string;
   jabatan: string;
   tanggal: string;
+  tanggalSelesai?: string;
   namaKegiatan: string;
   ringkasanKegiatan: string;
   photosBase64?: string[];
 }
 
 /**
- * Generate official BPS Bukti Dukung Kegiatan PDF with strict aspect-ratio preservation for Portrait/Landscape photos
+ * Clean WinAnsi unsupported characters like Carriage Return (\r or 0x000d)
+ */
+function sanitizeWinAnsiText(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/[^\x00-\x7F\xA0-\xFF]/g, ''); // Filter out non-WinAnsi characters
+}
+
+/**
+ * Generate official BPS Bukti Dukung Kegiatan PDF with strict aspect-ratio preservation and WinAnsi sanitization
  */
 export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
@@ -105,13 +117,22 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   });
   y -= headerHeight;
 
+  // Sanitize all inputs to prevent WinAnsi (0x000d) encoding errors
+  const cleanNamaPegawai = sanitizeWinAnsiText(data.namaPegawai);
+  const cleanJabatan = sanitizeWinAnsiText(data.jabatan);
+  const cleanNip = sanitizeWinAnsiText(data.nip);
+  const cleanNamaKegiatan = sanitizeWinAnsiText(data.namaKegiatan);
+  const cleanRingkasan = sanitizeWinAnsiText(data.ringkasanKegiatan);
+
+  const formattedDate = formatDateIndonesian(data.tanggal, data.tanggalSelesai);
+
   // Table Rows: NAMA, JABATAN, NIP, KEGIATAN, RINGKASAN
   const rows = [
-    { no: '1.', label: 'NAMA', val: data.namaPegawai },
-    { no: '2.', label: 'JABATAN', val: data.jabatan },
-    { no: '3.', label: 'NIP', val: data.nip },
-    { no: '4.', label: 'KEGIATAN', val: data.namaKegiatan },
-    { no: '5.', label: 'RINGKASAN', val: data.ringkasanKegiatan },
+    { no: '1.', label: 'NAMA', val: cleanNamaPegawai },
+    { no: '2.', label: 'JABATAN', val: cleanJabatan },
+    { no: '3.', label: 'NIP', val: cleanNip },
+    { no: '4.', label: 'KEGIATAN', val: cleanNamaKegiatan },
+    { no: '5.', label: 'RINGKASAN', val: cleanRingkasan },
   ];
 
   const col1Width = 30; // No
@@ -123,21 +144,26 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   const lineHeight = 14;
 
   for (const row of rows) {
+    // Process text line breaks cleanly
+    const paragraphBlocks = row.val.split('\n');
     const lines: string[] = [];
-    const words = row.val.split(' ');
-    let currentLine = '';
 
-    for (const word of words) {
-      const testLine = currentLine ? `${currentLine} ${word}` : word;
-      const testWidth = fontRegular.widthOfTextAtSize(testLine, fontSize);
-      if (testWidth <= col4Width - 10) {
-        currentLine = testLine;
-      } else {
-        lines.push(currentLine);
-        currentLine = word;
+    for (const block of paragraphBlocks) {
+      const words = block.split(' ');
+      let currentLine = '';
+
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const testWidth = fontRegular.widthOfTextAtSize(testLine, fontSize);
+        if (testWidth <= col4Width - 10) {
+          currentLine = testLine;
+        } else {
+          lines.push(currentLine);
+          currentLine = word;
+        }
       }
+      if (currentLine) lines.push(currentLine);
     }
-    if (currentLine) lines.push(currentLine);
 
     const rowHeight = Math.max(lines.length * lineHeight + 10, 24);
 
@@ -269,10 +295,8 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
         let renderHeight = maxSlotHeight;
 
         if (imgAspectRatio > slotAspectRatio) {
-          // Landscape photo
           renderHeight = maxSlotWidth / imgAspectRatio;
         } else {
-          // Portrait photo: scale width proportionally to keep 100% portrait shape!
           renderWidth = maxSlotHeight * imgAspectRatio;
         }
 
@@ -298,7 +322,7 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   }
 
   // Draw Centered Documentation Captions at Bottom
-  const capLine1 = data.namaKegiatan;
+  const capLine1 = cleanNamaKegiatan;
   const capLine1Width = fontRegular.widthOfTextAtSize(capLine1, 10);
   page.drawText(capLine1, {
     x: (pageWidth - capLine1Width) / 2,
@@ -308,7 +332,7 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     color: black,
   });
 
-  const capLine2 = formatDateIndonesian(data.tanggal);
+  const capLine2 = formattedDate;
   const capLine2Width = fontRegular.widthOfTextAtSize(capLine2, 10);
   page.drawText(capLine2, {
     x: (pageWidth - capLine2Width) / 2,

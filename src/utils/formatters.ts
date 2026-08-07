@@ -1,18 +1,44 @@
 import { BULAN_INDONESIA } from '@/constants/bpsConfig';
 
 /**
- * Format YYYY-MM-DD date to Indonesian long date format (e.g. 15 Agustus 2026)
+ * Format date string or date range (start & end) to Indonesian format
+ * E.g. "15 Agustus 2026" or "1 - 3 Agustus 2026" or "28 Juli - 2 Agustus 2026"
  */
-export function formatDateIndonesian(dateString: string): string {
+export function formatDateIndonesian(dateString: string, endDateString?: string): string {
   if (!dateString) return '';
-  const date = new Date(dateString);
-  if (isNaN(date.getTime())) return dateString;
 
-  const day = date.getDate();
-  const monthIndex = date.getMonth();
-  const year = date.getFullYear();
+  const startDate = new Date(dateString);
+  if (isNaN(startDate.getTime())) return dateString;
 
-  return `${day} ${BULAN_INDONESIA[monthIndex]} ${year}`;
+  const startDay = startDate.getDate();
+  const startMonth = startDate.getMonth();
+  const startYear = startDate.getFullYear();
+
+  if (!endDateString || dateString === endDateString) {
+    return `${startDay} ${BULAN_INDONESIA[startMonth]} ${startYear}`;
+  }
+
+  const endDate = new Date(endDateString);
+  if (isNaN(endDate.getTime())) {
+    return `${startDay} ${BULAN_INDONESIA[startMonth]} ${startYear}`;
+  }
+
+  const endDay = endDate.getDate();
+  const endMonth = endDate.getMonth();
+  const endYear = endDate.getFullYear();
+
+  // Same month and year: e.g. "1 - 3 Agustus 2026"
+  if (startMonth === endMonth && startYear === endYear) {
+    return `${startDay} - ${endDay} ${BULAN_INDONESIA[endMonth]} ${endYear}`;
+  }
+
+  // Same year, different month: e.g. "28 Juli - 2 Agustus 2026"
+  if (startYear === endYear) {
+    return `${startDay} ${BULAN_INDONESIA[startMonth]} - ${endDay} ${BULAN_INDONESIA[endMonth]} ${endYear}`;
+  }
+
+  // Different year: e.g. "30 Desember 2025 - 2 Januari 2026"
+  return `${startDay} ${BULAN_INDONESIA[startMonth]} ${startYear} - ${endDay} ${BULAN_INDONESIA[endMonth]} ${endYear}`;
 }
 
 /**

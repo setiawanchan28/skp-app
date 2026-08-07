@@ -21,6 +21,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
   if (!laporan) return null;
 
   const dateYear = new Date(laporan.tanggal || Date.now()).getFullYear();
+  const formattedDateRange = formatDateIndonesian(laporan.tanggal, laporan.tanggal_selesai);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Preview Bukti Dukung BPS" maxWidth="4xl">
@@ -31,7 +32,6 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
           <div className="text-center space-y-2">
             <div className="flex justify-center mb-1">
               <div className="text-center">
-                {/* 3-Color BPS Logo representation */}
                 <div className="inline-flex flex-col items-center">
                   <div className="flex items-center gap-1 mb-1">
                     <span className="w-5 h-4 bg-sky-500 rounded-2xs inline-block" />
@@ -57,7 +57,6 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
 
           {/* Bagian I Table */}
           <div className="border border-black">
-            {/* Header Bar */}
             <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-xs text-black uppercase tracking-wider">
               I. KETERANGAN PELAKSANA
             </div>
@@ -91,7 +90,9 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   <td className="p-2 text-center border-r border-black font-semibold">5.</td>
                   <td className="p-2 border-r border-black font-bold uppercase">RINGKASAN</td>
                   <td className="p-2 text-center border-r border-black font-bold">:</td>
-                  <td className="p-2 leading-relaxed text-justify">{laporan.ringkasan_kegiatan}</td>
+                  <td className="p-2 leading-relaxed text-justify whitespace-pre-wrap">
+                    {laporan.ringkasan_kegiatan}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -99,20 +100,22 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
 
           {/* Bagian II Dokumentasi */}
           <div className="border border-black">
-            {/* Header Bar */}
             <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-xs text-black uppercase tracking-wider">
               II. DOKUMENTASI
             </div>
-            {/* Photo Grid */}
-            <div className="p-2 grid grid-cols-2 gap-2 border-b border-black min-h-[160px]">
+            {/* Uncropped Photo Preview Grid */}
+            <div className="p-3 grid grid-cols-2 gap-3 border-b border-black min-h-[180px]">
               {laporan.fotos && laporan.fotos.length > 0 ? (
                 laporan.fotos.slice(0, 2).map((foto, idx) => (
-                  <div key={idx} className="border border-slate-300 rounded overflow-hidden aspect-video bg-slate-100 flex items-center justify-center">
+                  <div
+                    key={idx}
+                    className="border border-slate-300 rounded overflow-hidden h-52 bg-slate-950 flex items-center justify-center p-1"
+                  >
                     {foto.previewUrl || foto.drive_file_url ? (
                       <img
                         src={foto.previewUrl || foto.drive_file_url}
                         alt="Dokumentasi"
-                        className="w-full h-full object-cover"
+                        className="max-w-full max-h-full object-contain"
                       />
                     ) : (
                       <FileText className="w-8 h-8 text-slate-400" />
@@ -128,7 +131,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
             {/* Centered Caption */}
             <div className="p-2.5 text-center text-xs space-y-0.5">
               <p className="font-semibold text-black">{laporan.nama_kegiatan}</p>
-              <p className="text-slate-700">{formatDateIndonesian(laporan.tanggal)}</p>
+              <p className="text-slate-700">{formattedDateRange}</p>
             </div>
           </div>
 

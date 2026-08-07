@@ -28,7 +28,11 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   const [namaPegawai, setNamaPegawai] = useState('');
   const [nip, setNip] = useState('');
   const [jabatan, setJabatan] = useState('');
+  
+  const [isRangeDate, setIsRangeDate] = useState(false);
   const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
+  const [tanggalSelesai, setTanggalSelesai] = useState('');
+
   const [namaKegiatan, setNamaKegiatan] = useState('');
   const [deskripsiKegiatan, setDeskripsiKegiatan] = useState('');
   const [ringkasanKegiatan, setRingkasanKegiatan] = useState('');
@@ -63,6 +67,10 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       setNip(initialData.nip || '');
       setJabatan(initialData.jabatan || '');
       setTanggal(initialData.tanggal || new Date().toISOString().split('T')[0]);
+      if (initialData.tanggal_selesai) {
+        setIsRangeDate(true);
+        setTanggalSelesai(initialData.tanggal_selesai);
+      }
       setNamaKegiatan(initialData.nama_kegiatan || '');
       setDeskripsiKegiatan(initialData.deskripsi_kegiatan || '');
       setRingkasanKegiatan(initialData.ringkasan_kegiatan || '');
@@ -76,6 +84,10 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
           setDeskripsiKegiatan(parsed.deskripsiKegiatan || '');
           setRingkasanKegiatan(parsed.ringkasanKegiatan || '');
           if (parsed.tanggal) setTanggal(parsed.tanggal);
+          if (parsed.tanggalSelesai) {
+            setIsRangeDate(true);
+            setTanggalSelesai(parsed.tanggalSelesai);
+          }
         } catch (e) {}
       }
     }
@@ -86,14 +98,14 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
     if (initialData) return;
     const interval = setInterval(() => {
       if (namaKegiatan || deskripsiKegiatan || ringkasanKegiatan) {
-        const draft = { namaKegiatan, deskripsiKegiatan, ringkasanKegiatan, tanggal };
+        const draft = { namaKegiatan, deskripsiKegiatan, ringkasanKegiatan, tanggal, tanggalSelesai };
         localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
         const nowTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         setDraftSavedAt(nowTime);
       }
     }, 30000);
     return () => clearInterval(interval);
-  }, [namaKegiatan, deskripsiKegiatan, ringkasanKegiatan, tanggal, initialData]);
+  }, [namaKegiatan, deskripsiKegiatan, ringkasanKegiatan, tanggal, tanggalSelesai, initialData]);
 
   // Pegawai Dropdown Change Handler
   const handlePegawaiChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -166,6 +178,9 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       formData.append('nip', nip);
       formData.append('jabatan', jabatan);
       formData.append('tanggal', tanggal);
+      if (isRangeDate && tanggalSelesai) {
+        formData.append('tanggal_selesai', tanggalSelesai);
+      }
       formData.append('nama_kegiatan', namaKegiatan);
       formData.append('deskripsi_kegiatan', deskripsiKegiatan);
       formData.append('ringkasan_kegiatan', ringkasanKegiatan);
@@ -207,6 +222,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
     nip: nip || '199502282024211021',
     jabatan: jabatan || 'Pranata Komputer',
     tanggal: tanggal,
+    tanggal_selesai: isRangeDate ? tanggalSelesai : undefined,
     nama_kegiatan: namaKegiatan || 'Nama Kegiatan',
     deskripsi_kegiatan: deskripsiKegiatan,
     ringkasan_kegiatan: ringkasanKegiatan || 'Ringkasan Kegiatan...',
@@ -286,38 +302,69 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             </div>
           </div>
 
-          {/* Date and Category */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Tanggal Kegiatan *
+          {/* Date Picker Mode (Single Date vs Date Range) */}
+          <div className="space-y-3 p-4 bg-slate-50 border border-slate-200/70 rounded-xl">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Tanggal Pelaksanaan Kegiatan *
               </label>
-              <input
-                type="date"
-                value={tanggal}
-                onChange={(e) => setTanggal(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
-              />
+              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={isRangeDate}
+                  onChange={(e) => setIsRangeDate(e.target.checked)}
+                  className="w-4 h-4 text-sky-600 rounded focus:ring-sky-500"
+                />
+                <span>Rentang Tanggal (Multi-hari, misal 1 - 3 Agustus)</span>
+              </label>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Kategori Kegiatan
-              </label>
-              <select
-                value={kategori}
-                onChange={(e) => setKategori(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
-              >
-                <option value="Pelatihan">Pelatihan</option>
-                <option value="Rapat">Rapat</option>
-                <option value="Monitoring">Monitoring</option>
-                <option value="Supervisi">Supervisi</option>
-                <option value="Sosialisasi">Sosialisasi</option>
-                <option value="Evaluasi">Evaluasi</option>
-                <option value="Pengolahan Data">Pengolahan Data</option>
-                <option value="Lainnya">Lainnya</option>
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  {isRangeDate ? 'Tanggal Mulai *' : 'Tanggal Kegiatan *'}
+                </label>
+                <input
+                  type="date"
+                  value={tanggal}
+                  onChange={(e) => setTanggal(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
+                />
+              </div>
+
+              {isRangeDate ? (
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    Tanggal Selesai *
+                  </label>
+                  <input
+                    type="date"
+                    value={tanggalSelesai}
+                    onChange={(e) => setTanggalSelesai(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                    Kategori Kegiatan
+                  </label>
+                  <select
+                    value={kategori}
+                    onChange={(e) => setKategori(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
+                  >
+                    <option value="Pelatihan">Pelatihan</option>
+                    <option value="Rapat">Rapat</option>
+                    <option value="Monitoring">Monitoring</option>
+                    <option value="Supervisi">Supervisi</option>
+                    <option value="Sosialisasi">Sosialisasi</option>
+                    <option value="Evaluasi">Evaluasi</option>
+                    <option value="Pengolahan Data">Pengolahan Data</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 

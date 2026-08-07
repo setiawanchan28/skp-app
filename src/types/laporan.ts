@@ -4,7 +4,7 @@ export interface LaporanFoto {
   drive_file_id: string;
   drive_file_url: string;
   file_name: string;
-  previewUrl?: string; // transient preview on UI
+  previewUrl?: string;
 }
 
 export interface Laporan {
@@ -14,7 +14,8 @@ export interface Laporan {
   nama_pegawai: string;
   nip: string;
   jabatan: string;
-  tanggal: string; // YYYY-MM-DD
+  tanggal: string; // YYYY-MM-DD or start date
+  tanggal_selesai?: string; // optional end date for date ranges YYYY-MM-DD
   nama_kegiatan: string;
   deskripsi_kegiatan: string;
   ringkasan_kegiatan: string;
@@ -33,6 +34,7 @@ export type LaporanFormValues = {
   nip: string;
   jabatan: string;
   tanggal: string;
+  tanggal_selesai?: string;
   nama_kegiatan: string;
   deskripsi_kegiatan: string;
   ringkasan_kegiatan: string;

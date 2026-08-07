@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     const nip = formData.get('nip') as string;
     const jabatan = formData.get('jabatan') as string;
     const tanggal = formData.get('tanggal') as string;
+    const tanggal_selesai = (formData.get('tanggal_selesai') as string) || undefined;
     const nama_kegiatan = formData.get('nama_kegiatan') as string;
     const deskripsi_kegiatan = formData.get('deskripsi_kegiatan') as string;
     const ringkasan_kegiatan = formData.get('ringkasan_kegiatan') as string;
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
       nip,
       jabatan,
       tanggal,
+      tanggalSelesai: tanggal_selesai,
       namaKegiatan: nama_kegiatan,
       ringkasanKegiatan: ringkasan_kegiatan,
       photosBase64: photoBase64Array,
@@ -116,6 +118,7 @@ export async function POST(req: NextRequest) {
         nip,
         jabatan,
         tanggal,
+        tanggal_selesai,
         nama_kegiatan,
         deskripsi_kegiatan,
         ringkasan_kegiatan,
