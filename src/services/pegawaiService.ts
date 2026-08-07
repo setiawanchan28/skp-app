@@ -5,24 +5,11 @@ const LOCAL_STORAGE_KEY = 'bps_pegawai_data';
 
 const DEFAULT_PEGAWAI: Pegawai[] = [
   {
-    id: 'peg-1',
-    nama: 'Dede Supriatna, S.Si., M.Stat.',
-    nip: '198805122010121002',
-    jabatan: 'Statistisi Ahli Muda',
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'peg-2',
-    nama: 'Ahmad Fauzi, S.ST.',
-    nip: '199203152014021001',
-    jabatan: 'Statistisi Ahli Pertama',
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: 'peg-3',
-    nama: 'Siti Rahmawati, A.Md.',
-    nip: '199508202018012003',
-    jabatan: 'Pranata Komputer Mahir',
+    id: 'peg-default-1',
+    nama: 'Dede Setiawan, S.Tr.Stat.',
+    nip: '199502282024211021',
+    jabatan: 'Pranata Komputer Ahli Pertama',
+    email: 'ddsetiawan28@gmail.com',
     created_at: new Date().toISOString(),
   },
 ];
@@ -53,18 +40,31 @@ export async function fetchPegawaiList(): Promise<Pegawai[]> {
       try {
         localData = JSON.parse(local);
       } catch (e) {}
-    } else {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(DEFAULT_PEGAWAI));
-      localData = DEFAULT_PEGAWAI;
     }
   }
 
-  const mergedMap = new Map<string, Pegawai>();
-  localData.forEach((p) => mergedMap.set(p.id, p));
-  supabaseData.forEach((p) => mergedMap.set(p.id, p));
+  // Filter out legacy dummy sample items (peg-1, peg-2, peg-3)
+  const isLegacyDummy = (id: string) => id === 'peg-1' || id === 'peg-2' || id === 'peg-3';
+  localData = localData.filter((p) => !isLegacyDummy(p.id));
+  supabaseData = supabaseData.filter((p) => !isLegacyDummy(p.id));
 
-  const list = Array.from(mergedMap.values());
-  return list.length > 0 ? list : DEFAULT_PEGAWAI;
+  const mergedMap = new Map<string, Pegawai>();
+  localData.forEach((p) => {
+    if (p && p.id) mergedMap.set(p.id, p);
+  });
+  supabaseData.forEach((p) => {
+    if (p && p.id) mergedMap.set(p.id, p);
+  });
+
+  let finalResult = Array.from(mergedMap.values());
+  if (finalResult.length === 0) {
+    finalResult = DEFAULT_PEGAWAI;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(DEFAULT_PEGAWAI));
+    }
+  }
+
+  return finalResult;
 }
 
 export async function createPegawai(input: PegawaiInput): Promise<Pegawai> {

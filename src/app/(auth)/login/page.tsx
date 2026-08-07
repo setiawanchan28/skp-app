@@ -84,21 +84,11 @@ export default function LoginPage() {
   };
 
   const handleQuickDemoAccess = () => {
-    let savedProfile: any = null;
-    if (typeof window !== 'undefined') {
-      const raw = localStorage.getItem('bps_saved_profile');
-      if (raw) {
-        try {
-          savedProfile = JSON.parse(raw);
-        } catch (e) {}
-      }
-    }
-
     const demoUser = {
-      nama: savedProfile?.nama || 'Dede Setiawan, S.Tr.Stat.',
-      nip: savedProfile?.nip || '199502282024211021',
-      jabatan: savedProfile?.jabatan || 'Pranata Komputer Ahli Pertama',
-      email: savedProfile?.email || 'ddsetiawan28@gmail.com',
+      nama: 'Dede Setiawan, S.Tr.Stat.',
+      nip: '199502282024211021',
+      jabatan: 'Pranata Komputer Ahli Pertama',
+      email: 'ddsetiawan28@gmail.com',
     };
     if (typeof window !== 'undefined') {
       localStorage.setItem('bps_auth_user', JSON.stringify(demoUser));
