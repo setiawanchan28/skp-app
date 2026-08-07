@@ -109,7 +109,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
               Dokumentasi Foto Per Tanggal Pelaksanaan
             </label>
             <p className="text-xs text-slate-500">
-              Unggah foto dokumentasi khusus untuk masing-masing tanggal pelaksanaan
+              Unggah foto dokumentasi khusus untuk masing-masing tanggal (dapat dicicil hari demi hari)
             </p>
           </div>
           <span className="text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-200">
@@ -133,7 +133,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
             return (
               <div
                 key={dItem.dateStr}
-                className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3"
+                className="p-4 bg-slate-50/70 border border-slate-200/80 rounded-2xl space-y-3"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -142,7 +142,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
                       Dokumentasi Tanggal: {dItem.formattedLabel}
                     </span>
                   </div>
-                  <span className="text-[11px] text-slate-500 font-medium">
+                  <span className="text-[11px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200">
                     {datePhotos.length} Foto
                   </span>
                 </div>
@@ -166,15 +166,15 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
                   </label>
                 </div>
 
-                {/* Photos Grid for this date */}
+                {/* Photos Grid for this date with WHITE canvas background */}
                 {datePhotos.length > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-                    {datePhotos.map((item, idx) => {
+                    {datePhotos.map((item) => {
                       const fit = item.fitMode || 'contain';
                       return (
                         <div
                           key={item.id}
-                          className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-950 h-44 flex items-center justify-center shadow-xs p-1"
+                          className="relative group rounded-xl overflow-hidden border border-slate-300 bg-white h-44 flex items-center justify-center p-1 shadow-2xs"
                         >
                           <img
                             src={item.previewUrl || item.existingUrl}
@@ -212,7 +212,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
     );
   }
 
-  // Single Date Upload View
+  // Single Date Upload View with WHITE canvas background
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -221,7 +221,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
             Dokumentasi Kegiatan (Maksimal {maxPhotos} Foto) *
           </label>
           <p className="text-xs text-slate-500">
-            Format: JPG, PNG, WEBP. Foto Portrait & Landscape otomatis ditampilkan 100% utuh tanpa terpotong.
+            Format: JPG, PNG, WEBP. Foto Portrait & Landscape otomatis ditampilkan 100% utuh dengan latar putih.
           </p>
         </div>
         <span className="text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-200">
@@ -285,7 +285,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
             return (
               <div
                 key={item.id}
-                className="relative group rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 min-h-[220px] max-h-[300px] flex items-center justify-center shadow-sm p-2 transition-all"
+                className="relative group rounded-2xl overflow-hidden border border-slate-300 bg-white min-h-[220px] max-h-[300px] flex items-center justify-center shadow-xs p-2 transition-all"
               >
                 <img
                   src={item.previewUrl || item.existingUrl}

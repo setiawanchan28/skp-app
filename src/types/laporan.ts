@@ -21,6 +21,7 @@ export interface Laporan {
   deskripsi_kegiatan: string;
   ringkasan_kegiatan: string;
   kategori?: string;
+  status?: 'draft' | 'terkirim'; // 'draft' for incremental work, 'terkirim' for completed
   drive_pdf_url?: string;
   drive_pdf_file_id?: string;
   drive_folder_id?: string;
@@ -40,6 +41,7 @@ export type LaporanFormValues = {
   deskripsi_kegiatan: string;
   ringkasan_kegiatan: string;
   kategori: string;
+  status?: 'draft' | 'terkirim';
   fotos: {
     file?: File;
     name: string;

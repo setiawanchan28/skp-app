@@ -156,16 +156,16 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                     {secHeaderTitle}
                   </div>
 
-                  {/* Photos Grid Container */}
+                  {/* Photos Grid Container with WHITE Background Canvas */}
                   <div className="p-3">
                     {datePhotos.length === 0 ? (
                       <div className="text-center py-6 text-slate-400 text-xs italic">
                         Tidak ada foto dokumentasi terlampir
                       </div>
                     ) : datePhotos.length === 1 ? (
-                      /* SINGLE PHOTO: CENTERED IN THE MIDDLE OF CELL */
+                      /* SINGLE PHOTO: CENTERED IN THE MIDDLE OF CELL WITH WHITE CANVAS */
                       <div className="flex flex-col items-center justify-center p-2">
-                        <div className="border border-slate-300 rounded overflow-hidden max-w-sm h-56 bg-slate-950 flex items-center justify-center p-1 w-full">
+                        <div className="border border-slate-300 rounded overflow-hidden max-w-sm h-56 bg-white flex items-center justify-center p-1 w-full">
                           <img
                             src={datePhotos[0].previewUrl || datePhotos[0].drive_file_url}
                             alt="Dokumentasi"
@@ -174,12 +174,12 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                         </div>
                       </div>
                     ) : (
-                      /* MULTI PHOTO GRID: CLEAN NO OVERLAY TEXT */
+                      /* MULTI PHOTO GRID: CLEAN WHITE CANVAS */
                       <div className="grid grid-cols-2 gap-3">
                         {datePhotos.map((foto, idx) => (
                           <div
                             key={idx}
-                            className="border border-slate-300 rounded overflow-hidden h-44 bg-slate-950 flex items-center justify-center p-1"
+                            className="border border-slate-300 rounded overflow-hidden h-44 bg-white flex items-center justify-center p-1"
                           >
                             {foto.previewUrl || foto.drive_file_url ? (
                               <img

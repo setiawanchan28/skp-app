@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Save, Loader2, RefreshCw, Eye, Calendar as CalendarIcon, UserCheck, AlertCircle } from 'lucide-react';
+import { Sparkles, Save, Loader2, RefreshCw, Eye, Bookmark, Calendar as CalendarIcon, UserCheck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { fetchPegawaiList } from '@/services/pegawaiService';
 import { Pegawai } from '@/types/pegawai';
 import { TemplateSelector } from './TemplateSelector';
@@ -90,6 +90,10 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             setIsRangeDate(true);
             setTanggalSelesai(parsed.tanggalSelesai);
           }
+          if (parsed.photos && Array.isArray(parsed.photos)) {
+            setPhotos(parsed.photos);
+          }
+          if (parsed.savedAt) setDraftSavedAt(parsed.savedAt);
         } catch (e) {}
       }
     }
@@ -99,15 +103,39 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   useEffect(() => {
     if (initialData) return;
     const interval = setInterval(() => {
-      if (namaKegiatan || deskripsiKegiatan || ringkasanKegiatan) {
-        const draft = { namaKegiatan, deskripsiKegiatan, ringkasanKegiatan, tanggal, tanggalSelesai };
-        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-        const nowTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        setDraftSavedAt(nowTime);
+      if (namaKegiatan || deskripsiKegiatan || ringkasanKegiatan || photos.length > 0) {
+        saveDraftToLocal(false);
       }
     }, 30000);
     return () => clearInterval(interval);
-  }, [namaKegiatan, deskripsiKegiatan, ringkasanKegiatan, tanggal, tanggalSelesai, initialData]);
+  }, [namaKegiatan, deskripsiKegiatan, ringkasanKegiatan, tanggal, tanggalSelesai, photos, initialData]);
+
+  // Explicit Save Draft Helper
+  const saveDraftToLocal = (showToastNotice: boolean = true) => {
+    const nowTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    const draft = {
+      namaKegiatan,
+      deskripsiKegiatan,
+      ringkasanKegiatan,
+      tanggal,
+      tanggalSelesai,
+      kategori,
+      photos: photos.map((p) => ({
+        id: p.id,
+        name: p.name,
+        previewUrl: p.previewUrl || p.existingUrl || '',
+        tanggal_foto: p.tanggal_foto,
+        fitMode: p.fitMode,
+      })),
+      savedAt: nowTime,
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    setDraftSavedAt(nowTime);
+
+    if (showToastNotice) {
+      showToast('Draf laporan berhasil disimpan! Anda dapat melanjutkan/menyicil foto besok.', 'success');
+    }
+  };
 
   // Generate Date List Options for Multi-day Upload
   const computedDateList: DateGroupOption[] = React.useMemo(() => {
@@ -279,16 +307,27 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-6 space-y-6">
           <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
             <div>
-              <h3 className="font-extrabold text-slate-900 text-lg">Form Bukti Dukung Kegiatan Harian</h3>
+              <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                <span>Form Bukti Dukung Kegiatan Harian</span>
+                {draftSavedAt && (
+                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Draf Tersimpan ({draftSavedAt})</span>
+                  </span>
+                )}
+              </h3>
               <p className="text-xs text-slate-500">
-                Isi formulir untuk membuat laporan kegiatan harian pegawai BPS Kabupaten Lebak
+                Isi formulir untuk membuat laporan kegiatan harian pegawai BPS Kabupaten Lebak (dapat dicicil per-hari)
               </p>
             </div>
-            {draftSavedAt && (
-              <span className="text-[10px] text-slate-400 font-medium bg-slate-100 px-2 py-1 rounded-full">
-                Draft tersimpan {draftSavedAt}
-              </span>
-            )}
+            <button
+              type="button"
+              onClick={() => saveDraftToLocal(true)}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+            >
+              <Bookmark className="w-3.5 h-3.5 text-sky-600" />
+              <span>Simpan Draf</span>
+            </button>
           </div>
 
           {/* Pegawai Dropdown & Auto Filled Fields */}
@@ -486,39 +525,49 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
           />
         </div>
 
-        {/* Submit & Preview Button Bar */}
+        {/* Submit & Preview & Save Draft Button Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm sticky bottom-4 z-10">
           <div className="text-xs text-slate-500">
             {submitProgress ? (
               <span className="font-semibold text-sky-700 animate-pulse">{submitProgress}</span>
             ) : (
-              <span>Simpan otomatis ke Supabase DB & Google Drive (.pdf dan .docx)</span>
+              <span>Simpan draf untuk menyicil data, atau simpan final ke Google Drive</span>
             )}
           </div>
 
-          <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => saveDraftToLocal(true)}
+              className="px-3.5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-1.5"
+              title="Simpan sementara draf laporan untuk dicicil besok"
+            >
+              <Bookmark className="w-4 h-4 text-sky-600" />
+              <span>Simpan Draf</span>
+            </button>
+
             <button
               type="button"
               onClick={() => setIsPreviewOpen(true)}
-              className="flex-1 sm:flex-none px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2"
+              className="px-3.5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-1.5"
             >
               <Eye className="w-4 h-4 text-sky-600" />
-              <span>Preview Dokumen BPS</span>
+              <span>Preview</span>
             </button>
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 sm:flex-none px-6 py-3 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm shadow-md shadow-sky-600/20 transition-all flex items-center justify-center gap-2"
+              className="flex-1 sm:flex-none px-5 py-3 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 transition-all flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Memproses Otomatis...</span>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Memproses...</span>
                 </>
               ) : (
                 <>
-                  <Save className="w-5 h-5" />
+                  <Save className="w-4 h-4" />
                   <span>Simpan Laporan</span>
                 </>
               )}
