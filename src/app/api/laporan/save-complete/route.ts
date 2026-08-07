@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateFolderHierarchy, uploadFileToDrive, deleteFileFromDrive } from '@/lib/drive';
 import { generateBpsPdfBuffer } from '@/lib/pdf';
+import { generateBpsDocxBuffer } from '@/lib/docx';
 import { saveLaporanRecord, fetchLaporanById } from '@/services/laporanService';
-import { generatePhotoFilename, generatePdfFilename } from '@/utils/sanitizeFilename';
+import { generatePhotoFilename, generatePdfFilename, sanitizeFilename } from '@/utils/sanitizeFilename';
 import { LaporanFoto } from '@/types/laporan';
 
 export async function POST(req: NextRequest) {
@@ -26,7 +27,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Existing report check if edit mode
     let existingLaporan = id ? await fetchLaporanById(id) : null;
 
     // 1. Resolve Drive Hierarchy
@@ -37,7 +37,6 @@ export async function POST(req: NextRequest) {
     const photosData: LaporanFoto[] = [];
     const photoBase64Array: string[] = [];
 
-    // If edit mode and retaining previous photos
     if (existingLaporan && existingLaporan.fotos && photoFiles.length === 0) {
       existingLaporan.fotos.forEach((f) => photosData.push(f));
     }
@@ -48,11 +47,9 @@ export async function POST(req: NextRequest) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const photoName = generatePhotoFilename(tanggal, i, file.name);
         
-        // Save base64 for PDF rendering
         const base64Str = `data:${file.type};base64,${buffer.toString('base64')}`;
         photoBase64Array.push(base64Str);
 
-        // Upload photo directly to Google Drive 'Dokumentasi' subfolder
         const driveRes = await uploadFileToDrive(
           buffer,
           photoName,
@@ -79,12 +76,22 @@ export async function POST(req: NextRequest) {
       photosBase64: photoBase64Array,
     });
 
-    // 4. Delete old PDF on Drive if updating
+    // 4. Generate Official BPS Word Document (.docx)
+    const docxBuffer = await generateBpsDocxBuffer({
+      namaPegawai: nama_pegawai,
+      nip,
+      jabatan,
+      tanggal,
+      namaKegiatan: nama_kegiatan,
+      ringkasanKegiatan: ringkasan_kegiatan,
+      photosBase64: photoBase64Array,
+    });
+
     if (existingLaporan?.drive_pdf_file_id) {
       await deleteFileFromDrive(existingLaporan.drive_pdf_file_id);
     }
 
-    // 5. Upload new PDF to Google Drive 'PDF' subfolder
+    // 5. Upload PDF & Word Document to Google Drive
     const pdfFileName = generatePdfFilename(tanggal, nama_kegiatan);
     const pdfDriveRes = await uploadFileToDrive(
       pdfBuffer,
@@ -93,7 +100,15 @@ export async function POST(req: NextRequest) {
       folderStructure.pdfFolderId
     );
 
-    // 6. Save/Update Complete Record in Supabase DB
+    const docxFileName = `${tanggal}_${sanitizeFilename(nama_kegiatan)}.docx`;
+    await uploadFileToDrive(
+      docxBuffer,
+      docxFileName,
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      folderStructure.pdfFolderId
+    );
+
+    // 6. Save Record in Supabase DB
     const savedLaporan = await saveLaporanRecord(
       {
         id: id || undefined,
@@ -115,7 +130,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: savedLaporan,
-      message: 'Laporan harian, foto dokumentasi, dan PDF resmi BPS berhasil disimpan!',
+      message: 'Laporan harian, foto dokumentasi, PDF, dan file Word (.docx) berhasil disimpan ke Google Drive!',
     });
   } catch (error: any) {
     console.error('API Save Complete Laporan Error:', error);

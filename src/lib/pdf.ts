@@ -13,7 +13,7 @@ export interface PdfReportData {
 }
 
 /**
- * Generate official BPS Bukti Dukung Kegiatan PDF matching exact BPS Lebak template
+ * Generate official BPS Bukti Dukung Kegiatan PDF with strict aspect-ratio preservation for Portrait/Landscape photos
  */
 export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
@@ -31,10 +31,8 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
 
   const black = rgb(0, 0, 0);
   const peachBg = rgb(0.97, 0.78, 0.56); // #F8C48C exact BPS header color
-  const grayLine = rgb(0.2, 0.2, 0.2);
 
   // 1. LOGO & HEADER TITLE
-  // Draw Top BPS Logo (3 Polygons: Blue, Orange, Green)
   const logoX = pageWidth / 2;
   const logoY = y - 20;
 
@@ -85,7 +83,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   y -= 25;
 
   // 2. BAGIAN I: I. KETERANGAN PELAKSANA
-  // Header Bar Box
   const headerHeight = 22;
   page.drawRectangle({
     x: margin,
@@ -126,7 +123,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   const lineHeight = 14;
 
   for (const row of rows) {
-    // Text wrapping for Column 4
     const lines: string[] = [];
     const words = row.val.split(' ');
     let currentLine = '';
@@ -145,7 +141,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
 
     const rowHeight = Math.max(lines.length * lineHeight + 10, 24);
 
-    // Row Border Outer Box
     page.drawRectangle({
       x: margin,
       y: y - rowHeight,
@@ -155,7 +150,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
       borderWidth: 1,
     });
 
-    // Column Dividers
     page.drawLine({
       start: { x: margin + col1Width, y: y },
       end: { x: margin + col1Width, y: y - rowHeight },
@@ -175,34 +169,10 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
       color: black,
     });
 
-    // Draw Column 1: No
-    page.drawText(row.no, {
-      x: margin + 8,
-      y: y - 16,
-      size: fontSize,
-      font: fontRegular,
-      color: black,
-    });
+    page.drawText(row.no, { x: margin + 8, y: y - 16, size: fontSize, font: fontRegular, color: black });
+    page.drawText(row.label, { x: margin + col1Width + 8, y: y - 16, size: fontSize, font: fontRegular, color: black });
+    page.drawText(':', { x: margin + col1Width + col2Width + 4, y: y - 16, size: fontSize, font: fontRegular, color: black });
 
-    // Draw Column 2: Label
-    page.drawText(row.label, {
-      x: margin + col1Width + 8,
-      y: y - 16,
-      size: fontSize,
-      font: fontRegular,
-      color: black,
-    });
-
-    // Draw Column 3: Colon :
-    page.drawText(':', {
-      x: margin + col1Width + col2Width + 4,
-      y: y - 16,
-      size: fontSize,
-      font: fontRegular,
-      color: black,
-    });
-
-    // Draw Column 4: Value Lines
     lines.forEach((line, idx) => {
       page.drawText(line, {
         x: margin + col1Width + col2Width + col3Width + 6,
@@ -219,7 +189,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   y -= 15;
 
   // 3. BAGIAN II: II. DOKUMENTASI
-  // Header Bar Box
   page.drawRectangle({
     x: margin,
     y: y - headerHeight,
@@ -241,11 +210,9 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   });
   y -= headerHeight;
 
-  // Photo Section Box
   const photoBoxHeight = 250;
   const photoInnerY = y - photoBoxHeight;
 
-  // Outer Border Box for Documentation Section
   page.drawRectangle({
     x: margin,
     y: photoInnerY,
@@ -258,7 +225,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   const captionAreaHeight = 45;
   const imageAreaHeight = photoBoxHeight - captionAreaHeight;
 
-  // Horizontal divider for caption area
   page.drawLine({
     start: { x: margin, y: photoInnerY + captionAreaHeight },
     end: { x: margin + contentWidth, y: photoInnerY + captionAreaHeight },
@@ -266,7 +232,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     color: black,
   });
 
-  // Vertical Divider between 2 photo slots
   page.drawLine({
     start: { x: pageWidth / 2, y: y },
     end: { x: pageWidth / 2, y: photoInnerY + captionAreaHeight },
@@ -274,7 +239,7 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     color: black,
   });
 
-  // Embed Photos in 2 columns
+  // Embed Photos with Aspect Ratio Preservation (Portrait vs Landscape)
   if (data.photosBase64 && data.photosBase64.length > 0) {
     const halfWidth = contentWidth / 2;
 
@@ -292,14 +257,35 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
           embeddedImg = await pdfDoc.embedJpg(imageBytes);
         }
 
+        const imgWidth = embeddedImg.width;
+        const imgHeight = embeddedImg.height;
+        const imgAspectRatio = imgWidth / imgHeight;
+
+        const maxSlotWidth = halfWidth - 10;
+        const maxSlotHeight = imageAreaHeight - 10;
+        const slotAspectRatio = maxSlotWidth / maxSlotHeight;
+
+        let renderWidth = maxSlotWidth;
+        let renderHeight = maxSlotHeight;
+
+        if (imgAspectRatio > slotAspectRatio) {
+          // Landscape photo
+          renderHeight = maxSlotWidth / imgAspectRatio;
+        } else {
+          // Portrait photo: scale width proportionally to keep 100% portrait shape!
+          renderWidth = maxSlotHeight * imgAspectRatio;
+        }
+
+        const offsetX = slotX + 5 + (maxSlotWidth - renderWidth) / 2;
+        const offsetY = photoInnerY + captionAreaHeight + 5 + (maxSlotHeight - renderHeight) / 2;
+
         page.drawImage(embeddedImg, {
-          x: slotX + 4,
-          y: photoInnerY + captionAreaHeight + 4,
-          width: halfWidth - 8,
-          height: imageAreaHeight - 8,
+          x: offsetX,
+          y: offsetY,
+          width: renderWidth,
+          height: renderHeight,
         });
       } catch (err) {
-        // Fallback photo box placeholder
         page.drawText('[ Foto Dokumentasi ]', {
           x: slotX + 40,
           y: photoInnerY + captionAreaHeight + (imageAreaHeight / 2),

@@ -51,7 +51,6 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
       }
 
       try {
-        // Compress image client side
         const compressed = await compressImage(file);
         const previewUrl = URL.createObjectURL(compressed);
 
@@ -101,7 +100,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
             Dokumentasi Kegiatan (Maksimal {maxPhotos} Foto) *
           </label>
           <p className="text-xs text-slate-500">
-            Format: JPG, PNG, WEBP. Maks 10 MB per file. Gambar otomatis dikompresi.
+            Format: JPG, PNG, WEBP. Maks 10 MB per file. Proporsi foto Portrait & Landscape terjaga 100%.
           </p>
         </div>
         <span className="text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-200">
@@ -153,18 +152,18 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
         </div>
       )}
 
-      {/* Photo Previews Grid */}
+      {/* Photo Previews Grid with contain fit */}
       {photos.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {photos.map((item, index) => (
             <div
               key={item.id}
-              className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-900 aspect-video shadow-xs"
+              className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-900 h-44 flex items-center justify-center shadow-xs p-1"
             >
               <img
                 src={item.previewUrl || item.existingUrl}
                 alt={item.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90"
+                className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-between">
                 <div className="flex justify-end">

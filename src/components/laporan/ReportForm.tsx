@@ -2,13 +2,15 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Save, Loader2, RefreshCw, Calendar as CalendarIcon, UserCheck, AlertCircle } from 'lucide-react';
+import { Sparkles, Save, Loader2, RefreshCw, Eye, Calendar as CalendarIcon, UserCheck, AlertCircle } from 'lucide-react';
 import { fetchPegawaiList } from '@/services/pegawaiService';
 import { Pegawai } from '@/types/pegawai';
 import { TemplateSelector } from './TemplateSelector';
 import { PhotoUploader, PhotoItem } from './PhotoUploader';
+import { PDFPreviewModal } from './PDFPreviewModal';
 import { useToast } from '@/components/ui/Toast';
 import { ActivityTemplate } from '@/constants/templates';
+import { Laporan } from '@/types/laporan';
 
 const DRAFT_KEY = 'laporan_form_draft';
 
@@ -37,13 +39,13 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState<string>('');
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Load Pegawai List on mount
   useEffect(() => {
     fetchPegawaiList().then((list) => {
       setPegawaiList(list);
       if (list.length > 0 && !initialData && !selectedPegawaiId) {
-        // Default select first pegawai
         const p = list[0];
         setSelectedPegawaiId(p.id);
         setNamaPegawai(p.nama);
@@ -168,14 +170,13 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       formData.append('ringkasan_kegiatan', ringkasanKegiatan);
       formData.append('kategori', kategori);
 
-      // Append photo files
       for (const item of photos) {
         if (item.file) {
           formData.append('photos', item.file, item.name);
         }
       }
 
-      setSubmitProgress('Menyimpan data, unggah foto & generate PDF ke Google Drive...');
+      setSubmitProgress('Menyimpan data, unggah foto, PDF & Word ke Google Drive...');
 
       const res = await fetch('/api/laporan/save-complete', {
         method: 'POST',
@@ -185,10 +186,9 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Gagal menyimpan laporan');
 
-      // Clear local draft
       localStorage.removeItem(DRAFT_KEY);
 
-      showToast('Laporan harian, dokumentasi foto, dan PDF resmi BPS berhasil disimpan ke Drive!', 'success');
+      showToast('Laporan harian, foto, PDF, dan Word (.docx) berhasil disimpan ke Drive!', 'success');
       router.push('/laporan');
     } catch (err: any) {
       console.error(err);
@@ -199,201 +199,242 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
     }
   };
 
+  // Current transient preview object
+  const transientLaporanPreview: Laporan = {
+    id: 'preview',
+    nama_pegawai: namaPegawai || 'Dede Setiawan',
+    nip: nip || '199502282024211021',
+    jabatan: jabatan || 'Pranata Komputer',
+    tanggal: tanggal,
+    nama_kegiatan: namaKegiatan || 'Nama Kegiatan',
+    deskripsi_kegiatan: deskripsiKegiatan,
+    ringkasan_kegiatan: ringkasanKegiatan || 'Ringkasan Kegiatan...',
+    kategori: kategori,
+    fotos: photos.map((p, idx) => ({
+      id: p.id,
+      drive_file_id: `preview_${idx}`,
+      drive_file_url: p.previewUrl || p.existingUrl || '',
+      file_name: p.name,
+      previewUrl: p.previewUrl || p.existingUrl,
+    })),
+  };
+
   return (
-    <form onSubmit={handleSubmitLaporan} className="space-y-6 max-w-4xl mx-auto">
-      {/* Template Selector Banner */}
-      <TemplateSelector onSelect={handleTemplateSelect} />
+    <>
+      <form onSubmit={handleSubmitLaporan} className="space-y-6 max-w-4xl mx-auto">
+        {/* Template Selector Banner */}
+        <TemplateSelector onSelect={handleTemplateSelect} />
 
-      {/* Main Card */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-6 space-y-6">
-        <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
-          <div>
-            <h3 className="font-extrabold text-slate-900 text-lg">Form Bukti Dukung Kegiatan Harian</h3>
-            <p className="text-xs text-slate-500">
-              Isi formulir untuk membuat laporan kegiatan harian pegawai BPS Kabupaten Lebak
-            </p>
-          </div>
-          {draftSavedAt && (
-            <span className="text-[10px] text-slate-400 font-medium bg-slate-100 px-2 py-1 rounded-full">
-              Draft tersimpan {draftSavedAt}
-            </span>
-          )}
-        </div>
-
-        {/* Pegawai Dropdown & Auto Filled Fields */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Pilih Nama Pegawai *
-            </label>
-            <select
-              value={selectedPegawaiId}
-              onChange={handlePegawaiChange}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
-            >
-              {pegawaiList.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nama}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              NIP (Otomatis)
-            </label>
-            <input
-              type="text"
-              readOnly
-              value={nip}
-              className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-xl text-sm font-mono cursor-not-allowed"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Jabatan (Otomatis)
-            </label>
-            <input
-              type="text"
-              readOnly
-              value={jabatan}
-              className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-xl text-sm cursor-not-allowed"
-            />
-          </div>
-        </div>
-
-        {/* Date and Category */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Tanggal Kegiatan *
-            </label>
-            <input
-              type="date"
-              value={tanggal}
-              onChange={(e) => setTanggal(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Kategori Kegiatan
-            </label>
-            <select
-              value={kategori}
-              onChange={(e) => setKategori(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
-            >
-              <option value="Pelatihan">Pelatihan</option>
-              <option value="Rapat">Rapat</option>
-              <option value="Monitoring">Monitoring</option>
-              <option value="Supervisi">Supervisi</option>
-              <option value="Sosialisasi">Sosialisasi</option>
-              <option value="Evaluasi">Evaluasi</option>
-              <option value="Pengolahan Data">Pengolahan Data</option>
-              <option value="Lainnya">Lainnya</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Nama Kegiatan */}
-        <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-            Nama Kegiatan *
-          </label>
-          <input
-            type="text"
-            value={namaKegiatan}
-            onChange={(e) => setNamaKegiatan(e.target.value)}
-            placeholder="Contoh: Pelatihan Petugas Sakernas Periode Agustus 2026"
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors font-medium text-slate-800"
-          />
-        </div>
-
-        {/* Deskripsi Kegiatan for AI prompt */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Deskripsi Kegiatan (Poin-poin / Catatan Kegiatan)
-            </label>
-            <span className="text-[10px] text-slate-400">Dapat ditarik/diperbesar ukurannya</span>
-          </div>
-          <textarea
-            rows={5}
-            value={deskripsiKegiatan}
-            onChange={(e) => setDeskripsiKegiatan(e.target.value)}
-            placeholder="- Mendampingi petugas pencacah di wilayah sampel&#10;- Melakukan validasi isian kuesioner digital/fisik&#10;- Desa Aweh&#10;- PML Bu Sundari dan PPL Fahmi&#10;- Menyampaikan perbaikan anomali data"
-            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors leading-relaxed min-h-[120px] resize-y"
-          />
-        </div>
-
-        {/* Ringkasan Kegiatan & Gemini Button */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Ringkasan Kegiatan (Bahasa Laporan Resmi BPS) *
-              </label>
-              <span className="text-[10px] text-slate-400 hidden sm:inline">(Dapat diperbesar)</span>
+        {/* Main Card */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-6 space-y-6">
+          <div className="border-b border-slate-100 pb-4 flex items-center justify-between">
+            <div>
+              <h3 className="font-extrabold text-slate-900 text-lg">Form Bukti Dukung Kegiatan Harian</h3>
+              <p className="text-xs text-slate-500">
+                Isi formulir untuk membuat laporan kegiatan harian pegawai BPS Kabupaten Lebak
+              </p>
             </div>
+            {draftSavedAt && (
+              <span className="text-[10px] text-slate-400 font-medium bg-slate-100 px-2 py-1 rounded-full">
+                Draft tersimpan {draftSavedAt}
+              </span>
+            )}
+          </div>
+
+          {/* Pegawai Dropdown & Auto Filled Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Pilih Nama Pegawai *
+              </label>
+              <select
+                value={selectedPegawaiId}
+                onChange={handlePegawaiChange}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
+              >
+                {pegawaiList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nama}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                NIP (Otomatis)
+              </label>
+              <input
+                type="text"
+                readOnly
+                value={nip}
+                className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-xl text-sm font-mono cursor-not-allowed"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Jabatan (Otomatis)
+              </label>
+              <input
+                type="text"
+                readOnly
+                value={jabatan}
+                className="w-full px-3.5 py-2.5 bg-slate-100 border border-slate-200 text-slate-600 rounded-xl text-sm cursor-not-allowed"
+              />
+            </div>
+          </div>
+
+          {/* Date and Category */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Tanggal Kegiatan *
+              </label>
+              <input
+                type="date"
+                value={tanggal}
+                onChange={(e) => setTanggal(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Kategori Kegiatan
+              </label>
+              <select
+                value={kategori}
+                onChange={(e) => setKategori(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
+              >
+                <option value="Pelatihan">Pelatihan</option>
+                <option value="Rapat">Rapat</option>
+                <option value="Monitoring">Monitoring</option>
+                <option value="Supervisi">Supervisi</option>
+                <option value="Sosialisasi">Sosialisasi</option>
+                <option value="Evaluasi">Evaluasi</option>
+                <option value="Pengolahan Data">Pengolahan Data</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Nama Kegiatan */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Nama Kegiatan *
+            </label>
+            <input
+              type="text"
+              value={namaKegiatan}
+              onChange={(e) => setNamaKegiatan(e.target.value)}
+              placeholder="Contoh: Pelatihan Petugas Sakernas Periode Agustus 2026"
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors font-medium text-slate-800"
+            />
+          </div>
+
+          {/* Deskripsi Kegiatan */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Deskripsi Kegiatan (Poin-poin / Catatan Kegiatan)
+              </label>
+              <span className="text-[10px] text-slate-400">Dapat ditarik/diperbesar ukurannya</span>
+            </div>
+            <textarea
+              rows={5}
+              value={deskripsiKegiatan}
+              onChange={(e) => setDeskripsiKegiatan(e.target.value)}
+              placeholder="- Mendampingi petugas pencacah di wilayah sampel&#10;- Melakukan validasi isian kuesioner digital/fisik&#10;- Desa Aweh&#10;- PML Bu Sundari dan PPL Fahmi&#10;- Menyampaikan perbaikan anomali data"
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors leading-relaxed min-h-[120px] resize-y"
+            />
+          </div>
+
+          {/* Ringkasan Kegiatan & Gemini Button */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Ringkasan Kegiatan (Bahasa Laporan Resmi BPS) *
+                </label>
+                <span className="text-[10px] text-slate-400 hidden sm:inline">(Dapat diperbesar)</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateGemini}
+                disabled={isGeneratingAi}
+                className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 ai-pulse-button"
+              >
+                {isGeneratingAi ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                <span>Generate dengan Gemini</span>
+              </button>
+            </div>
+
+            <textarea
+              rows={6}
+              value={ringkasanKegiatan}
+              onChange={(e) => setRingkasanKegiatan(e.target.value)}
+              placeholder="Ringkasan narasi kegiatan harian pribadi akan dihasilkan otomatis oleh Gemini AI..."
+              className="w-full px-3.5 py-2.5 bg-sky-50/50 border border-sky-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors leading-relaxed font-medium text-slate-800 min-h-[160px] resize-y"
+            />
+          </div>
+
+          {/* Photo Uploader */}
+          <PhotoUploader photos={photos} onChange={setPhotos} maxPhotos={6} />
+        </div>
+
+        {/* Submit & Preview Button Bar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm sticky bottom-4 z-10">
+          <div className="text-xs text-slate-500">
+            {submitProgress ? (
+              <span className="font-semibold text-sky-700 animate-pulse">{submitProgress}</span>
+            ) : (
+              <span>Simpan otomatis ke Supabase DB & Google Drive (.pdf dan .docx)</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
               type="button"
-              onClick={handleGenerateGemini}
-              disabled={isGeneratingAi}
-              className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 ai-pulse-button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="flex-1 sm:flex-none px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2"
             >
-              {isGeneratingAi ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Eye className="w-4 h-4 text-sky-600" />
+              <span>Preview Dokumen BPS</span>
+            </button>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 sm:flex-none px-6 py-3 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm shadow-md shadow-sky-600/20 transition-all flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Memproses Otomatis...</span>
+                </>
               ) : (
-                <Sparkles className="w-3.5 h-3.5" />
+                <>
+                  <Save className="w-5 h-5" />
+                  <span>Simpan Laporan</span>
+                </>
               )}
-              <span>Generate dengan Gemini</span>
             </button>
           </div>
-
-          <textarea
-            rows={6}
-            value={ringkasanKegiatan}
-            onChange={(e) => setRingkasanKegiatan(e.target.value)}
-            placeholder="Ringkasan narasi kegiatan harian pribadi akan dihasilkan otomatis oleh Gemini AI berdasarkan nama pegawai dan deskripsi kegiatan..."
-            className="w-full px-3.5 py-2.5 bg-sky-50/50 border border-sky-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors leading-relaxed font-medium text-slate-800 min-h-[160px] resize-y"
-          />
         </div>
+      </form>
 
-        {/* Photo Uploader */}
-        <PhotoUploader photos={photos} onChange={setPhotos} maxPhotos={6} />
-      </div>
-
-      {/* Submit Button Bar */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm sticky bottom-4 z-10">
-        <div className="text-xs text-slate-500">
-          {submitProgress ? (
-            <span className="font-semibold text-sky-700 animate-pulse">{submitProgress}</span>
-          ) : (
-            <span>Satu langkah otomatis untuk simpan data, foto, dan PDF BPS ke Drive</span>
-          )}
-        </div>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="px-6 py-3 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm shadow-md shadow-sky-600/20 transition-all flex items-center gap-2"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              <span>Memproses Otomatis...</span>
-            </>
-          ) : (
-            <>
-              <Save className="w-5 h-5" />
-              <span>Simpan Laporan</span>
-            </>
-          )}
-        </button>
-      </div>
-    </form>
+      {/* Live PDF & Document Preview Modal */}
+      <PDFPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        laporan={transientLaporanPreview}
+      />
+    </>
   );
 };
