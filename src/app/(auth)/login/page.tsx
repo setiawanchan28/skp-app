@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Sparkles, Mail, Lock, LogIn, ArrowRight, UserCheck } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { BPS_CONFIG } from '@/constants/bpsConfig';
+import { fetchPegawaiList } from '@/services/pegawaiService';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,11 +27,34 @@ export default function LoginPage() {
       return;
     }
 
+    // Try to match input to existing Pegawai record from Master Pegawai
+    const pegawaiList = await fetchPegawaiList();
+    const matchedPegawai = pegawaiList.find(
+      (p) =>
+        p.nip === inputClean ||
+        (p.email && p.email.toLowerCase() === inputClean.toLowerCase()) ||
+        p.nama.toLowerCase().includes(inputClean.toLowerCase())
+    );
+
     let userSession = {
-      nama: inputClean.length > 5 ? `Pegawai (NIP: ${inputClean})` : 'Dede Supriatna, S.Si., M.Stat.',
-      nip: inputClean.length > 5 ? inputClean : '198805122010121002',
-      email: inputClean.includes('@') ? inputClean : 'bps3602@bps.go.id',
+      nama: matchedPegawai?.nama || 'Dede Setiawan, S.Tr.Stat.',
+      nip: matchedPegawai?.nip || (inputClean.length === 18 && /^\d+$/.test(inputClean) ? inputClean : '199502282024211021'),
+      jabatan: matchedPegawai?.jabatan || 'Pranata Komputer Ahli Pertama',
+      email: inputClean.includes('@') ? inputClean : matchedPegawai?.email || 'ddsetiawan28@gmail.com',
     };
+
+    // If existing auth user exists in localStorage, preserve custom profile edits
+    if (typeof window !== 'undefined') {
+      const existingAuth = localStorage.getItem('bps_auth_user');
+      if (existingAuth) {
+        try {
+          const parsed = JSON.parse(existingAuth);
+          if (parsed.nama && !parsed.nama.includes('NIP:')) userSession.nama = parsed.nama;
+          if (parsed.nip && !parsed.nip.includes('@')) userSession.nip = parsed.nip;
+          if (parsed.jabatan) userSession.jabatan = parsed.jabatan;
+        } catch (e) {}
+      }
+    }
 
     if (isSupabaseConfigured() && inputClean.includes('@')) {
       try {
@@ -43,6 +67,7 @@ export default function LoginPage() {
           userSession = {
             nama: data.user.user_metadata?.nama || userSession.nama,
             nip: data.user.user_metadata?.nip || userSession.nip,
+            jabatan: data.user.user_metadata?.jabatan || userSession.jabatan,
             email: data.user.email || userSession.email,
           };
         }
@@ -61,9 +86,10 @@ export default function LoginPage() {
 
   const handleQuickDemoAccess = () => {
     const demoUser = {
-      nama: 'Dede Supriatna, S.Si., M.Stat.',
-      nip: '198805122010121002',
-      email: 'dede.supriatna@bps.go.id',
+      nama: 'Dede Setiawan, S.Tr.Stat.',
+      nip: '199502282024211021',
+      jabatan: 'Pranata Komputer Ahli Pertama',
+      email: 'ddsetiawan28@gmail.com',
     };
     if (typeof window !== 'undefined') {
       localStorage.setItem('bps_auth_user', JSON.stringify(demoUser));

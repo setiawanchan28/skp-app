@@ -14,10 +14,10 @@ interface UserProfile {
 export default function PengaturanAkunPage() {
   const { showToast } = useToast();
 
-  const [nama, setNama] = useState('Dede Supriatna, S.Si., M.Stat.');
-  const [nip, setNip] = useState('198805122010121002');
-  const [jabatan, setJabatan] = useState('Statistisi Ahli Muda');
-  const [email, setEmail] = useState('dede.supriatna@bps.go.id');
+  const [nama, setNama] = useState('Dede Setiawan, S.Tr.Stat.');
+  const [nip, setNip] = useState('199502282024211021');
+  const [jabatan, setJabatan] = useState('Pranata Komputer Ahli Pertama');
+  const [email, setEmail] = useState('ddsetiawan28@gmail.com');
 
   const [passwordLama, setPasswordLama] = useState('');
   const [passwordBaru, setPasswordBaru] = useState('');
@@ -32,8 +32,8 @@ export default function PengaturanAkunPage() {
       if (savedUser) {
         try {
           const parsed = JSON.parse(savedUser);
-          if (parsed.nama) setNama(parsed.nama);
-          if (parsed.nip) setNip(parsed.nip);
+          if (parsed.nama && !parsed.nama.includes('NIP:')) setNama(parsed.nama);
+          if (parsed.nip && !parsed.nip.includes('@')) setNip(parsed.nip);
           if (parsed.jabatan) setJabatan(parsed.jabatan);
           if (parsed.email) setEmail(parsed.email);
         } catch (e) {}
