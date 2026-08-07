@@ -8,6 +8,7 @@ import {
   Download,
   Eye,
   ExternalLink,
+  Edit2,
   Trash2,
   FilePlus,
   Copy,
@@ -261,6 +262,13 @@ export default function RiwayatLaporanPage() {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+                        <Link
+                          href={`/laporan/edit/${lap.id}`}
+                          className="p-1.5 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                          title="Edit Laporan Kegiatan"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Link>
                         <button
                           onClick={() => setDeletingId(lap.id)}
                           className="p-1.5 text-slate-600 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
