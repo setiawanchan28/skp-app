@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 import { getStoredLaporanList } from '@/lib/laporanStore';
 import fs from 'fs';
 import path from 'path';
@@ -41,11 +41,11 @@ export async function POST() {
     errors: [] as string[],
   };
 
-  // 1. Push Pegawai List to Supabase DB
+  // 1. Push Pegawai List to Supabase DB using Admin client
   try {
     const pegawaiList = getStoredPegawaiList();
     for (const p of pegawaiList) {
-      const { error } = await supabase.from('pegawai').upsert({
+      const { error } = await supabaseAdmin.from('pegawai').upsert({
         id: p.id || 'peg-main',
         nama: p.nama,
         nip: p.nip,
@@ -62,7 +62,7 @@ export async function POST() {
     results.errors.push(`Pegawai sync exception: ${err.message}`);
   }
 
-  // 2. Push Laporan List to Supabase DB
+  // 2. Push Laporan List to Supabase DB using Admin client
   try {
     const laporanList = getStoredLaporanList();
     for (const lap of laporanList) {
@@ -87,7 +87,7 @@ export async function POST() {
         dbRecord.tanggal_selesai = lap.tanggal_selesai;
       }
 
-      const { error } = await supabase.from('laporan').upsert(dbRecord);
+      const { error } = await supabaseAdmin.from('laporan').upsert(dbRecord);
       if (error) {
         results.errors.push(`Laporan upsert error (${lap.nama_kegiatan}): ${error.message}`);
       } else {
@@ -95,8 +95,8 @@ export async function POST() {
 
         // Sync fotos if present
         if (lap.fotos && lap.fotos.length > 0) {
-          await supabase.from('laporan_foto').delete().eq('laporan_id', lap.id);
-          await supabase.from('laporan_foto').insert(
+          await supabaseAdmin.from('laporan_foto').delete().eq('laporan_id', lap.id);
+          await supabaseAdmin.from('laporan_foto').insert(
             lap.fotos.map((f) => ({
               laporan_id: lap.id,
               drive_file_id: f.drive_file_id,

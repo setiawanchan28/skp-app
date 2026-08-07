@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabase, supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 import { Laporan, LaporanFoto } from '@/types/laporan';
 
 const LOCAL_STORAGE_LAPORAN = 'bps_laporan_data';
@@ -9,7 +9,8 @@ export async function fetchLaporanList(): Promise<Laporan[]> {
   // 1. Fetch from Supabase DB (Primary Online Source for HP & PC sync)
   if (isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase
+      const client = typeof window === 'undefined' ? supabaseAdmin : supabase;
+      const { data, error } = await client
         .from('laporan')
         .select(`
           *,
@@ -126,9 +127,10 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
     localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(updatedList));
   }
 
-  // 2. Sync to Supabase Online DB
+  // 2. Sync to Supabase Online DB using supabaseAdmin on server
   if (isSupabaseConfigured()) {
     try {
+      const client = typeof window === 'undefined' ? supabaseAdmin : supabase;
       const baseDbRecord: Record<string, any> = {
         id: record.id,
         nama_pegawai: record.nama_pegawai,
@@ -150,19 +152,18 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
         baseDbRecord.tanggal_selesai = record.tanggal_selesai;
       }
 
-      const { error } = await supabase.from('laporan').upsert(baseDbRecord);
+      const { error } = await client.from('laporan').upsert(baseDbRecord);
 
       if (error) {
         console.error('Supabase upsert laporan error:', error.message);
-        // Fallback retry without optional extra columns if schema mismatch
         delete baseDbRecord.tanggal_selesai;
         delete baseDbRecord.kategori;
-        await supabase.from('laporan').upsert(baseDbRecord);
+        await client.from('laporan').upsert(baseDbRecord);
       }
 
       if (fotosData.length > 0) {
-        await supabase.from('laporan_foto').delete().eq('laporan_id', newId);
-        await supabase.from('laporan_foto').insert(
+        await client.from('laporan_foto').delete().eq('laporan_id', newId);
+        await client.from('laporan_foto').insert(
           fotosData.map((f) => ({
             laporan_id: newId,
             drive_file_id: f.drive_file_id,
@@ -195,7 +196,8 @@ export async function deleteLaporanRecord(id: string): Promise<boolean> {
 
   if (isSupabaseConfigured()) {
     try {
-      await supabase.from('laporan').delete().eq('id', id);
+      const client = typeof window === 'undefined' ? supabaseAdmin : supabase;
+      await client.from('laporan').delete().eq('id', id);
     } catch (err) {
       console.warn('Supabase delete laporan error:', err);
     }

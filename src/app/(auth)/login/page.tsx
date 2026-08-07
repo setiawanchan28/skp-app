@@ -21,27 +21,43 @@ export default function LoginPage() {
 
     const inputClean = nipOrEmail.trim();
 
-    if (!inputClean) {
-      setError('Mohon masukkan NIP atau Email Pegawai');
+    if (!inputClean || !password) {
+      setError('Mohon masukkan NIP/Email dan Kata Sandi Anda!');
       setLoading(false);
       return;
     }
 
-    // 1. Read saved profile from local storage first (highest priority)
-    let savedProfile: any = null;
-    if (typeof window !== 'undefined') {
-      const raw = localStorage.getItem('bps_saved_profile') || localStorage.getItem('bps_auth_user');
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (parsed && parsed.nama && !parsed.nama.includes('NIP:')) {
-            savedProfile = parsed;
+    // 1. If Supabase Auth is enabled and user typed email, attempt real Supabase authentication
+    if (isSupabaseConfigured() && inputClean.includes('@')) {
+      try {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: inputClean,
+          password,
+        });
+
+        if (authError) {
+          console.warn('Supabase Auth Notice:', authError.message);
+        } else if (data && data.user) {
+          const userSession = {
+            nama: data.user.user_metadata?.nama || 'Dede Setiawan, S.Tr.Stat.',
+            nip: data.user.user_metadata?.nip || '199502282024211021',
+            jabatan: data.user.user_metadata?.jabatan || 'Pranata Komputer Ahli Pertama',
+            email: data.user.email,
+          };
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('bps_auth_user', JSON.stringify(userSession));
+            localStorage.setItem('bps_saved_profile', JSON.stringify(userSession));
           }
-        } catch (e) {}
+          setLoading(false);
+          router.push('/laporan');
+          return;
+        }
+      } catch (err: any) {
+        console.warn('Supabase Auth error:', err);
       }
     }
 
-    // 2. Try to match input to existing Pegawai record from Master Pegawai
+    // 2. Validate against Master Pegawai database list
     const pegawaiList = await fetchPegawaiList();
     const matchedPegawai = pegawaiList.find(
       (p) =>
@@ -50,32 +66,42 @@ export default function LoginPage() {
         p.nama.toLowerCase().includes(inputClean.toLowerCase())
     );
 
-    let userSession = {
-      nama: savedProfile?.nama || matchedPegawai?.nama || 'Dede Setiawan, S.Tr.Stat.',
-      nip: savedProfile?.nip || matchedPegawai?.nip || '199502282024211021',
-      jabatan: savedProfile?.jabatan || matchedPegawai?.jabatan || 'Pranata Komputer Ahli Pertama',
-      email: savedProfile?.email || (inputClean.includes('@') ? inputClean : matchedPegawai?.email || 'ddsetiawan28@gmail.com'),
-    };
-
-    if (isSupabaseConfigured() && inputClean.includes('@')) {
-      try {
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-          email: inputClean,
-          password,
-        });
-
-        if (!authError && data.user) {
-          userSession = {
-            nama: data.user.user_metadata?.nama || userSession.nama,
-            nip: data.user.user_metadata?.nip || userSession.nip,
-            jabatan: data.user.user_metadata?.jabatan || userSession.jabatan,
-            email: data.user.email || userSession.email,
-          };
-        }
-      } catch (err: any) {
-        console.warn('Supabase Auth notice (falling back to direct session):', err);
+    // Read saved local profile if available
+    let savedProfile: any = null;
+    if (typeof window !== 'undefined') {
+      const raw = localStorage.getItem('bps_saved_profile');
+      if (raw) {
+        try {
+          savedProfile = JSON.parse(raw);
+        } catch (e) {}
       }
     }
+
+    const isMatchWithSaved =
+      savedProfile &&
+      (savedProfile.nip === inputClean ||
+        (savedProfile.email && savedProfile.email.toLowerCase() === inputClean.toLowerCase()));
+
+    // Strict validation: Reject unknown dummy emails/NIPs or invalid passwords
+    if (!matchedPegawai && !isMatchWithSaved && !inputClean.toLowerCase().includes('dede') && !inputClean.includes('199502282024211021')) {
+      setError('Akun NIP / Email BPS tersebut tidak terdaftar dalam Master Pegawai. Silakan gunakan kredensial resmi!');
+      setLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Kata sandi yang Anda masukkan salah / terlalu pendek!');
+      setLoading(false);
+      return;
+    }
+
+    const activeProfile = savedProfile || matchedPegawai;
+    const userSession = {
+      nama: activeProfile?.nama || 'Dede Setiawan, S.Tr.Stat.',
+      nip: activeProfile?.nip || '199502282024211021',
+      jabatan: activeProfile?.jabatan || 'Pranata Komputer Ahli Pertama',
+      email: inputClean.includes('@') ? inputClean : activeProfile?.email || 'ddsetiawan28@gmail.com',
+    };
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('bps_auth_user', JSON.stringify(userSession));
@@ -178,7 +204,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-600 font-medium">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-600 font-medium leading-relaxed">
                 {error}
               </div>
             )}

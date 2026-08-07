@@ -6,14 +6,20 @@ function cleanUrl(url?: string): string {
 }
 
 function cleanKey(key?: string): string {
-  if (!key) return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
+  if (!key) return '';
   return key.trim().replace(/^["']|["']$/g, '');
 }
 
 const supabaseUrl = cleanUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
-const supabaseAnonKey = cleanKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+const supabaseAnonKey = cleanKey(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
+const supabaseServiceKey = cleanKey(process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Admin client using service role key (bypasses RLS on server for 100% reliable writes)
+export const supabaseAdmin = supabaseServiceKey
+  ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
+  : supabase;
 
 // Helper to check if Supabase has real configured credentials
 export const isSupabaseConfigured = () => {
