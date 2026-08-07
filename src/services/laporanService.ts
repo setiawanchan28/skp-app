@@ -35,19 +35,30 @@ export async function fetchLaporanList(): Promise<Laporan[]> {
     }
   }
 
+  const isDemoUrl = (url?: string, fileId?: string) =>
+    fileId === 'demo_pdf_1' ||
+    fileId === 'demo_pdf_2' ||
+    (url && (url.includes('demo_pdf_1') || url.includes('demo_pdf_2')));
+
+  // Filter out any legacy dummy demo items with demo_pdf_1 links
+  localData = localData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id));
+
   // Merge Supabase and Local Storage items to ensure newly saved reports ALWAYS appear immediately
   if (supabaseData && supabaseData.length > 0) {
     const mergedMap = new Map<string, Laporan>();
-    supabaseData.forEach((item) => mergedMap.set(item.id, item));
+    supabaseData
+      .filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id))
+      .forEach((item) => mergedMap.set(item.id, item));
+
     localData.forEach((item) => {
       if (!mergedMap.has(item.id)) {
         mergedMap.set(item.id, item);
       }
     });
-    const result = Array.from(mergedMap.values()).sort(
+
+    return Array.from(mergedMap.values()).sort(
       (a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
     );
-    return result;
   }
 
   return localData;
@@ -81,7 +92,7 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
     updated_at: new Date().toISOString(),
   };
 
-  // 1. Always update local storage first so user sees the report immediately
+  // 1. Update local storage immediately so user sees the new report instantly
   if (typeof window !== 'undefined') {
     const currentList = await fetchLaporanList();
     const existingIndex = currentList.findIndex((l) => l.id === newId);

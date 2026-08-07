@@ -121,7 +121,8 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     });
     y -= 25;
   } else {
-    y -= 55;
+    // Add generous spacing below logo image before Title 1
+    y -= 65;
   }
 
   // Title 1: BUKTI DUKUNG KEGIATAN
@@ -285,7 +286,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     if (isMultiDate) {
       datePhotos = allPhotos.filter((p) => p.tanggal_foto === dItem.dateStr);
       if (datePhotos.length === 0) {
-        // Even distribution fallback across multi-days
         const photosPerDay = Math.ceil(allPhotos.length / dates.length);
         const startIdx = dIdx * photosPerDay;
         datePhotos = allPhotos.slice(startIdx, startIdx + photosPerDay);
@@ -344,7 +344,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
       });
       y -= emptyBoxHeight + 15;
     } else if (totalCount === 1) {
-      // 1 PHOTO UPLOADED: CENTERED HORIZONTALLY IN CELL WITH WHITE CANVAS
       const photoBoxHeight = 240;
       const photoInnerY = y - photoBoxHeight;
 
@@ -402,7 +401,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
         });
       } catch (e) {}
 
-      // Clean separate caption row
       const cap1 = cleanNamaKegiatan;
       const cap1Width = fontRegular.widthOfTextAtSize(cap1, 10);
       page.drawText(cap1, {
@@ -425,7 +423,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
 
       y -= photoBoxHeight + 15;
     } else {
-      // 2 OR MORE PHOTOS: 2-COLUMN GRID (ROW BY ROW)
       const photoRows = Math.ceil(totalCount / 2);
       const rowHeight = 220;
       const halfWidth = contentWidth / 2;
@@ -506,7 +503,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
           } catch (e) {}
         }
 
-        // Clean separate caption
         const cap1 = cleanNamaKegiatan;
         const cap1Width = fontRegular.widthOfTextAtSize(cap1, 10);
         page.drawText(cap1, {

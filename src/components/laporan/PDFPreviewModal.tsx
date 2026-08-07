@@ -46,7 +46,6 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
   useEffect(() => {
-    // Check if custom logo exists in public/
     const img = new Image();
     img.src = BPS_CONFIG.logoPath;
     img.onload = () => setHasCustomLogo(true);
@@ -66,8 +65,8 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
         {/* PDF Document Render Preview */}
         <div className="bg-white border border-slate-400 shadow-2xl rounded-sm p-8 max-w-2xl mx-auto space-y-6 font-sans text-black">
           {/* Header Logo & Titles */}
-          <div className="text-center space-y-2">
-            <div className="flex justify-center mb-1">
+          <div className="text-center space-y-3">
+            <div className="flex justify-center mb-3 pb-1">
               {hasCustomLogo ? (
                 <img
                   src={BPS_CONFIG.logoPath}
@@ -90,7 +89,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
               )}
             </div>
 
-            <div className="pt-2 space-y-0.5">
+            <div className="pt-1 space-y-0.5">
               <h1 className="text-sm font-extrabold tracking-wide uppercase">
                 {BPS_CONFIG.judulLaporan}
               </h1>
