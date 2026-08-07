@@ -3,14 +3,14 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, FilePlus, Users, Calendar } from 'lucide-react';
+import { LayoutDashboard, FileText, FilePlus, Users, Settings } from 'lucide-react';
 
 const MOBILE_NAV_ITEMS = [
   { href: '/', label: 'Beranda', icon: LayoutDashboard },
   { href: '/laporan/tambah', label: 'Tambah', icon: FilePlus },
   { href: '/laporan', label: 'Riwayat', icon: FileText },
   { href: '/pegawai', label: 'Pegawai', icon: Users },
-  { href: '/kalender', label: 'Kalender', icon: Calendar },
+  { href: '/pengaturan', label: 'Akun', icon: Settings },
 ];
 
 export const MobileNav: React.FC = () => {

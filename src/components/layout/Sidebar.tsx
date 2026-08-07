@@ -9,7 +9,7 @@ import {
   FilePlus,
   Users,
   Calendar,
-  LogOut,
+  Settings,
   Sparkles,
 } from 'lucide-react';
 import { BPS_CONFIG } from '@/constants/bpsConfig';
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { href: '/laporan', label: 'Riwayat Laporan', icon: FileText },
   { href: '/pegawai', label: 'Master Pegawai', icon: Users },
   { href: '/kalender', label: 'Kalender Kegiatan', icon: Calendar },
+  { href: '/pengaturan', label: 'Pengaturan Akun', icon: Settings },
 ];
 
 export const Sidebar: React.FC = () => {
