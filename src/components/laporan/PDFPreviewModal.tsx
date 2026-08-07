@@ -38,6 +38,29 @@ function generateDateList(startDateStr: string, endDateStr?: string): { dateStr:
   return list;
 }
 
+function extractDriveFileId(url?: string): string | null {
+  if (!url) return null;
+  const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (match) return match[1];
+  const matchId = url.match(/id=([a-zA-Z0-9_-]+)/);
+  if (matchId) return matchId[1];
+  return null;
+}
+
+function getDirectImageUrl(foto: LaporanFoto): string {
+  if (foto.previewUrl && foto.previewUrl.startsWith('data:image')) {
+    return foto.previewUrl;
+  }
+  if (foto.previewUrl && foto.previewUrl.startsWith('http')) {
+    return foto.previewUrl;
+  }
+  const fileId = foto.drive_file_id || extractDriveFileId(foto.drive_file_url);
+  if (fileId && !fileId.startsWith('preview_')) {
+    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+  }
+  return foto.drive_file_url || foto.previewUrl || '';
+}
+
 export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
   isOpen,
   onClose,
@@ -156,8 +179,10 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
 
               if (isMultiDate) {
                 datePhotos = allPhotos.filter((p) => p.tanggal_foto === dItem.dateStr);
-                if (datePhotos.length === 0 && dIdx === 0 && allPhotos.length > 0) {
-                  datePhotos = allPhotos.filter((p) => !p.tanggal_foto);
+                if (datePhotos.length === 0) {
+                  const photosPerDay = Math.ceil(allPhotos.length / dates.length);
+                  const startIdx = dIdx * photosPerDay;
+                  datePhotos = allPhotos.slice(startIdx, startIdx + photosPerDay);
                 }
               } else {
                 datePhotos = allPhotos;
@@ -182,7 +207,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                       <div className="flex flex-col items-center justify-center p-2">
                         <div className="border border-slate-300 rounded overflow-hidden max-w-sm h-56 bg-white flex items-center justify-center p-1 w-full">
                           <img
-                            src={datePhotos[0].previewUrl || datePhotos[0].drive_file_url}
+                            src={getDirectImageUrl(datePhotos[0])}
                             alt="Dokumentasi"
                             className="max-w-full max-h-full object-contain"
                           />
@@ -190,22 +215,25 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                       </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-3">
-                        {datePhotos.map((foto, idx) => (
-                          <div
-                            key={idx}
-                            className="border border-slate-300 rounded overflow-hidden h-44 bg-white flex items-center justify-center p-1"
-                          >
-                            {foto.previewUrl || foto.drive_file_url ? (
-                              <img
-                                src={foto.previewUrl || foto.drive_file_url}
-                                alt={`Dokumentasi #${idx + 1}`}
-                                className="max-w-full max-h-full object-contain"
-                              />
-                            ) : (
-                              <FileText className="w-8 h-8 text-slate-400" />
-                            )}
-                          </div>
-                        ))}
+                        {datePhotos.map((foto, idx) => {
+                          const imgSrc = getDirectImageUrl(foto);
+                          return (
+                            <div
+                              key={idx}
+                              className="border border-slate-300 rounded overflow-hidden h-44 bg-white flex items-center justify-center p-1"
+                            >
+                              {imgSrc ? (
+                                <img
+                                  src={imgSrc}
+                                  alt={`Dokumentasi #${idx + 1}`}
+                                  className="max-w-full max-h-full object-contain"
+                                />
+                              ) : (
+                                <FileText className="w-8 h-8 text-slate-400" />
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
