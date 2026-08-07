@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    const inputClean = nipOrEmail.trim();
+    const inputClean = nipOrEmail.trim().toLowerCase();
 
     if (!inputClean || !password) {
       setError('Mohon masukkan NIP/Email dan Kata Sandi Anda!');
@@ -27,7 +27,13 @@ export default function LoginPage() {
       return;
     }
 
-    // 1. If Supabase Auth is enabled and user typed email, attempt real Supabase authentication
+    if (password.length < 6) {
+      setError('Kata sandi salah / minimal harus 6 karakter!');
+      setLoading(false);
+      return;
+    }
+
+    // 1. If Supabase Auth is configured and input is an email, attempt Supabase Auth
     if (isSupabaseConfigured() && inputClean.includes('@')) {
       try {
         const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -35,9 +41,7 @@ export default function LoginPage() {
           password,
         });
 
-        if (authError) {
-          console.warn('Supabase Auth Notice:', authError.message);
-        } else if (data && data.user) {
+        if (!authError && data?.user) {
           const userSession = {
             nama: data.user.user_metadata?.nama || 'Dede Setiawan, S.Tr.Stat.',
             nip: data.user.user_metadata?.nip || '199502282024211021',
@@ -52,21 +56,18 @@ export default function LoginPage() {
           router.push('/laporan');
           return;
         }
-      } catch (err: any) {
-        console.warn('Supabase Auth error:', err);
-      }
+      } catch (err) {}
     }
 
-    // 2. Validate against Master Pegawai database list
+    // 2. Fetch active Pegawai Master list from database/server
     const pegawaiList = await fetchPegawaiList();
     const matchedPegawai = pegawaiList.find(
       (p) =>
-        p.nip === inputClean ||
-        (p.email && p.email.toLowerCase() === inputClean.toLowerCase()) ||
-        p.nama.toLowerCase().includes(inputClean.toLowerCase())
+        p.nip.toLowerCase() === inputClean ||
+        (p.email && p.email.toLowerCase() === inputClean)
     );
 
-    // Read saved local profile if available
+    // 3. Read saved local profile
     let savedProfile: any = null;
     if (typeof window !== 'undefined') {
       const raw = localStorage.getItem('bps_saved_profile');
@@ -77,25 +78,19 @@ export default function LoginPage() {
       }
     }
 
-    const isMatchWithSaved =
+    const isMatchSaved =
       savedProfile &&
-      (savedProfile.nip === inputClean ||
-        (savedProfile.email && savedProfile.email.toLowerCase() === inputClean.toLowerCase()));
+      (savedProfile.nip?.toLowerCase() === inputClean ||
+        savedProfile.email?.toLowerCase() === inputClean);
 
-    // Strict validation: Reject unknown dummy emails/NIPs or invalid passwords
-    if (!matchedPegawai && !isMatchWithSaved && !inputClean.toLowerCase().includes('dede') && !inputClean.includes('199502282024211021')) {
-      setError('Akun NIP / Email BPS tersebut tidak terdaftar dalam Master Pegawai. Silakan gunakan kredensial resmi!');
+    // STRICT VALIDATION: Reject any email/NIP that is NOT registered in Pegawai Master
+    if (!matchedPegawai && !isMatchSaved) {
+      setError(`NIP atau Email "${nipOrEmail}" tidak terdaftar dalam Master Pegawai! Silakan gunakan NIP/Email pegawai resmi.`);
       setLoading(false);
       return;
     }
 
-    if (password.length < 6) {
-      setError('Kata sandi yang Anda masukkan salah / terlalu pendek!');
-      setLoading(false);
-      return;
-    }
-
-    const activeProfile = savedProfile || matchedPegawai;
+    const activeProfile = matchedPegawai || savedProfile;
     const userSession = {
       nama: activeProfile?.nama || 'Dede Setiawan, S.Tr.Stat.',
       nip: activeProfile?.nip || '199502282024211021',
@@ -180,7 +175,7 @@ export default function LoginPage() {
                   required
                   value={nipOrEmail}
                   onChange={(e) => setNipOrEmail(e.target.value)}
-                  placeholder="Masukkan NIP atau Email BPS"
+                  placeholder="Masukkan NIP (18 Digit) atau Email BPS"
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
                 />
               </div>

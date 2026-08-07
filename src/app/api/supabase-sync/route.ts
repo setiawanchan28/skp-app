@@ -28,7 +28,7 @@ export async function POST() {
   if (!isSupabaseConfigured()) {
     return NextResponse.json(
       {
-        error: 'Variabel lingkungan NEXT_PUBLIC_SUPABASE_URL dan NEXT_PUBLIC_SUPABASE_ANON_KEY di Vercel/Server belum dikonfigurasi!',
+        error: 'NEXT_PUBLIC_SUPABASE_URL atau NEXT_PUBLIC_SUPABASE_ANON_KEY belum dikonfigurasi di Vercel Environment Variables!',
         configured: false,
       },
       { status: 400 }
@@ -53,13 +53,13 @@ export async function POST() {
         email: p.email || 'ddsetiawan28@gmail.com',
       });
       if (error) {
-        results.errors.push(`Pegawai upsert error (${p.nama}): ${error.message}`);
+        results.errors.push(`Tabel pegawai: ${error.message}`);
       } else {
         results.pegawaiSynced++;
       }
     }
   } catch (err: any) {
-    results.errors.push(`Pegawai sync exception: ${err.message}`);
+    results.errors.push(`Tabel pegawai exception: ${err.message}`);
   }
 
   // 2. Push Laporan List to Supabase DB using Admin client
@@ -89,7 +89,7 @@ export async function POST() {
 
       const { error } = await supabaseAdmin.from('laporan').upsert(dbRecord);
       if (error) {
-        results.errors.push(`Laporan upsert error (${lap.nama_kegiatan}): ${error.message}`);
+        results.errors.push(`Tabel laporan (${lap.nama_kegiatan}): ${error.message}`);
       } else {
         results.laporanSynced++;
 
@@ -109,12 +109,14 @@ export async function POST() {
       }
     }
   } catch (err: any) {
-    results.errors.push(`Laporan sync exception: ${err.message}`);
+    results.errors.push(`Tabel laporan exception: ${err.message}`);
   }
 
   return NextResponse.json({
-    success: true,
-    message: 'Sinkronisasi paksa ke Supabase DB selesai!',
+    success: results.errors.length === 0,
+    message: results.errors.length === 0
+      ? `Sinkronisasi paksa ke Supabase DB berhasil! (${results.pegawaiSynced} Pegawai, ${results.laporanSynced} Laporan)`
+      : `Sinkronisasi ke Supabase DB selesai dengan beberapa catatan (${results.errors.join('; ')})`,
     data: results,
   });
 }
