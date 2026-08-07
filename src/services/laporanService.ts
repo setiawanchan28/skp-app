@@ -4,23 +4,9 @@ import { Laporan, LaporanFoto } from '@/types/laporan';
 const LOCAL_STORAGE_LAPORAN = 'bps_laporan_data';
 
 export async function fetchLaporanList(): Promise<Laporan[]> {
-  let serverData: Laporan[] = [];
-
-  // 1. Fetch from Server API store for cross-device synchronization (PC & Mobile HP)
-  try {
-    const res = await fetch('/api/laporan/list', { cache: 'no-store' });
-    if (res.ok) {
-      const result = await res.json();
-      if (result.data && Array.isArray(result.data)) {
-        serverData = result.data;
-      }
-    }
-  } catch (err) {
-    console.warn('API fetch laporan list notice:', err);
-  }
-
-  // 2. Fetch from Supabase DB if configured
   let supabaseData: Laporan[] = [];
+
+  // 1. Fetch from Supabase DB (Primary Online Source for HP & PC sync)
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase
@@ -33,11 +19,25 @@ export async function fetchLaporanList(): Promise<Laporan[]> {
 
       if (!error && data) {
         supabaseData = data;
+      } else if (error) {
+        console.error('Supabase fetch laporan error:', error.message);
       }
     } catch (err) {
-      console.warn('Supabase fetch laporan error, fallback to local:', err);
+      console.warn('Supabase fetch laporan exception:', err);
     }
   }
+
+  // 2. Fetch from Server API store if available
+  let serverData: Laporan[] = [];
+  try {
+    const res = await fetch('/api/laporan/list', { cache: 'no-store' });
+    if (res.ok) {
+      const result = await res.json();
+      if (result.data && Array.isArray(result.data)) {
+        serverData = result.data;
+      }
+    }
+  } catch (err) {}
 
   // 3. Local storage fallback
   let localData: Laporan[] = [];
@@ -56,23 +56,16 @@ export async function fetchLaporanList(): Promise<Laporan[]> {
     fileId === 'lap_sample_1' ||
     (url && (url.includes('demo_pdf_1') || url.includes('demo_pdf_2')));
 
-  // Filter out any legacy dummy demo items
   serverData = serverData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
   localData = localData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
   supabaseData = supabaseData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
 
-  // Merge all sources using Map keyed by ID to ensure all user's reports sync seamlessly
+  // Merge all sources prioritizing Supabase DB -> Server -> Local
   const mergedMap = new Map<string, Laporan>();
 
-  serverData.forEach((item) => {
-    if (item && item.id) mergedMap.set(item.id, item);
-  });
-  localData.forEach((item) => {
-    if (item && item.id) mergedMap.set(item.id, item);
-  });
-  supabaseData.forEach((item) => {
-    if (item && item.id) mergedMap.set(item.id, item);
-  });
+  localData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
+  serverData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
+  supabaseData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
 
   const finalResult = Array.from(mergedMap.values()).sort(
     (a, b) => new Date(b.tanggal || Date.now()).getTime() - new Date(a.tanggal || Date.now()).getTime()
@@ -113,7 +106,7 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
     updated_at: new Date().toISOString(),
   };
 
-  // 1. Update local storage immediately so user sees the new report instantly
+  // 1. Save to local storage
   if (typeof window !== 'undefined') {
     let currentList: Laporan[] = [];
     const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
@@ -133,10 +126,10 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
     localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(updatedList));
   }
 
-  // 2. Sync to Supabase if configured (sanitized to prevent DB schema mismatches)
+  // 2. Sync to Supabase Online DB
   if (isSupabaseConfigured()) {
     try {
-      const dbRecord = {
+      const baseDbRecord: Record<string, any> = {
         id: record.id,
         nama_pegawai: record.nama_pegawai,
         nip: record.nip,
@@ -153,8 +146,21 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
         updated_at: record.updated_at,
       };
 
-      const { error } = await supabase.from('laporan').upsert(dbRecord);
-      if (!error && fotosData.length > 0) {
+      if (record.tanggal_selesai) {
+        baseDbRecord.tanggal_selesai = record.tanggal_selesai;
+      }
+
+      const { error } = await supabase.from('laporan').upsert(baseDbRecord);
+
+      if (error) {
+        console.error('Supabase upsert laporan error:', error.message);
+        // Fallback retry without optional extra columns if schema mismatch
+        delete baseDbRecord.tanggal_selesai;
+        delete baseDbRecord.kategori;
+        await supabase.from('laporan').upsert(baseDbRecord);
+      }
+
+      if (fotosData.length > 0) {
         await supabase.from('laporan_foto').delete().eq('laporan_id', newId);
         await supabase.from('laporan_foto').insert(
           fotosData.map((f) => ({
@@ -162,13 +168,12 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
             drive_file_id: f.drive_file_id,
             drive_file_url: f.drive_file_url,
             file_name: f.file_name,
+            tanggal_foto: f.tanggal_foto,
           }))
         );
-      } else if (error) {
-        console.warn('Supabase save record notice (falling back to local storage):', error.message);
       }
-    } catch (err) {
-      console.warn('Supabase save laporan error:', err);
+    } catch (err: any) {
+      console.error('Supabase save laporan exception:', err);
     }
   }
 
