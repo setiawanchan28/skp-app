@@ -515,11 +515,11 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             />
           </div>
 
-          {/* Photo Uploader with per-date upload capability */}
+          {/* Photo Uploader with 24 photo limit */}
           <PhotoUploader
             photos={photos}
             onChange={setPhotos}
-            maxPhotos={6}
+            maxPhotos={24}
             dateList={computedDateList}
             isRangeDate={isRangeDate}
           />
