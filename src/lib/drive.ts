@@ -5,10 +5,33 @@ import { getYearAndMonthName } from '@/utils/formatters';
 
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
 
+function cleanEnvVal(val?: string): string {
+  if (!val) return '';
+  return val.trim().replace(/^["']|["']$/g, '');
+}
+
+function extractRawDriveFolderId(input?: string): string | null {
+  if (!input) return null;
+  const trimmed = cleanEnvVal(input);
+  if (trimmed.includes('folders/')) {
+    const match = trimmed.match(/folders\/([a-zA-Z0-9_-]+)/);
+    if (match) return match[1];
+  }
+  if (trimmed.includes('id=')) {
+    const match = trimmed.match(/id=([a-zA-Z0-9_-]+)/);
+    if (match) return match[1];
+  }
+  const cleaned = trimmed.replace(/\/+$/, '');
+  if (cleaned.length > 5 && !cleaned.includes('/') && !cleaned.toLowerCase().includes('root')) {
+    return cleaned;
+  }
+  return null;
+}
+
 function getDriveClient() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  const clientId = cleanEnvVal(process.env.GOOGLE_CLIENT_ID);
+  const clientSecret = cleanEnvVal(process.env.GOOGLE_CLIENT_SECRET);
+  const refreshToken = cleanEnvVal(process.env.GOOGLE_REFRESH_TOKEN);
 
   // 1. Try OAuth2 Client ID + Refresh Token (User Preferred Method)
   if (clientId && clientSecret && refreshToken && !clientId.includes('dummy')) {
@@ -26,8 +49,8 @@ function getDriveClient() {
   }
 
   // 2. Fallback to Service Account JWT if present
-  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-  let privateKey = process.env.GOOGLE_PRIVATE_KEY;
+  const clientEmail = cleanEnvVal(process.env.GOOGLE_CLIENT_EMAIL);
+  let privateKey = cleanEnvVal(process.env.GOOGLE_PRIVATE_KEY);
 
   if (clientEmail && privateKey && !clientEmail.includes('dummy')) {
     privateKey = privateKey.replace(/\\n/g, '\n');
@@ -51,9 +74,7 @@ export async function getOrCreateFolderHierarchy(dateString: string): Promise<Dr
   const drive = getDriveClient();
   const { year, monthName } = getYearAndMonthName(dateString);
 
-  const rootParentId = process.env.GOOGLE_DRIVE_FOLDER_ID && !process.env.GOOGLE_DRIVE_FOLDER_ID.includes('root')
-    ? process.env.GOOGLE_DRIVE_FOLDER_ID
-    : null;
+  const rootParentId = extractRawDriveFolderId(process.env.GOOGLE_DRIVE_FOLDER_ID);
 
   if (!drive) {
     return {
