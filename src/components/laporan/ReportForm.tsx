@@ -302,11 +302,11 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             </div>
           </div>
 
-          {/* Date Picker Mode (Single Date vs Date Range) */}
-          <div className="space-y-3 p-4 bg-slate-50 border border-slate-200/70 rounded-xl">
+          {/* Date Picker Mode & Category Section (Always Visible) */}
+          <div className="space-y-4 p-4 bg-slate-50 border border-slate-200/70 rounded-xl">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                Tanggal Pelaksanaan Kegiatan *
+                Tanggal & Kategori Pelaksanaan *
               </label>
               <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700">
                 <input
@@ -319,7 +319,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
               </label>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                   {isRangeDate ? 'Tanggal Mulai *' : 'Tanggal Kegiatan *'}
@@ -332,7 +332,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
                 />
               </div>
 
-              {isRangeDate ? (
+              {isRangeDate && (
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-600 mb-1">
                     Tanggal Selesai *
@@ -344,27 +344,27 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
                     className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
                   />
                 </div>
-              ) : (
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                    Kategori Kegiatan
-                  </label>
-                  <select
-                    value={kategori}
-                    onChange={(e) => setKategori(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
-                  >
-                    <option value="Pelatihan">Pelatihan</option>
-                    <option value="Rapat">Rapat</option>
-                    <option value="Monitoring">Monitoring</option>
-                    <option value="Supervisi">Supervisi</option>
-                    <option value="Sosialisasi">Sosialisasi</option>
-                    <option value="Evaluasi">Evaluasi</option>
-                    <option value="Pengolahan Data">Pengolahan Data</option>
-                    <option value="Lainnya">Lainnya</option>
-                  </select>
-                </div>
               )}
+
+              <div className={isRangeDate ? '' : 'md:col-span-2'}>
+                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                  Kategori Kegiatan *
+                </label>
+                <select
+                  value={kategori}
+                  onChange={(e) => setKategori(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
+                >
+                  <option value="Pelatihan">Pelatihan</option>
+                  <option value="Rapat">Rapat</option>
+                  <option value="Monitoring">Monitoring</option>
+                  <option value="Supervisi">Supervisi</option>
+                  <option value="Sosialisasi">Sosialisasi</option>
+                  <option value="Evaluasi">Evaluasi</option>
+                  <option value="Pengolahan Data">Pengolahan Data</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
+              </div>
             </div>
           </div>
 

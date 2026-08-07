@@ -11,16 +11,39 @@ import {
   ImageRun,
 } from 'docx';
 import { formatDateIndonesian } from '@/utils/formatters';
-import { BPS_CONFIG } from '@/constants/bpsConfig';
+import { BPS_CONFIG, BULAN_INDONESIA } from '@/constants/bpsConfig';
 
 export interface DocxReportData {
   namaPegawai: string;
   nip: string;
   jabatan: string;
   tanggal: string;
+  tanggalSelesai?: string;
   namaKegiatan: string;
   ringkasanKegiatan: string;
   photosBase64?: string[];
+}
+
+function generateDateList(startDateStr: string, endDateStr?: string): string[] {
+  if (!endDateStr || startDateStr === endDateStr) {
+    return [formatDateIndonesian(startDateStr)];
+  }
+
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+    return [formatDateIndonesian(startDateStr)];
+  }
+
+  const list: string[] = [];
+  const curr = new Date(start);
+  while (curr <= end) {
+    list.push(
+      `${curr.getDate()} ${BULAN_INDONESIA[curr.getMonth()]} ${curr.getFullYear()}`
+    );
+    curr.setDate(curr.getDate() + 1);
+  }
+  return list;
 }
 
 /**
@@ -28,6 +51,8 @@ export interface DocxReportData {
  */
 export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffer> {
   const dateYear = new Date(data.tanggal || Date.now()).getFullYear();
+  const formattedDate = formatDateIndonesian(data.tanggal, data.tanggalSelesai);
+  const dateList = generateDateList(data.tanggal, data.tanggalSelesai);
 
   // 1. Header Paragraphs
   const headerParagraphs = [
@@ -120,7 +145,8 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
       createDetailRow('2.', 'JABATAN', data.jabatan),
       createDetailRow('3.', 'NIP', data.nip),
       createDetailRow('4.', 'KEGIATAN', data.namaKegiatan),
-      createDetailRow('5.', 'RINGKASAN', data.ringkasanKegiatan),
+      createDetailRow('5.', 'TANGGAL', formattedDate),
+      createDetailRow('6.', 'RINGKASAN', data.ringkasanKegiatan),
     ],
   });
 
@@ -147,80 +173,136 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
     ],
   });
 
-  const photoCells: TableCell[] = [];
-  if (data.photosBase64 && data.photosBase64.length > 0) {
-    for (let i = 0; i < Math.min(data.photosBase64.length, 2); i++) {
-      try {
-        const base64Clean = data.photosBase64[i].replace(/^data:image\/\w+;base64,/, '');
-        const imageBuffer = Buffer.from(base64Clean, 'base64');
+  const photoRows: TableRow[] = [sec2HeaderRow];
+  const totalPhotos = data.photosBase64 ? data.photosBase64.length : 0;
 
-        photoCells.push(
+  if (totalPhotos === 1) {
+    // 1 Photo Uploaded: Centered full width cell
+    try {
+      const base64Clean = data.photosBase64![0].replace(/^data:image\/\w+;base64,/, '');
+      const imageBuffer = Buffer.from(base64Clean, 'base64');
+
+      photoRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              columnSpan: 2,
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new ImageRun({
+                      data: imageBuffer,
+                      transformation: { width: 320, height: 220 },
+                      type: data.photosBase64![0].includes('png') ? 'png' : 'jpg',
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        })
+      );
+    } catch (e) {}
+
+    photoRows.push(
+      new TableRow({
+        children: [
           new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
+            columnSpan: 2,
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                children: [
-                  new ImageRun({
-                    data: imageBuffer,
-                    transformation: {
-                      width: 250,
-                      height: 180,
-                    },
-                    type: data.photosBase64[i].includes('png') ? 'png' : 'jpg',
-                  }),
-                ],
+                children: [new TextRun({ text: data.namaKegiatan, bold: true, size: 20, font: 'Arial' })],
+              }),
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: formattedDate, size: 18, font: 'Arial' })],
               }),
             ],
-          })
-        );
-      } catch (e) {
-        photoCells.push(
-          new TableCell({
-            width: { size: 50, type: WidthType.PERCENTAGE },
-            children: [new Paragraph({ text: '[ Foto Dokumentasi ]' })],
-          })
-        );
+          }),
+        ],
+      })
+    );
+  } else if (totalPhotos > 1) {
+    // Multi photo grid
+    const numRows = Math.ceil(totalPhotos / 2);
+    for (let r = 0; r < numRows; r++) {
+      const cells: TableCell[] = [];
+      for (let c = 0; c < 2; c++) {
+        const photoIdx = r * 2 + c;
+        if (photoIdx < totalPhotos) {
+          const photoDateLabel = dateList[photoIdx % dateList.length] || formattedDate;
+          try {
+            const base64Clean = data.photosBase64![photoIdx].replace(/^data:image\/\w+;base64,/, '');
+            const imageBuffer = Buffer.from(base64Clean, 'base64');
+            cells.push(
+              new TableCell({
+                width: { size: 50, type: WidthType.PERCENTAGE },
+                children: [
+                  new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [
+                      new ImageRun({
+                        data: imageBuffer,
+                        transformation: { width: 220, height: 160 },
+                        type: data.photosBase64![photoIdx].includes('png') ? 'png' : 'jpg',
+                      }),
+                    ],
+                  }),
+                  new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [
+                      new TextRun({
+                        text: `Dokumentasi #${photoIdx + 1} (${photoDateLabel})`,
+                        size: 16,
+                        font: 'Arial',
+                      }),
+                    ],
+                  }),
+                ],
+              })
+            );
+          } catch (e) {
+            cells.push(
+              new TableCell({
+                width: { size: 50, type: WidthType.PERCENTAGE },
+                children: [new Paragraph({ text: '[ Foto ]' })],
+              })
+            );
+          }
+        } else {
+          cells.push(
+            new TableCell({
+              width: { size: 50, type: WidthType.PERCENTAGE },
+              children: [new Paragraph({ text: '' })],
+            })
+          );
+        }
       }
+      photoRows.push(new TableRow({ children: cells }));
     }
-  }
-
-  while (photoCells.length < 2) {
-    photoCells.push(
-      new TableCell({
-        width: { size: 50, type: WidthType.PERCENTAGE },
-        children: [new Paragraph({ text: '' })],
+  } else {
+    photoRows.push(
+      new TableRow({
+        children: [
+          new TableCell({
+            columnSpan: 2,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new TextRun({ text: '[ Tidak ada foto ]', font: 'Arial', size: 20 })],
+              }),
+            ],
+          }),
+        ],
       })
     );
   }
 
-  const photoRow = new TableRow({ children: photoCells });
-
-  const captionRow = new TableRow({
-    children: [
-      new TableCell({
-        columnSpan: 2,
-        children: [
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [
-              new TextRun({ text: data.namaKegiatan, bold: true, size: 20, font: 'Arial' }),
-            ],
-          }),
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [
-              new TextRun({ text: formatDateIndonesian(data.tanggal), size: 18, font: 'Arial' }),
-            ],
-          }),
-        ],
-      }),
-    ],
-  });
-
   const tableSection2 = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [sec2HeaderRow, photoRow, captionRow],
+    rows: photoRows,
   });
 
   // Footer Paragraphs

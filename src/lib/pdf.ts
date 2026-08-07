@@ -1,6 +1,6 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { formatDateIndonesian } from '@/utils/formatters';
-import { BPS_CONFIG } from '@/constants/bpsConfig';
+import { BPS_CONFIG, BULAN_INDONESIA } from '@/constants/bpsConfig';
 
 export interface PdfReportData {
   namaPegawai: string;
@@ -21,24 +21,48 @@ function sanitizeWinAnsiText(text: string): string {
   return text
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
-    .replace(/[^\x00-\x7F\xA0-\xFF]/g, ''); // Filter out non-WinAnsi characters
+    .replace(/[^\x00-\x7F\xA0-\xFF]/g, '');
 }
 
 /**
- * Generate official BPS Bukti Dukung Kegiatan PDF with strict aspect-ratio preservation and WinAnsi sanitization
+ * Helper to generate date list between start and end date
+ */
+function generateDateList(startDateStr: string, endDateStr?: string): string[] {
+  if (!endDateStr || startDateStr === endDateStr) {
+    return [formatDateIndonesian(startDateStr)];
+  }
+
+  const start = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
+    return [formatDateIndonesian(startDateStr)];
+  }
+
+  const list: string[] = [];
+  const curr = new Date(start);
+  while (curr <= end) {
+    list.push(
+      `${curr.getDate()} ${BULAN_INDONESIA[curr.getMonth()]} ${curr.getFullYear()}`
+    );
+    curr.setDate(curr.getDate() + 1);
+  }
+  return list;
+}
+
+/**
+ * Generate official BPS Bukti Dukung Kegiatan PDF supporting 1 to 6 photos, centered single photo, and daily date ranges
  */
 export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
   const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  // A4 dimensions: 595.28 x 841.89
   const pageWidth = 595.28;
   const pageHeight = 841.89;
   const margin = 40;
   const contentWidth = pageWidth - margin * 2;
 
-  const page = pdfDoc.addPage([pageWidth, pageHeight]);
+  let page = pdfDoc.addPage([pageWidth, pageHeight]);
   let y = pageHeight - 35;
 
   const black = rgb(0, 0, 0);
@@ -117,7 +141,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   });
   y -= headerHeight;
 
-  // Sanitize all inputs to prevent WinAnsi (0x000d) encoding errors
   const cleanNamaPegawai = sanitizeWinAnsiText(data.namaPegawai);
   const cleanJabatan = sanitizeWinAnsiText(data.jabatan);
   const cleanNip = sanitizeWinAnsiText(data.nip);
@@ -125,6 +148,7 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   const cleanRingkasan = sanitizeWinAnsiText(data.ringkasanKegiatan);
 
   const formattedDate = formatDateIndonesian(data.tanggal, data.tanggalSelesai);
+  const dateList = generateDateList(data.tanggal, data.tanggalSelesai);
 
   // Table Rows: NAMA, JABATAN, NIP, KEGIATAN, RINGKASAN
   const rows = [
@@ -132,7 +156,8 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     { no: '2.', label: 'JABATAN', val: cleanJabatan },
     { no: '3.', label: 'NIP', val: cleanNip },
     { no: '4.', label: 'KEGIATAN', val: cleanNamaKegiatan },
-    { no: '5.', label: 'RINGKASAN', val: cleanRingkasan },
+    { no: '5.', label: 'TANGGAL', val: formattedDate },
+    { no: '6.', label: 'RINGKASAN', val: cleanRingkasan },
   ];
 
   const col1Width = 30; // No
@@ -144,7 +169,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   const lineHeight = 14;
 
   for (const row of rows) {
-    // Process text line breaks cleanly
     const paragraphBlocks = row.val.split('\n');
     const lines: string[] = [];
 
@@ -236,111 +260,205 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   });
   y -= headerHeight;
 
-  const photoBoxHeight = 250;
-  const photoInnerY = y - photoBoxHeight;
+  const totalPhotos = data.photosBase64 ? data.photosBase64.length : 0;
 
-  page.drawRectangle({
-    x: margin,
-    y: photoInnerY,
-    width: contentWidth,
-    height: photoBoxHeight,
-    borderColor: black,
-    borderWidth: 1,
-  });
+  if (totalPhotos === 0) {
+    const emptyBoxHeight = 100;
+    page.drawRectangle({
+      x: margin,
+      y: y - emptyBoxHeight,
+      width: contentWidth,
+      height: emptyBoxHeight,
+      borderColor: black,
+      borderWidth: 1,
+    });
+    page.drawText('[ Tidak Ada Foto Dokumentasi Terlampir ]', {
+      x: margin + 140,
+      y: y - 55,
+      size: 10,
+      font: fontRegular,
+      color: black,
+    });
+    y -= emptyBoxHeight;
+  } else if (totalPhotos === 1) {
+    // 1 PHOTO UPLOADED: CENTERED HORIZONTALLY IN CELL
+    const photoBoxHeight = 240;
+    const photoInnerY = y - photoBoxHeight;
 
-  const captionAreaHeight = 45;
-  const imageAreaHeight = photoBoxHeight - captionAreaHeight;
+    page.drawRectangle({
+      x: margin,
+      y: photoInnerY,
+      width: contentWidth,
+      height: photoBoxHeight,
+      borderColor: black,
+      borderWidth: 1,
+    });
 
-  page.drawLine({
-    start: { x: margin, y: photoInnerY + captionAreaHeight },
-    end: { x: margin + contentWidth, y: photoInnerY + captionAreaHeight },
-    thickness: 1,
-    color: black,
-  });
+    const captionAreaHeight = 45;
+    const imageAreaHeight = photoBoxHeight - captionAreaHeight;
 
-  page.drawLine({
-    start: { x: pageWidth / 2, y: y },
-    end: { x: pageWidth / 2, y: photoInnerY + captionAreaHeight },
-    thickness: 1,
-    color: black,
-  });
+    page.drawLine({
+      start: { x: margin, y: photoInnerY + captionAreaHeight },
+      end: { x: margin + contentWidth, y: photoInnerY + captionAreaHeight },
+      thickness: 1,
+      color: black,
+    });
 
-  // Embed Photos with Aspect Ratio Preservation (Portrait vs Landscape)
-  if (data.photosBase64 && data.photosBase64.length > 0) {
+    try {
+      const base64Clean = data.photosBase64![0].replace(/^data:image\/\w+;base64,/, '');
+      const imageBytes = Buffer.from(base64Clean, 'base64');
+      const embeddedImg = data.photosBase64![0].includes('data:image/png')
+        ? await pdfDoc.embedPng(imageBytes)
+        : await pdfDoc.embedJpg(imageBytes);
+
+      const imgWidth = embeddedImg.width;
+      const imgHeight = embeddedImg.height;
+      const imgAspectRatio = imgWidth / imgHeight;
+
+      const maxSlotWidth = contentWidth - 20;
+      const maxSlotHeight = imageAreaHeight - 10;
+      const slotAspectRatio = maxSlotWidth / maxSlotHeight;
+
+      let renderWidth = maxSlotWidth;
+      let renderHeight = maxSlotHeight;
+
+      if (imgAspectRatio > slotAspectRatio) {
+        renderHeight = maxSlotWidth / imgAspectRatio;
+      } else {
+        renderWidth = maxSlotHeight * imgAspectRatio;
+      }
+
+      const offsetX = margin + (contentWidth - renderWidth) / 2;
+      const offsetY = photoInnerY + captionAreaHeight + (imageAreaHeight - renderHeight) / 2;
+
+      page.drawImage(embeddedImg, {
+        x: offsetX,
+        y: offsetY,
+        width: renderWidth,
+        height: renderHeight,
+      });
+    } catch (e) {}
+
+    // Caption
+    const cap1 = cleanNamaKegiatan;
+    const cap1Width = fontRegular.widthOfTextAtSize(cap1, 10);
+    page.drawText(cap1, {
+      x: (pageWidth - cap1Width) / 2,
+      y: photoInnerY + 26,
+      size: 10,
+      font: fontRegular,
+      color: black,
+    });
+
+    const cap2 = formattedDate;
+    const cap2Width = fontRegular.widthOfTextAtSize(cap2, 10);
+    page.drawText(cap2, {
+      x: (pageWidth - cap2Width) / 2,
+      y: photoInnerY + 10,
+      size: 10,
+      font: fontRegular,
+      color: black,
+    });
+
+    y -= photoBoxHeight;
+  } else {
+    // 2 OR MORE PHOTOS UPLOADED: 2-COLUMN GRID (ROW BY ROW)
+    const photoRows = Math.ceil(totalPhotos / 2);
+    const rowHeight = 220;
     const halfWidth = contentWidth / 2;
 
-    for (let i = 0; i < Math.min(data.photosBase64.length, 2); i++) {
-      const slotX = margin + i * halfWidth;
+    for (let r = 0; r < photoRows; r++) {
+      if (y - rowHeight < 80) {
+        // Add new page if space is insufficient
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        y = pageHeight - 50;
+      }
 
-      try {
-        const base64Clean = data.photosBase64[i].replace(/^data:image\/\w+;base64,/, '');
-        const imageBytes = Buffer.from(base64Clean, 'base64');
+      const photoInnerY = y - rowHeight;
 
-        let embeddedImg;
-        if (data.photosBase64[i].includes('data:image/png')) {
-          embeddedImg = await pdfDoc.embedPng(imageBytes);
-        } else {
-          embeddedImg = await pdfDoc.embedJpg(imageBytes);
-        }
+      page.drawRectangle({
+        x: margin,
+        y: photoInnerY,
+        width: contentWidth,
+        height: rowHeight,
+        borderColor: black,
+        borderWidth: 1,
+      });
 
-        const imgWidth = embeddedImg.width;
-        const imgHeight = embeddedImg.height;
-        const imgAspectRatio = imgWidth / imgHeight;
+      const captionAreaHeight = 35;
+      const imageAreaHeight = rowHeight - captionAreaHeight;
 
-        const maxSlotWidth = halfWidth - 10;
-        const maxSlotHeight = imageAreaHeight - 10;
-        const slotAspectRatio = maxSlotWidth / maxSlotHeight;
+      page.drawLine({
+        start: { x: margin, y: photoInnerY + captionAreaHeight },
+        end: { x: margin + contentWidth, y: photoInnerY + captionAreaHeight },
+        thickness: 1,
+        color: black,
+      });
 
-        let renderWidth = maxSlotWidth;
-        let renderHeight = maxSlotHeight;
+      page.drawLine({
+        start: { x: pageWidth / 2, y: y },
+        end: { x: pageWidth / 2, y: photoInnerY + captionAreaHeight },
+        thickness: 1,
+        color: black,
+      });
 
-        if (imgAspectRatio > slotAspectRatio) {
-          renderHeight = maxSlotWidth / imgAspectRatio;
-        } else {
-          renderWidth = maxSlotHeight * imgAspectRatio;
-        }
+      for (let c = 0; c < 2; c++) {
+        const photoIdx = r * 2 + c;
+        if (photoIdx >= totalPhotos) break;
 
-        const offsetX = slotX + 5 + (maxSlotWidth - renderWidth) / 2;
-        const offsetY = photoInnerY + captionAreaHeight + 5 + (maxSlotHeight - renderHeight) / 2;
+        const slotX = margin + c * halfWidth;
+        const photoDateLabel = dateList[photoIdx % dateList.length] || formattedDate;
 
-        page.drawImage(embeddedImg, {
-          x: offsetX,
-          y: offsetY,
-          width: renderWidth,
-          height: renderHeight,
-        });
-      } catch (err) {
-        page.drawText('[ Foto Dokumentasi ]', {
-          x: slotX + 40,
-          y: photoInnerY + captionAreaHeight + (imageAreaHeight / 2),
-          size: 9,
+        try {
+          const base64Clean = data.photosBase64![photoIdx].replace(/^data:image\/\w+;base64,/, '');
+          const imageBytes = Buffer.from(base64Clean, 'base64');
+          const embeddedImg = data.photosBase64![photoIdx].includes('data:image/png')
+            ? await pdfDoc.embedPng(imageBytes)
+            : await pdfDoc.embedJpg(imageBytes);
+
+          const imgWidth = embeddedImg.width;
+          const imgHeight = embeddedImg.height;
+          const imgAspectRatio = imgWidth / imgHeight;
+
+          const maxSlotWidth = halfWidth - 10;
+          const maxSlotHeight = imageAreaHeight - 10;
+          const slotAspectRatio = maxSlotWidth / maxSlotHeight;
+
+          let renderWidth = maxSlotWidth;
+          let renderHeight = maxSlotHeight;
+
+          if (imgAspectRatio > slotAspectRatio) {
+            renderHeight = maxSlotWidth / imgAspectRatio;
+          } else {
+            renderWidth = maxSlotHeight * imgAspectRatio;
+          }
+
+          const offsetX = slotX + 5 + (maxSlotWidth - renderWidth) / 2;
+          const offsetY = photoInnerY + captionAreaHeight + 5 + (maxSlotHeight - renderHeight) / 2;
+
+          page.drawImage(embeddedImg, {
+            x: offsetX,
+            y: offsetY,
+            width: renderWidth,
+            height: renderHeight,
+          });
+        } catch (e) {}
+
+        // Cell subcaption with date per photo row
+        const cellCap = `Dokumentasi #${photoIdx + 1} (${photoDateLabel})`;
+        const cellCapWidth = fontRegular.widthOfTextAtSize(cellCap, 8);
+        page.drawText(cellCap, {
+          x: slotX + (halfWidth - cellCapWidth) / 2,
+          y: photoInnerY + 12,
+          size: 8,
           font: fontRegular,
           color: black,
         });
       }
+
+      y -= rowHeight + 10;
     }
   }
-
-  // Draw Centered Documentation Captions at Bottom
-  const capLine1 = cleanNamaKegiatan;
-  const capLine1Width = fontRegular.widthOfTextAtSize(capLine1, 10);
-  page.drawText(capLine1, {
-    x: (pageWidth - capLine1Width) / 2,
-    y: photoInnerY + 26,
-    size: 10,
-    font: fontRegular,
-    color: black,
-  });
-
-  const capLine2 = formattedDate;
-  const capLine2Width = fontRegular.widthOfTextAtSize(capLine2, 10);
-  page.drawText(capLine2, {
-    x: (pageWidth - capLine2Width) / 2,
-    y: photoInnerY + 10,
-    size: 10,
-    font: fontRegular,
-    color: black,
-  });
 
   // 4. FOOTER AT BOTTOM OF PAGE
   const footer1 = BPS_CONFIG.alamatFooter;
