@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Laporan, LaporanFoto } from '@/types/laporan';
 import { formatDateIndonesian } from '@/utils/formatters';
@@ -43,6 +43,16 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
   onClose,
   laporan,
 }) => {
+  const [hasCustomLogo, setHasCustomLogo] = useState(false);
+
+  useEffect(() => {
+    // Check if custom logo exists in public/
+    const img = new Image();
+    img.src = BPS_CONFIG.logoPath;
+    img.onload = () => setHasCustomLogo(true);
+    img.onerror = () => setHasCustomLogo(false);
+  }, []);
+
   if (!laporan) return null;
 
   const dateYear = new Date(laporan.tanggal || Date.now()).getFullYear();
@@ -55,21 +65,29 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
       <div className="space-y-6">
         {/* PDF Document Render Preview */}
         <div className="bg-white border border-slate-400 shadow-2xl rounded-sm p-8 max-w-2xl mx-auto space-y-6 font-sans text-black">
-          {/* Header */}
+          {/* Header Logo & Titles */}
           <div className="text-center space-y-2">
             <div className="flex justify-center mb-1">
-              <div className="text-center">
-                <div className="inline-flex flex-col items-center">
-                  <div className="flex items-center gap-1 mb-1">
-                    <span className="w-5 h-4 bg-sky-500 rounded-2xs inline-block" />
-                    <span className="w-5 h-4 bg-orange-500 rounded-2xs inline-block" />
+              {hasCustomLogo ? (
+                <img
+                  src={BPS_CONFIG.logoPath}
+                  alt="Logo BPS"
+                  className="h-16 w-auto object-contain mx-auto"
+                />
+              ) : (
+                <div className="text-center">
+                  <div className="inline-flex flex-col items-center">
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="w-5 h-4 bg-sky-500 rounded-2xs inline-block" />
+                      <span className="w-5 h-4 bg-orange-500 rounded-2xs inline-block" />
+                    </div>
+                    <span className="w-5 h-4 bg-emerald-500 rounded-2xs inline-block" />
                   </div>
-                  <span className="w-5 h-4 bg-emerald-500 rounded-2xs inline-block" />
+                  <h2 className="text-xs font-extrabold text-black tracking-tight mt-1 uppercase">
+                    {BPS_CONFIG.instansi}
+                  </h2>
                 </div>
-                <h2 className="text-xs font-extrabold text-black tracking-tight mt-1 uppercase">
-                  {BPS_CONFIG.instansi}
-                </h2>
-              </div>
+              )}
             </div>
 
             <div className="pt-2 space-y-0.5">
@@ -131,7 +149,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
             </table>
           </div>
 
-          {/* Bagian II Dokumentasi Tables (Repeated per date if multi-day) */}
+          {/* Bagian II Dokumentasi Tables */}
           <div className="space-y-6">
             {dates.map((dItem, dIdx) => {
               const isMultiDate = dates.length > 1;
@@ -156,14 +174,12 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                     {secHeaderTitle}
                   </div>
 
-                  {/* Photos Grid Container with WHITE Background Canvas */}
                   <div className="p-3">
                     {datePhotos.length === 0 ? (
                       <div className="text-center py-6 text-slate-400 text-xs italic">
                         Tidak ada foto dokumentasi terlampir
                       </div>
                     ) : datePhotos.length === 1 ? (
-                      /* SINGLE PHOTO: CENTERED IN THE MIDDLE OF CELL WITH WHITE CANVAS */
                       <div className="flex flex-col items-center justify-center p-2">
                         <div className="border border-slate-300 rounded overflow-hidden max-w-sm h-56 bg-white flex items-center justify-center p-1 w-full">
                           <img
@@ -174,7 +190,6 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                         </div>
                       </div>
                     ) : (
-                      /* MULTI PHOTO GRID: CLEAN WHITE CANVAS */
                       <div className="grid grid-cols-2 gap-3">
                         {datePhotos.map((foto, idx) => (
                           <div
@@ -196,7 +211,6 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                     )}
                   </div>
 
-                  {/* Clean Separate Caption Bar */}
                   <div className="p-2 text-center text-xs space-y-0.5 border-t border-black bg-slate-50">
                     <p className="font-bold text-black">{laporan.nama_kegiatan}</p>
                     <p className="text-slate-700 text-[11px]">{dItem.label}</p>

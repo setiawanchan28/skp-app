@@ -4,6 +4,7 @@ export const BPS_CONFIG = {
   subJudulLaporan: 'BADAN PUSAT STATISTIK KABUPATEN LEBAK TAHUN 2026',
   alamatFooter: 'Jl. Jendral Sudirman Km 3 Narimbang Mulia, Rangkasbitung Telp/Faks. (0252) 280779',
   contactFooter: 'E-mail: bps3602@bps.go.id Website: lebakkab.bps.go.id',
+  logoPath: '/logo_bps.webp', // Path to custom logo in public/ folder
 };
 
 export const BULAN_INDONESIA = [
@@ -21,7 +22,7 @@ export const BULAN_INDONESIA = [
   'Desember',
 ];
 
-// Clean 3-color BPS Official Logo SVG (Blue, Orange, Green polygons)
+// Clean 3-color BPS Official Logo SVG Fallback
 export const BPS_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" width="200" height="120">
   <g transform="translate(40, 0)">
     <!-- Blue Polygon -->
