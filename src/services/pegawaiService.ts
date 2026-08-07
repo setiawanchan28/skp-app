@@ -3,14 +3,12 @@ import { Pegawai, PegawaiInput } from '@/types/pegawai';
 
 const LOCAL_STORAGE_KEY = 'bps_pegawai_data';
 
-const DEFAULT_PEGAWAI: Pegawai[] = [];
-
 export async function fetchPegawaiList(): Promise<Pegawai[]> {
   let serverData: Pegawai[] = [];
 
-  // 1. Fetch from server API store first
+  // 1. Fetch from server API route first (which queries Supabase DB via supabaseAdmin on server)
   try {
-    const res = await fetch('/api/pegawai/save', { cache: 'no-store' });
+    const res = await fetch('/api/pegawai/list', { cache: 'no-store' });
     if (res.ok) {
       const result = await res.json();
       if (result.data && Array.isArray(result.data)) {
@@ -19,7 +17,7 @@ export async function fetchPegawaiList(): Promise<Pegawai[]> {
     }
   } catch (err) {}
 
-  // 2. Fetch from Supabase DB if configured
+  // 2. Direct client Supabase DB query fallback
   let supabaseData: Pegawai[] = [];
   if (isSupabaseConfigured()) {
     try {
@@ -51,11 +49,11 @@ export async function fetchPegawaiList(): Promise<Pegawai[]> {
   serverData = serverData.filter((p) => !isLegacyDummy(p.id));
 
   const mergedMap = new Map<string, Pegawai>();
-  serverData.forEach((p) => { if (p && p.id) mergedMap.set(p.id, p); });
   localData.forEach((p) => { if (p && p.id) mergedMap.set(p.id, p); });
   supabaseData.forEach((p) => { if (p && p.id) mergedMap.set(p.id, p); });
+  serverData.forEach((p) => { if (p && p.id) mergedMap.set(p.id, p); });
 
-  const finalResult = Array.from(mergedMap.values());
+  const finalResult = Array.from(mergedMap.values()).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
   if (typeof window !== 'undefined') {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalResult));

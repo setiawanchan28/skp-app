@@ -1,19 +1,16 @@
 import { NextResponse } from 'next/server';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 import { getStoredLaporanList } from '@/lib/laporanStore';
 import { fetchLaporanFromDriveCloud } from '@/lib/drive';
 import { Laporan } from '@/types/laporan';
 
 export async function GET() {
-  let driveCloudData: Laporan[] = [];
-  try {
-    driveCloudData = await fetchLaporanFromDriveCloud();
-  } catch (e) {}
-
   let supabaseData: Laporan[] = [];
+
+  // Query Supabase DB directly using supabaseAdmin on server
   if (isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('laporan')
         .select(`
           *,
@@ -23,11 +20,18 @@ export async function GET() {
 
       if (!error && data) {
         supabaseData = data;
+      } else if (error) {
+        console.error('Supabase fetch laporan error in /api/laporan/list:', error.message);
       }
     } catch (err) {
       console.warn('Supabase list fetch notice:', err);
     }
   }
+
+  let driveCloudData: Laporan[] = [];
+  try {
+    driveCloudData = await fetchLaporanFromDriveCloud();
+  } catch (e) {}
 
   const serverData = getStoredLaporanList();
 
@@ -43,8 +47,8 @@ export async function GET() {
 
   const mergedMap = new Map<string, Laporan>();
   cleanServerData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
-  cleanSupabaseData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
   cleanDriveData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
+  cleanSupabaseData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
 
   const finalResult = Array.from(mergedMap.values()).sort(
     (a, b) => new Date(b.tanggal || Date.now()).getTime() - new Date(a.tanggal || Date.now()).getTime()
