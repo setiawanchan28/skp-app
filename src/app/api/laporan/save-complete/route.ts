@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getOrCreateFolderHierarchy, uploadFileToDrive, deleteFileFromDrive } from '@/lib/drive';
+import { getOrCreateFolderHierarchy, uploadFileToDrive, deleteFileFromDrive, syncLaporanToDriveCloud } from '@/lib/drive';
 import { generateBpsPdfBuffer } from '@/lib/pdf';
 import { generateBpsDocxBuffer } from '@/lib/docx';
 import { saveLaporanRecord, fetchLaporanById } from '@/services/laporanService';
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
       photosData
     );
 
-    // Also persist to server JSON store for instant cross-device availability
+    // Also persist to server JSON store
     const serverList = getStoredLaporanList();
     const existingIndex = serverList.findIndex((l) => l.id === savedLaporan.id);
     let updatedServerList;
@@ -155,6 +155,9 @@ export async function POST(req: NextRequest) {
       updatedServerList = [savedLaporan, ...serverList];
     }
     saveStoredLaporanList(updatedServerList);
+
+    // 7. Sync directly to Google Drive Cloud Database (Guarantees 100% cross-device availability on HP & PC)
+    await syncLaporanToDriveCloud(savedLaporan);
 
     return NextResponse.json({
       success: true,

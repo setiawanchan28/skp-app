@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { getStoredLaporanList } from '@/lib/laporanStore';
+import { fetchLaporanFromDriveCloud } from '@/lib/drive';
 import { Laporan } from '@/types/laporan';
 
 export async function GET() {
-  let supabaseData: Laporan[] = [];
+  let driveCloudData: Laporan[] = [];
+  try {
+    driveCloudData = await fetchLaporanFromDriveCloud();
+  } catch (e) {}
 
+  let supabaseData: Laporan[] = [];
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase
@@ -32,12 +37,14 @@ export async function GET() {
     fileId === 'lap_sample_1' ||
     (url && (url.includes('demo_pdf_1') || url.includes('demo_pdf_2')));
 
+  const cleanDriveData = driveCloudData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
   const cleanServerData = serverData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
   const cleanSupabaseData = supabaseData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
 
   const mergedMap = new Map<string, Laporan>();
   cleanServerData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
   cleanSupabaseData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
+  cleanDriveData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
 
   const finalResult = Array.from(mergedMap.values()).sort(
     (a, b) => new Date(b.tanggal || Date.now()).getTime() - new Date(a.tanggal || Date.now()).getTime()

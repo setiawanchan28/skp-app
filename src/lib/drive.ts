@@ -2,6 +2,7 @@ import { google } from 'googleapis';
 import { Readable } from 'stream';
 import { DriveFolderStructure, DriveUploadResult } from '@/types/drive';
 import { getYearAndMonthName } from '@/utils/formatters';
+import { Laporan } from '@/types/laporan';
 
 const SCOPES = ['https://www.googleapis.com/auth/drive'];
 
@@ -214,6 +215,78 @@ export async function deleteFileFromDrive(fileId: string): Promise<boolean> {
     return true;
   } catch (err) {
     console.warn('Failed to delete Google Drive file:', err);
+    return false;
+  }
+}
+
+/**
+ * Fetch cloud-synced laporan list directly from Google Drive cloud storage
+ */
+export async function fetchLaporanFromDriveCloud(): Promise<Laporan[]> {
+  const drive = getDriveClient();
+  if (!drive) return [];
+
+  try {
+    const rootParentId = extractRawDriveFolderId(process.env.GOOGLE_DRIVE_FOLDER_ID) || 'root';
+    const query = `name = 'bps_laporan_db.json' and '${rootParentId}' in parents and trashed = false`;
+    const res = await drive.files.list({ q: query, fields: 'files(id, name)' });
+
+    if (res.data.files && res.data.files.length > 0) {
+      const fileId = res.data.files[0].id;
+      const fileRes = await drive.files.get({ fileId: fileId!, alt: 'media' }, { responseType: 'text' });
+      const rawData = fileRes.data as string;
+      return JSON.parse(rawData);
+    }
+  } catch (err) {
+    console.warn('Drive Cloud DB fetch notice:', err);
+  }
+
+  return [];
+}
+
+/**
+ * Sync and save laporan record directly to Google Drive cloud storage
+ */
+export async function syncLaporanToDriveCloud(laporanItem: Laporan): Promise<boolean> {
+  const drive = getDriveClient();
+  if (!drive) return false;
+
+  try {
+    const rootParentId = extractRawDriveFolderId(process.env.GOOGLE_DRIVE_FOLDER_ID) || 'root';
+    const currentList = await fetchLaporanFromDriveCloud();
+
+    const existingIdx = currentList.findIndex((l) => l.id === laporanItem.id);
+    let updatedList: Laporan[];
+    if (existingIdx >= 0) {
+      updatedList = [...currentList];
+      updatedList[existingIdx] = laporanItem;
+    } else {
+      updatedList = [laporanItem, ...currentList];
+    }
+
+    const jsonString = JSON.stringify(updatedList, null, 2);
+    const bufferStream = new Readable();
+    bufferStream.push(Buffer.from(jsonString, 'utf-8'));
+    bufferStream.push(null);
+
+    const query = `name = 'bps_laporan_db.json' and '${rootParentId}' in parents and trashed = false`;
+    const res = await drive.files.list({ q: query, fields: 'files(id, name)' });
+
+    if (res.data.files && res.data.files.length > 0) {
+      const fileId = res.data.files[0].id;
+      await drive.files.update({
+        fileId: fileId!,
+        media: { mimeType: 'application/json', body: bufferStream },
+      });
+    } else {
+      await drive.files.create({
+        requestBody: { name: 'bps_laporan_db.json', parents: [rootParentId], mimeType: 'application/json' },
+        media: { mimeType: 'application/json', body: bufferStream },
+      });
+    }
+    return true;
+  } catch (err) {
+    console.warn('Drive Cloud DB sync notice:', err);
     return false;
   }
 }
