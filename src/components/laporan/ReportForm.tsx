@@ -33,6 +33,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   const [deskripsiKegiatan, setDeskripsiKegiatan] = useState('');
   const [ringkasanKegiatan, setRingkasanKegiatan] = useState('');
   const [kategori, setKategori] = useState('Pelatihan');
+  const [jumlahParagraf, setJumlahParagraf] = useState('auto');
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
 
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
@@ -131,14 +132,14 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       const res = await fetch('/api/gemini/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ namaKegiatan, deskripsiKegiatan, namaPegawai }),
+        body: JSON.stringify({ namaKegiatan, deskripsiKegiatan, namaPegawai, jumlahParagraf }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Gagal generate ringkasan');
 
       setRingkasanKegiatan(data.ringkasan);
-      showToast('Ringkasan kegiatan pribadi resmi BPS berhasil dibuat dengan Gemini AI!', 'success');
+      showToast('Ringkasan kegiatan resmi BPS berhasil dibuat dengan Gemini AI!', 'success');
     } catch (err: any) {
       showToast(err.message || 'Gagal menghubungi Gemini API', 'error');
     } finally {
@@ -351,28 +352,39 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             />
           </div>
 
-          {/* Ringkasan Kegiatan & Gemini Button */}
+          {/* Ringkasan Kegiatan & Gemini Controls */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Ringkasan Kegiatan (Bahasa Laporan Resmi BPS) *
+              </label>
               <div className="flex items-center gap-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Ringkasan Kegiatan (Bahasa Laporan Resmi BPS) *
-                </label>
-                <span className="text-[10px] text-slate-400 hidden sm:inline">(Dapat diperbesar)</span>
+                <select
+                  value={jumlahParagraf}
+                  onChange={(e) => setJumlahParagraf(e.target.value)}
+                  className="px-2.5 py-1.5 bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
+                  title="Pilih Jumlah Paragraf Ringkasan AI"
+                >
+                  <option value="auto">Paragraf: Otomatis</option>
+                  <option value="1">Paragraf: 1 Paragraf</option>
+                  <option value="2">Paragraf: 2 Paragraf</option>
+                  <option value="3">Paragraf: 3 Paragraf</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={handleGenerateGemini}
+                  disabled={isGeneratingAi}
+                  className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 ai-pulse-button"
+                >
+                  {isGeneratingAi ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  <span>Generate dengan Gemini</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleGenerateGemini}
-                disabled={isGeneratingAi}
-                className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 ai-pulse-button"
-              >
-                {isGeneratingAi ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Sparkles className="w-3.5 h-3.5" />
-                )}
-                <span>Generate dengan Gemini</span>
-              </button>
             </div>
 
             <textarea

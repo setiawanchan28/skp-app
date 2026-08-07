@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Image as ImageIcon, Upload, X, Trash2, RefreshCw, AlertCircle } from 'lucide-react';
+import { Upload, Trash2, Maximize2, Minimize2, AlertCircle } from 'lucide-react';
 import { compressImage } from '@/lib/image';
 
 export interface PhotoItem {
@@ -10,6 +10,7 @@ export interface PhotoItem {
   previewUrl: string;
   name: string;
   existingUrl?: string;
+  fitMode?: 'contain' | 'cover';
 }
 
 interface PhotoUploaderProps {
@@ -59,6 +60,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
           file: compressed,
           previewUrl,
           name: compressed.name,
+          fitMode: 'contain', // Default to 100% full uncropped image
         });
       } catch (err) {
         console.error('Image compression failed:', err);
@@ -92,6 +94,19 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
     onChange(updated);
   };
 
+  const toggleFitMode = (id: string) => {
+    const updated = photos.map((p) => {
+      if (p.id === id) {
+        return {
+          ...p,
+          fitMode: (p.fitMode === 'cover' ? 'contain' : 'cover') as 'contain' | 'cover',
+        };
+      }
+      return p;
+    });
+    onChange(updated);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -100,7 +115,7 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
             Dokumentasi Kegiatan (Maksimal {maxPhotos} Foto) *
           </label>
           <p className="text-xs text-slate-500">
-            Format: JPG, PNG, WEBP. Maks 10 MB per file. Proporsi foto Portrait & Landscape terjaga 100%.
+            Format: JPG, PNG, WEBP. Foto Portrait & Landscape otomatis ditampilkan 100% utuh tanpa terpotong.
           </p>
         </div>
         <span className="text-xs font-bold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-full border border-sky-200">
@@ -152,35 +167,65 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
         </div>
       )}
 
-      {/* Photo Previews Grid with contain fit */}
+      {/* Photo Previews Grid */}
       {photos.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {photos.map((item, index) => (
-            <div
-              key={item.id}
-              className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-900 h-44 flex items-center justify-center shadow-xs p-1"
-            >
-              <img
-                src={item.previewUrl || item.existingUrl}
-                alt={item.name}
-                className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-between">
-                <div className="flex justify-end">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {photos.map((item, index) => {
+            const fit = item.fitMode || 'contain';
+            return (
+              <div
+                key={item.id}
+                className="relative group rounded-2xl overflow-hidden border border-slate-200 bg-slate-950 min-h-[220px] max-h-[300px] flex items-center justify-center shadow-sm p-2 transition-all"
+              >
+                <img
+                  src={item.previewUrl || item.existingUrl}
+                  alt={item.name}
+                  className={`w-full h-full transition-all duration-300 ${
+                    fit === 'contain' ? 'object-contain max-h-[280px]' : 'object-cover'
+                  }`}
+                />
+
+                {/* Top Action Controls */}
+                <div className="absolute top-2 right-2 flex items-center gap-1.5 z-10">
+                  <button
+                    type="button"
+                    onClick={() => toggleFitMode(item.id)}
+                    className="p-1.5 bg-slate-900/80 hover:bg-slate-900 text-white rounded-lg transition-colors shadow-sm text-[10px] font-semibold flex items-center gap-1 backdrop-blur-sm"
+                    title={fit === 'contain' ? 'Mode Penuh Kotak (Crop)' : 'Mode Tampilkan Utuh (Fit)'}
+                  >
+                    {fit === 'contain' ? (
+                      <>
+                        <Maximize2 className="w-3.5 h-3.5" />
+                        <span>Fit Utuh</span>
+                      </>
+                    ) : (
+                      <>
+                        <Minimize2 className="w-3.5 h-3.5" />
+                        <span>Crop</span>
+                      </>
+                    )}
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => handleRemove(item.id)}
-                    className="p-1.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition-colors shadow-sm"
+                    className="p-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors shadow-sm"
+                    title="Hapus Foto"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div className="text-[10px] text-white font-medium truncate">
-                  Foto #{index + 1}
+
+                {/* Bottom Label Badge */}
+                <div className="absolute bottom-2 left-2 right-2 bg-slate-950/80 backdrop-blur-sm p-2 rounded-xl text-white text-[11px] font-medium flex items-center justify-between pointer-events-none">
+                  <span className="truncate">Foto #{index + 1}</span>
+                  <span className="text-[10px] font-bold text-sky-400 uppercase">
+                    {fit === 'contain' ? '100% Utuh' : 'Crop'}
+                  </span>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

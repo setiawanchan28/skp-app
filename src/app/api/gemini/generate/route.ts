@@ -4,7 +4,7 @@ import { generateBpsSummary } from '@/lib/gemini';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { namaKegiatan, deskripsiKegiatan, namaPegawai } = body;
+    const { namaKegiatan, deskripsiKegiatan, namaPegawai, jumlahParagraf } = body;
 
     if (!namaKegiatan || !deskripsiKegiatan) {
       return NextResponse.json(
@@ -13,7 +13,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const ringkasan = await generateBpsSummary(namaKegiatan, deskripsiKegiatan, namaPegawai);
+    const ringkasan = await generateBpsSummary(
+      namaKegiatan,
+      deskripsiKegiatan,
+      namaPegawai,
+      jumlahParagraf || 'auto'
+    );
 
     return NextResponse.json({
       success: true,

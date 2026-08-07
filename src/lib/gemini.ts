@@ -5,10 +5,20 @@ const apiKey = process.env.GEMINI_API_KEY || '';
 export async function generateBpsSummary(
   namaKegiatan: string,
   deskripsiKegiatan: string,
-  namaPegawai?: string
+  namaPegawai?: string,
+  jumlahParagraf: string = 'auto'
 ): Promise<string> {
+  let paragraphInstruction = 'Tulis ringkasan naratif secara proporsional (1-3 paragraf jika materi cukup panjang).';
+  if (jumlahParagraf === '1') {
+    paragraphInstruction = 'Wajib tuliskan ringkasan naratif dalam TEPAT 1 PARAGRAF UTUH.';
+  } else if (jumlahParagraf === '2') {
+    paragraphInstruction = 'Wajib bagi ringkasan naratif menjadi TEPAT 2 PARAGRAF RAPI yang terpisah.';
+  } else if (jumlahParagraf === '3') {
+    paragraphInstruction = 'Wajib bagi ringkasan naratif menjadi TEPAT 3 PARAGRAF RAPI yang terpisah.';
+  }
+
   const prompt = `Anda adalah asisten penyusunan ringkasan Bukti Dukung Kegiatan Harian Pegawai BPS.
-Tugas Anda adalah merangkai poin-poin kegiatan mentah menjadi **SATU PARAGRAF NARASI RESMI DENGAN LANGSUNG KE INTI KEGIATAN**.
+Tugas Anda adalah merangkai poin-poin kegiatan mentah menjadi **NARASI RESMI BPS YANG MENGALIR DAN PROFESIONAL**.
 
 Informasi Input:
 - Nama Kegiatan: ${namaKegiatan}
@@ -16,15 +26,16 @@ Informasi Input:
 ${deskripsiKegiatan}
 
 Instruksi Penulisan Penting:
-1. LANGSUNG KE INTI KEGIATAN: DILARANG menyebut nama instansi ("BPS Kabupaten Lebak...") dan DILARANG menyebut nama pegawai/orang di awal kalimat. LANGSUNG awali paragraf dengan KATA KERJA AKTIF (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...").
-2. CONTOH HASIL YANG DIHARAPKAN:
+1. INSTRUKSI PARAGRAF: ${paragraphInstruction}
+2. LANGSUNG KE INTI KEGIATAN: DILARANG menyebut nama instansi ("BPS Kabupaten Lebak...") dan DILARANG menyebut nama pegawai di awal kalimat. LANGSUNG awali dengan KATA KERJA AKTIF (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...").
+3. CONTOH GAYA BAHASA RESMI BPS:
    "Melaksanakan kegiatan ${namaKegiatan} di Desa Aweh bersama PML Sundari dan PPL Fahmi. Rangkaian kegiatan berfokus pada pendampingan langsung di wilayah sampel, validasi kelengkapan serta konsistensi isian kuesioner digital maupun fisik, sekaligus menyampaikan arahan teknis mengenai perbaikan anomali data demi menjaga mutu dan akurasi data hasil lapangan."
-3. DILARANG menggunakan frasa seremonial kaku seperti "berjalan tertib dan lancar".
-4. DILARANG menambahkan kata pembuka seperti "Berikut ringkasan:". LANGSUNG ke isi paragraf ringkasan.`;
+4. DILARANG menggunakan frasa seremonial kaku seperti "berjalan tertib dan lancar".
+5. DILARANG menambahkan kata pembuka seperti "Berikut ringkasan:". LANGSUNG ke isi paragraf narasi.`;
 
   try {
     if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy')) {
-      return composeDirectActionNarrative(namaKegiatan, deskripsiKegiatan);
+      return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf);
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
@@ -47,19 +58,20 @@ Instruksi Penulisan Penting:
       }
     }
 
-    return composeDirectActionNarrative(namaKegiatan, deskripsiKegiatan);
+    return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf);
   } catch (error) {
-    console.warn('Gemini API error, using direct action narrative composer:', error);
-    return composeDirectActionNarrative(namaKegiatan, deskripsiKegiatan);
+    console.warn('Gemini API error, using custom narrative composer:', error);
+    return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf);
   }
 }
 
 /**
- * Direct Action Verb Narrative Composer for Offline Mode
+ * Custom Paragraph Offline Narrative Composer
  */
-function composeDirectActionNarrative(
+function composeCustomParagraphNarrative(
   namaKegiatan: string,
-  deskripsiKegiatan: string
+  deskripsiKegiatan: string,
+  jumlahParagraf: string
 ): string {
   const lines = deskripsiKegiatan
     .split('\n')
@@ -67,7 +79,7 @@ function composeDirectActionNarrative(
     .filter((line) => line.length > 0);
 
   if (lines.length === 0) {
-    return `Melaksanakan kegiatan ${namaKegiatan} sesuai dengan petunjuk teknis dan standar operasional prosedur yang berlaku.`;
+    return `Melaksanakan kegiatan ${namaKegiatan} sesuai petunjuk teknis dan standar operasional prosedur yang berlaku.`;
   }
 
   let locations: string[] = [];
@@ -92,36 +104,26 @@ function composeDirectActionNarrative(
     }
   }
 
-  let narrative = `Melaksanakan kegiatan ${namaKegiatan}`;
-
-  if (locations.length > 0) {
-    narrative += ` di ${locations.join(', ')}`;
-  }
-
-  if (personnel.length > 0) {
-    narrative += ` bersama ${personnel.join(' serta ')}`;
-  }
-
-  narrative += `. `;
+  let p1 = `Melaksanakan kegiatan ${namaKegiatan}`;
+  if (locations.length > 0) p1 += ` di ${locations.join(', ')}`;
+  if (personnel.length > 0) p1 += ` bersama ${personnel.join(' serta ')}`;
+  p1 += `. `;
 
   if (actions.length > 0) {
-    const formattedActions = actions.map((act) => {
-      let clean = act.trim();
-      if (clean.length > 0) {
-        clean = clean.charAt(0).toLowerCase() + clean.slice(1);
-      }
-      return clean;
-    });
-
-    if (formattedActions.length === 1) {
-      narrative += `Kegiatan berfokus pada ${formattedActions[0]}.`;
-    } else if (formattedActions.length === 2) {
-      narrative += `Kegiatan berfokus pada ${formattedActions[0]} serta ${formattedActions[1]}.`;
-    } else {
-      const lastAction = formattedActions.pop();
-      narrative += `Rangkaian kegiatan meliputi ${formattedActions.join(', ')}, serta ${lastAction}.`;
-    }
+    const formatted = actions.map((a) => a.charAt(0).toLowerCase() + a.slice(1));
+    p1 += `Rangkaian kegiatan meliputi ${formatted.join(', ')}.`;
   }
 
-  return narrative;
+  if (jumlahParagraf === '2') {
+    const p2 = `Melalui kegiatan ini, koordinasi teknis dan verifikasi data di lapangan ditingkatkan guna menjamin kelengkapan serta keakuratan informasi statistik yang dihasilkan.`;
+    return `${p1}\n\n${p2}`;
+  }
+
+  if (jumlahParagraf === '3') {
+    const p2 = `Selama pelaksanaan di lapangan, verifikasi dilakukan secara mendalam pada setiap dokumen kuesioner untuk mengidentifikasi serta memperbaiki anomali data secara langsung.`;
+    const p3 = `Langkah ini diambil demi menjaga integritas data dan memastikan seluruh prosedur pendataan telah memenuhi standar metodologi statistik BPS.`;
+    return `${p1}\n\n${p2}\n\n${p3}`;
+  }
+
+  return p1;
 }
