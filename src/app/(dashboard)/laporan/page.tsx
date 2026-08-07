@@ -89,9 +89,15 @@ export default function RiwayatLaporanPage() {
       showToast('Link PDF Drive belum tersedia', 'error');
       return;
     }
-    navigator.clipboard.writeText(url);
+    let viewOnlyUrl = url;
+    if (viewOnlyUrl.includes('/edit')) {
+      viewOnlyUrl = viewOnlyUrl.replace(/\/edit.*$/, '/view?usp=sharing');
+    } else if (!viewOnlyUrl.includes('/view')) {
+      viewOnlyUrl = `${viewOnlyUrl.replace(/\/+$/, '')}/view?usp=sharing`;
+    }
+    navigator.clipboard.writeText(viewOnlyUrl);
     setCopiedId(id);
-    showToast('Link PDF Google Drive (Akses View) berhasil disalin ke clipboard!', 'success');
+    showToast('Link PDF Google Drive (Akses View / Lihat Saja) berhasil disalin ke clipboard!', 'success');
     setTimeout(() => setCopiedId(null), 2500);
   };
 

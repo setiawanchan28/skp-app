@@ -193,10 +193,17 @@ export async function uploadFileToDrive(
     console.warn('Could not set public permission on Drive file:', permErr);
   }
 
+  let viewLink = res.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+  if (viewLink.includes('/edit')) {
+    viewLink = viewLink.replace(/\/edit.*$/, '/view?usp=sharing');
+  } else if (!viewLink.includes('/view')) {
+    viewLink = `${viewLink.replace(/\/+$/, '')}/view?usp=sharing`;
+  }
+
   return {
     id: fileId,
     name: res.data.name || fileName,
-    webViewLink: res.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view`,
+    webViewLink: viewLink,
     webContentLink: res.data.webContentLink || undefined,
   };
 }
