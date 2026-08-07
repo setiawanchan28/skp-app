@@ -127,7 +127,7 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
     localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(updatedList));
   }
 
-  // 2. Sync to Supabase Online DB using supabaseAdmin on server
+  // 2. Sync to Supabase Online DB using supabaseAdmin
   if (isSupabaseConfigured()) {
     try {
       const client = typeof window === 'undefined' ? supabaseAdmin : supabase;
@@ -182,6 +182,7 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
 }
 
 export async function deleteLaporanRecord(id: string): Promise<boolean> {
+  // 1. Delete from local storage
   if (typeof window !== 'undefined') {
     let list: Laporan[] = [];
     const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
@@ -194,9 +195,23 @@ export async function deleteLaporanRecord(id: string): Promise<boolean> {
     localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(updated));
   }
 
+  // 2. Call server API to delete from Server JSON, Google Drive, and Supabase DB
+  try {
+    await fetch('/api/laporan/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+  } catch (err) {
+    console.warn('API delete laporan call notice:', err);
+  }
+
+  // 3. Fallback direct client delete to Supabase DB
   if (isSupabaseConfigured()) {
     try {
       const client = typeof window === 'undefined' ? supabaseAdmin : supabase;
+      await client.from('laporan_foto').delete().eq('laporan_id', id);
+      await client.from('laporan_foto').delete().eq('id', id);
       await client.from('laporan').delete().eq('id', id);
     } catch (err) {
       console.warn('Supabase delete laporan error:', err);
