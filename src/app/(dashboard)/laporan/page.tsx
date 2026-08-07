@@ -15,6 +15,8 @@ import {
   FilePlus,
   Copy,
   CheckCircle2,
+  RefreshCw,
+  Bookmark,
 } from 'lucide-react';
 import { fetchLaporanList, deleteLaporanRecord } from '@/services/laporanService';
 import { Laporan } from '@/types/laporan';
@@ -30,10 +32,10 @@ export default function RiwayatLaporanPage() {
   const [laporanList, setLaporanList] = useState<Laporan[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Filters
+  // Filters - default to 'all' for month and year so no new report is accidentally hidden
   const [search, setSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
-  const [selectedYear, setSelectedYear] = useState<string>('2026');
+  const [selectedYear, setSelectedYear] = useState<string>('all');
 
   // Modals
   const [previewLaporan, setPreviewLaporan] = useState<Laporan | null>(null);
@@ -53,7 +55,7 @@ export default function RiwayatLaporanPage() {
 
   // Filtered List
   const filteredList = laporanList.filter((lap) => {
-    const d = new Date(lap.tanggal);
+    const d = new Date(lap.tanggal || Date.now());
     const matchSearch =
       lap.nama_kegiatan.toLowerCase().includes(search.toLowerCase()) ||
       lap.nama_pegawai.toLowerCase().includes(search.toLowerCase()) ||
@@ -112,12 +114,23 @@ export default function RiwayatLaporanPage() {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={loadData}
+            disabled={loading}
+            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5"
+            title="Refresh Data Riwayat"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          <button
             onClick={handleExportExcel}
             className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5"
           >
             <Download className="w-4 h-4" />
             <span>Export Excel</span>
           </button>
+
           <Link
             href="/laporan/tambah"
             className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs shadow-xs transition-all flex items-center gap-1.5"
@@ -244,7 +257,7 @@ export default function RiwayatLaporanPage() {
                           </button>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400 italic">Belum diunggah</span>
+                        <span className="text-xs text-slate-400 italic">Draf / Belum Final</span>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-center whitespace-nowrap">

@@ -4,7 +4,7 @@ import { Laporan, LaporanFoto } from '@/types/laporan';
 const LOCAL_STORAGE_LAPORAN = 'bps_laporan_data';
 
 export async function fetchLaporanList(): Promise<Laporan[]> {
-  let supabaseData: Laporan[] | null = null;
+  let supabaseData: Laporan[] = [];
 
   if (isSupabaseConfigured()) {
     try {
@@ -40,28 +40,28 @@ export async function fetchLaporanList(): Promise<Laporan[]> {
     fileId === 'demo_pdf_2' ||
     (url && (url.includes('demo_pdf_1') || url.includes('demo_pdf_2')));
 
-  // Filter out any legacy dummy demo items with demo_pdf_1 links
+  // Filter out dummy demo records
   localData = localData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id));
+  supabaseData = supabaseData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id));
 
-  // Merge Supabase and Local Storage items to ensure newly saved reports ALWAYS appear immediately
-  if (supabaseData && supabaseData.length > 0) {
-    const mergedMap = new Map<string, Laporan>();
-    supabaseData
-      .filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id))
-      .forEach((item) => mergedMap.set(item.id, item));
+  // Merge both sources using Map keyed by ID to ensure newly saved reports ALWAYS appear immediately
+  const mergedMap = new Map<string, Laporan>();
 
-    localData.forEach((item) => {
-      if (!mergedMap.has(item.id)) {
-        mergedMap.set(item.id, item);
-      }
-    });
+  // Insert local storage items first
+  localData.forEach((item) => {
+    if (item && item.id) mergedMap.set(item.id, item);
+  });
 
-    return Array.from(mergedMap.values()).sort(
-      (a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime()
-    );
-  }
+  // Insert Supabase items (override if present)
+  supabaseData.forEach((item) => {
+    if (item && item.id) mergedMap.set(item.id, item);
+  });
 
-  return localData;
+  const finalResult = Array.from(mergedMap.values()).sort(
+    (a, b) => new Date(b.tanggal || Date.now()).getTime() - new Date(a.tanggal || Date.now()).getTime()
+  );
+
+  return finalResult;
 }
 
 export async function fetchLaporanById(id: string): Promise<Laporan | null> {
@@ -94,7 +94,13 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
 
   // 1. Update local storage immediately so user sees the new report instantly
   if (typeof window !== 'undefined') {
-    const currentList = await fetchLaporanList();
+    let currentList: Laporan[] = [];
+    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+    if (local) {
+      try {
+        currentList = JSON.parse(local);
+      } catch (e) {}
+    }
     const existingIndex = currentList.findIndex((l) => l.id === newId);
     let updatedList: Laporan[];
     if (existingIndex >= 0) {
@@ -106,7 +112,7 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
     localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(updatedList));
   }
 
-  // 2. Sync to Supabase if configured
+  // 2. Sync to Supabase if configured (sanitized to prevent DB schema mismatches)
   if (isSupabaseConfigured()) {
     try {
       const dbRecord = {
@@ -115,7 +121,6 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
         nip: record.nip,
         jabatan: record.jabatan,
         tanggal: record.tanggal,
-        tanggal_selesai: record.tanggal_selesai,
         nama_kegiatan: record.nama_kegiatan,
         deskripsi_kegiatan: record.deskripsi_kegiatan,
         ringkasan_kegiatan: record.ringkasan_kegiatan,
@@ -127,20 +132,17 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
         updated_at: record.updated_at,
       };
 
-      const { data, error } = await supabase.from('laporan').upsert(dbRecord).select().single();
-      if (!error && data) {
-        if (fotosData.length > 0) {
-          await supabase.from('laporan_foto').delete().eq('laporan_id', newId);
-          await supabase.from('laporan_foto').insert(
-            fotosData.map((f) => ({
-              laporan_id: newId,
-              drive_file_id: f.drive_file_id,
-              drive_file_url: f.drive_file_url,
-              file_name: f.file_name,
-              tanggal_foto: f.tanggal_foto,
-            }))
-          );
-        }
+      const { error } = await supabase.from('laporan').upsert(dbRecord);
+      if (!error && fotosData.length > 0) {
+        await supabase.from('laporan_foto').delete().eq('laporan_id', newId);
+        await supabase.from('laporan_foto').insert(
+          fotosData.map((f) => ({
+            laporan_id: newId,
+            drive_file_id: f.drive_file_id,
+            drive_file_url: f.drive_file_url,
+            file_name: f.file_name,
+          }))
+        );
       } else if (error) {
         console.warn('Supabase save record notice (falling back to local storage):', error.message);
       }
@@ -154,7 +156,13 @@ export async function saveLaporanRecord(laporanData: Partial<Laporan>, fotosData
 
 export async function deleteLaporanRecord(id: string): Promise<boolean> {
   if (typeof window !== 'undefined') {
-    const list = await fetchLaporanList();
+    let list: Laporan[] = [];
+    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+    if (local) {
+      try {
+        list = JSON.parse(local);
+      } catch (e) {}
+    }
     const updated = list.filter((l) => l.id !== id);
     localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(updated));
   }
