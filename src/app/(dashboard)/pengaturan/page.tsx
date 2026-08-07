@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Lock, Mail, ShieldCheck, Key, Save, CheckCircle2, Building, BadgeCheck } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
-import { fetchPegawaiList, createPegawai, updatePegawai } from '@/services/pegawaiService';
+import { savePegawaiOnline, fetchPegawaiList } from '@/services/pegawaiService';
 
 interface UserProfile {
   nama: string;
@@ -28,6 +28,17 @@ export default function PengaturanAkunPage() {
   const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
+    // Load current online profile from server/API first
+    fetchPegawaiList().then((list) => {
+      if (list && list.length > 0) {
+        const p = list[0];
+        if (p.nama) setNama(p.nama);
+        if (p.nip) setNip(p.nip);
+        if (p.jabatan) setJabatan(p.jabatan);
+        if (p.email) setEmail(p.email);
+      }
+    });
+
     if (typeof window !== 'undefined') {
       const savedUser = localStorage.getItem('bps_auth_user') || localStorage.getItem('bps_saved_profile');
       if (savedUser) {
@@ -46,31 +57,27 @@ export default function PengaturanAkunPage() {
     e.preventDefault();
     setSavingProfile(true);
 
-    const updatedUser: UserProfile = { nama, nip, jabatan, email };
-
-    if (typeof window !== 'undefined') {
-      // Save permanently to auth user and saved profile
-      localStorage.setItem('bps_auth_user', JSON.stringify(updatedUser));
-      localStorage.setItem('bps_saved_profile', JSON.stringify(updatedUser));
-    }
-
-    // Also sync to Master Pegawai database/localStorage
     try {
-      const list = await fetchPegawaiList();
-      const existing = list.find((p) => p.nip === nip || (p.email && p.email === email));
-      if (existing) {
-        await updatePegawai(existing.id, { nama, nip, jabatan, email });
-      } else {
-        await createPegawai({ nama, nip, jabatan, email });
-      }
-    } catch (err) {
-      console.warn('Sync to pegawai master notice:', err);
-    }
+      // Save online to server API & Supabase DB so ALL browsers/devices get this updated profile
+      const savedRecord = await savePegawaiOnline({
+        id: 'peg-main',
+        nama,
+        nip,
+        jabatan,
+        email,
+      });
 
-    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('bps_auth_user', JSON.stringify(savedRecord));
+        localStorage.setItem('bps_saved_profile', JSON.stringify(savedRecord));
+      }
+
+      showToast('Profil akun pegawai berhasil diperbarui dan tersimpan online lintas browser!', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menyimpan profil pegawai online', 'error');
+    } finally {
       setSavingProfile(false);
-      showToast('Profil akun pegawai berhasil diperbarui dan tersimpan permanen!', 'success');
-    }, 400);
+    }
   };
 
   const handleChangePassword = (e: React.FormEvent) => {
@@ -112,7 +119,7 @@ export default function PengaturanAkunPage() {
             <span>Pengaturan Akun & Kata Sandi</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Kelola profil identitas pegawai BPS dan ubah kata sandi akun Anda
+            Kelola profil identitas pegawai BPS dan ubah kata sandi akun Anda (Tersimpan Online Lintas Browser)
           </p>
         </div>
 
@@ -192,7 +199,7 @@ export default function PengaturanAkunPage() {
             className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all flex items-center gap-1.5"
           >
             <Save className="w-4 h-4" />
-            <span>{savingProfile ? 'Menyimpan...' : 'Simpan Perubahan Profil'}</span>
+            <span>{savingProfile ? 'Menyimpan Online...' : 'Simpan Perubahan Profil'}</span>
           </button>
         </div>
       </form>
