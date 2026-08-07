@@ -3,32 +3,21 @@ import { Pegawai, PegawaiInput } from '@/types/pegawai';
 
 const LOCAL_STORAGE_KEY = 'bps_pegawai_data';
 
-const DEFAULT_PEGAWAI: Pegawai[] = [
-  {
-    id: 'peg-main',
-    nama: 'Dede Setiawan, S.Tr.Stat.',
-    nip: '199502282024211021',
-    jabatan: 'Pranata Komputer Ahli Pertama',
-    email: 'ddsetiawan28@gmail.com',
-    created_at: new Date().toISOString(),
-  },
-];
+const DEFAULT_PEGAWAI: Pegawai[] = [];
 
 export async function fetchPegawaiList(): Promise<Pegawai[]> {
   let serverData: Pegawai[] = [];
 
-  // 1. Fetch from server API store first (guarantees cross-browser persistence)
+  // 1. Fetch from server API store first
   try {
     const res = await fetch('/api/pegawai/save', { cache: 'no-store' });
     if (res.ok) {
       const result = await res.json();
-      if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+      if (result.data && Array.isArray(result.data)) {
         serverData = result.data;
       }
     }
-  } catch (err) {
-    console.warn('API fetch pegawai notice:', err);
-  }
+  } catch (err) {}
 
   // 2. Fetch from Supabase DB if configured
   let supabaseData: Pegawai[] = [];
@@ -42,9 +31,7 @@ export async function fetchPegawaiList(): Promise<Pegawai[]> {
       if (!error && data) {
         supabaseData = data;
       }
-    } catch (err) {
-      console.warn('Supabase fetch error:', err);
-    }
+    } catch (err) {}
   }
 
   // 3. Local storage fallback
@@ -68,10 +55,7 @@ export async function fetchPegawaiList(): Promise<Pegawai[]> {
   localData.forEach((p) => { if (p && p.id) mergedMap.set(p.id, p); });
   supabaseData.forEach((p) => { if (p && p.id) mergedMap.set(p.id, p); });
 
-  let finalResult = Array.from(mergedMap.values());
-  if (finalResult.length === 0) {
-    finalResult = DEFAULT_PEGAWAI;
-  }
+  const finalResult = Array.from(mergedMap.values());
 
   if (typeof window !== 'undefined') {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalResult));
@@ -82,11 +66,11 @@ export async function fetchPegawaiList(): Promise<Pegawai[]> {
 
 export async function savePegawaiOnline(input: { id?: string; nama: string; nip: string; jabatan?: string; email?: string }): Promise<Pegawai> {
   const payload = {
-    id: input.id || 'peg-main',
+    id: input.id || (typeof crypto !== 'undefined' ? crypto.randomUUID() : `peg_${Date.now()}`),
     nama: input.nama,
     nip: input.nip,
-    jabatan: input.jabatan || 'Pranata Komputer Ahli Pertama',
-    email: input.email || 'ddsetiawan28@gmail.com',
+    jabatan: input.jabatan || 'Pegawai BPS',
+    email: input.email || '',
   };
 
   try {
@@ -105,9 +89,7 @@ export async function savePegawaiOnline(input: { id?: string; nama: string; nip:
         return result.data;
       }
     }
-  } catch (err) {
-    console.warn('API save pegawai notice:', err);
-  }
+  } catch (err) {}
 
   return createPegawai(payload);
 }
@@ -129,9 +111,7 @@ export async function createPegawai(input: PegawaiInput): Promise<Pegawai> {
     try {
       const { data, error } = await supabase.from('pegawai').insert(input).select().single();
       if (!error && data) return data;
-    } catch (err) {
-      console.warn('Supabase insert pegawai error:', err);
-    }
+    } catch (err) {}
   }
 
   return newPegawai;
@@ -153,9 +133,7 @@ export async function updatePegawai(id: string, input: PegawaiInput): Promise<Pe
         .select()
         .single();
       if (!error && data) return data;
-    } catch (err) {
-      console.warn('Supabase update pegawai error:', err);
-    }
+    } catch (err) {}
   }
 
   return { id, ...input };
@@ -171,9 +149,7 @@ export async function deletePegawai(id: string): Promise<boolean> {
   if (isSupabaseConfigured()) {
     try {
       await supabase.from('pegawai').delete().eq('id', id);
-    } catch (err) {
-      console.warn('Supabase delete pegawai error:', err);
-    }
+    } catch (err) {}
   }
 
   return true;

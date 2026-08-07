@@ -13,15 +13,7 @@ function getStoredPegawaiList() {
       return JSON.parse(data);
     } catch (e) {}
   }
-  return [
-    {
-      id: 'peg-main',
-      nama: 'Dede Setiawan, S.Tr.Stat.',
-      nip: '199502282024211021',
-      jabatan: 'Pranata Komputer Ahli Pertama',
-      email: 'ddsetiawan28@gmail.com',
-    },
-  ];
+  return [];
 }
 
 export async function POST() {
@@ -46,11 +38,11 @@ export async function POST() {
     const pegawaiList = getStoredPegawaiList();
     for (const p of pegawaiList) {
       const { error } = await supabaseAdmin.from('pegawai').upsert({
-        id: p.id || 'peg-main',
+        id: p.id,
         nama: p.nama,
         nip: p.nip,
         jabatan: p.jabatan,
-        email: p.email || 'ddsetiawan28@gmail.com',
+        email: p.email || '',
       });
       if (error) {
         results.errors.push(`Tabel pegawai: ${error.message}`);

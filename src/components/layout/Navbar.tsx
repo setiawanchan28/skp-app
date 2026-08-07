@@ -27,18 +27,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
       const savedUser = localStorage.getItem('bps_auth_user') || localStorage.getItem('bps_saved_profile');
       if (savedUser) {
         try {
-          setUser(JSON.parse(savedUser));
+          const parsed = JSON.parse(savedUser);
+          if (parsed && parsed.nama) {
+            setUser(parsed);
+          }
         } catch (e) {}
-      } else {
-        const defaultUser: AuthUser = {
-          nama: 'Dede Setiawan, S.Tr.Stat.',
-          nip: '199502282024211021',
-          jabatan: 'Pranata Komputer Ahli Pertama',
-          email: 'ddsetiawan28@gmail.com',
-        };
-        setUser(defaultUser);
-        localStorage.setItem('bps_auth_user', JSON.stringify(defaultUser));
-        localStorage.setItem('bps_saved_profile', JSON.stringify(defaultUser));
       }
     }
   }, []);

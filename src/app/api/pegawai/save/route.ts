@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 import fs from 'fs';
 import path from 'path';
 import { Pegawai } from '@/types/pegawai';
@@ -13,16 +13,7 @@ function getStoredPegawai(): Pegawai[] {
       return JSON.parse(data);
     } catch (e) {}
   }
-  return [
-    {
-      id: 'peg-main',
-      nama: 'Dede Setiawan, S.Tr.Stat.',
-      nip: '199502282024211021',
-      jabatan: 'Pranata Komputer Ahli Pertama',
-      email: 'ddsetiawan28@gmail.com',
-      created_at: new Date().toISOString(),
-    },
-  ];
+  return [];
 }
 
 function saveStoredPegawai(list: Pegawai[]) {
@@ -45,14 +36,14 @@ export async function POST(req: NextRequest) {
     }
 
     const currentList = getStoredPegawai();
-    const targetId = id || 'peg-main';
+    const targetId = id || (typeof crypto !== 'undefined' ? crypto.randomUUID() : `peg_${Date.now()}`);
 
     const newRecord: Pegawai = {
       id: targetId,
       nama: nama.trim(),
       nip: nip.trim(),
-      jabatan: jabatan ? jabatan.trim() : 'Pranata Komputer Ahli Pertama',
-      email: email ? email.trim() : 'ddsetiawan28@gmail.com',
+      jabatan: jabatan ? jabatan.trim() : 'Pegawai BPS',
+      email: email ? email.trim() : '',
       updated_at: new Date().toISOString(),
     };
 
@@ -70,10 +61,10 @@ export async function POST(req: NextRequest) {
 
     saveStoredPegawai(updatedList);
 
-    // Sync to Supabase if configured
+    // Sync to Supabase DB using supabaseAdmin
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from('pegawai').upsert({
+        await supabaseAdmin.from('pegawai').upsert({
           id: newRecord.id,
           nama: newRecord.nama,
           nip: newRecord.nip,
