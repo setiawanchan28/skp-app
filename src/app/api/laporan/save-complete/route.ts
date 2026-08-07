@@ -5,7 +5,7 @@ import { generateBpsDocxBuffer } from '@/lib/docx';
 import { saveLaporanRecord, fetchLaporanById } from '@/services/laporanService';
 import { generatePhotoFilename, generatePdfFilename, sanitizeFilename } from '@/utils/sanitizeFilename';
 import { LaporanFoto } from '@/types/laporan';
-import { getStoredLaporanList, saveStoredLaporanList } from '../list/route';
+import { getStoredLaporanList, saveStoredLaporanList } from '@/lib/laporanStore';
 
 export async function POST(req: NextRequest) {
   try {
