@@ -63,11 +63,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         `}
       >
         {/* Brand Header */}
-        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between min-h-[73px]">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-10 h-10 rounded-xl gradient-bps flex items-center justify-center text-white font-bold shadow-md shadow-sky-500/20 shrink-0">
+        <div className={`border-b border-slate-100 dark:border-slate-800 flex items-center min-h-[73px] transition-all ${
+          isCollapsed ? 'px-2 py-4 justify-between gap-1' : 'p-4 justify-between gap-3'
+        }`}>
+          <div className={`flex items-center gap-2.5 overflow-hidden ${isCollapsed ? 'justify-center shrink-0' : ''}`}>
+            <button
+              onClick={onToggleCollapse}
+              className="w-10 h-10 rounded-xl gradient-bps flex items-center justify-center text-white font-bold shadow-md shadow-sky-500/20 shrink-0 hover:opacity-90 transition-opacity"
+              title={isCollapsed ? 'Klik untuk Melebarkan Sidebar' : 'BPS Kabupaten Lebak'}
+            >
               <Sparkles className="w-5 h-5 text-white" />
-            </div>
+            </button>
+
             {!isCollapsed && (
               <div className="truncate">
                 <h1 className="font-extrabold text-slate-900 dark:text-white text-sm tracking-tight leading-tight truncate">
@@ -91,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Desktop Collapse Toggle Button */}
           <button
             onClick={onToggleCollapse}
-            className="hidden lg:flex p-1.5 text-slate-400 hover:text-sky-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+            className="hidden lg:flex p-1.5 text-slate-400 hover:text-sky-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors shrink-0"
             title={isCollapsed ? 'Tampilkan Sidebar' : 'Sembunyikan Sidebar'}
           >
             {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
@@ -132,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
           <button
             onClick={toggleTheme}
-            className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
+            className={`w-full py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
               theme === 'dark'
                 ? 'bg-slate-800 border-slate-700 text-amber-300 hover:bg-slate-700'
                 : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-xs'
@@ -141,12 +148,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             {theme === 'dark' ? (
               <>
-                <Sun className="w-4 h-4 text-amber-400" />
+                <Sun className="w-4 h-4 text-amber-400 shrink-0" />
                 {!isCollapsed && <span>Mode Siang (Light)</span>}
               </>
             ) : (
               <>
-                <Moon className="w-4 h-4 text-sky-600" />
+                <Moon className="w-4 h-4 text-sky-600 shrink-0" />
                 {!isCollapsed && <span>Mode Malam (Dark)</span>}
               </>
             )}
