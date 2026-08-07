@@ -27,31 +27,34 @@ export default function LoginPage() {
       return;
     }
 
-    // 1. Fetch current active online profile from server/DB
-    const pegawaiList = await fetchPegawaiList();
-    const primaryPegawai = pegawaiList.find(
-      (p) =>
-        p.nip === inputClean ||
-        (p.email && p.email.toLowerCase() === inputClean.toLowerCase()) ||
-        p.nama.toLowerCase().includes(inputClean.toLowerCase())
-    ) || pegawaiList[0];
-
-    // 2. Read saved profile from local storage if available
+    // 1. Read saved profile from local storage first (highest priority)
     let savedProfile: any = null;
     if (typeof window !== 'undefined') {
-      const raw = localStorage.getItem('bps_saved_profile');
+      const raw = localStorage.getItem('bps_saved_profile') || localStorage.getItem('bps_auth_user');
       if (raw) {
         try {
-          savedProfile = JSON.parse(raw);
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.nama && !parsed.nama.includes('NIP:')) {
+            savedProfile = parsed;
+          }
         } catch (e) {}
       }
     }
 
+    // 2. Try to match input to existing Pegawai record from Master Pegawai
+    const pegawaiList = await fetchPegawaiList();
+    const matchedPegawai = pegawaiList.find(
+      (p) =>
+        p.nip === inputClean ||
+        (p.email && p.email.toLowerCase() === inputClean.toLowerCase()) ||
+        p.nama.toLowerCase().includes(inputClean.toLowerCase())
+    );
+
     let userSession = {
-      nama: primaryPegawai?.nama || savedProfile?.nama || 'Dede Setiawan, S.Tr.Stat.',
-      nip: primaryPegawai?.nip || savedProfile?.nip || '199502282024211021',
-      jabatan: primaryPegawai?.jabatan || savedProfile?.jabatan || 'Pranata Komputer Ahli Pertama',
-      email: inputClean.includes('@') ? inputClean : primaryPegawai?.email || savedProfile?.email || 'ddsetiawan28@gmail.com',
+      nama: savedProfile?.nama || matchedPegawai?.nama || 'Dede Setiawan, S.Tr.Stat.',
+      nip: savedProfile?.nip || matchedPegawai?.nip || '199502282024211021',
+      jabatan: savedProfile?.jabatan || matchedPegawai?.jabatan || 'Pranata Komputer Ahli Pertama',
+      email: savedProfile?.email || (inputClean.includes('@') ? inputClean : matchedPegawai?.email || 'ddsetiawan28@gmail.com'),
     };
 
     if (isSupabaseConfigured() && inputClean.includes('@')) {
@@ -84,24 +87,24 @@ export default function LoginPage() {
   };
 
   const handleQuickDemoAccess = async () => {
-    const pegawaiList = await fetchPegawaiList();
-    const primaryPegawai = pegawaiList[0];
-
     let savedProfile: any = null;
     if (typeof window !== 'undefined') {
-      const raw = localStorage.getItem('bps_saved_profile');
+      const raw = localStorage.getItem('bps_saved_profile') || localStorage.getItem('bps_auth_user');
       if (raw) {
         try {
-          savedProfile = JSON.parse(raw);
+          const parsed = JSON.parse(raw);
+          if (parsed && parsed.nama && !parsed.nama.includes('NIP:')) {
+            savedProfile = parsed;
+          }
         } catch (e) {}
       }
     }
 
     const demoUser = {
-      nama: primaryPegawai?.nama || savedProfile?.nama || 'Dede Setiawan, S.Tr.Stat.',
-      nip: primaryPegawai?.nip || savedProfile?.nip || '199502282024211021',
-      jabatan: primaryPegawai?.jabatan || savedProfile?.jabatan || 'Pranata Komputer Ahli Pertama',
-      email: primaryPegawai?.email || savedProfile?.email || 'ddsetiawan28@gmail.com',
+      nama: savedProfile?.nama || 'Dede Setiawan, S.Tr.Stat.',
+      nip: savedProfile?.nip || '199502282024211021',
+      jabatan: savedProfile?.jabatan || 'Pranata Komputer Ahli Pertama',
+      email: savedProfile?.email || 'ddsetiawan28@gmail.com',
     };
     if (typeof window !== 'undefined') {
       localStorage.setItem('bps_auth_user', JSON.stringify(demoUser));
