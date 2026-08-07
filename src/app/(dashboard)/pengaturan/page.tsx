@@ -28,28 +28,36 @@ export default function PengaturanAkunPage() {
   const [savingPassword, setSavingPassword] = useState(false);
 
   useEffect(() => {
-    // Load current online profile from server/API first
-    fetchPegawaiList().then((list) => {
-      if (list && list.length > 0) {
-        const p = list[0];
-        if (p.nama) setNama(p.nama);
-        if (p.nip) setNip(p.nip);
-        if (p.jabatan) setJabatan(p.jabatan);
-        if (p.email) setEmail(p.email);
-      }
-    });
+    let hasLocalSaved = false;
 
+    // 1. Prioritize saved local profile if present
     if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('bps_auth_user') || localStorage.getItem('bps_saved_profile');
+      const savedUser = localStorage.getItem('bps_saved_profile') || localStorage.getItem('bps_auth_user');
       if (savedUser) {
         try {
           const parsed = JSON.parse(savedUser);
-          if (parsed.nama && !parsed.nama.includes('NIP:')) setNama(parsed.nama);
+          if (parsed.nama && !parsed.nama.includes('NIP:')) {
+            setNama(parsed.nama);
+            hasLocalSaved = true;
+          }
           if (parsed.nip && !parsed.nip.includes('@')) setNip(parsed.nip);
           if (parsed.jabatan) setJabatan(parsed.jabatan);
           if (parsed.email) setEmail(parsed.email);
         } catch (e) {}
       }
+    }
+
+    // 2. Only fallback to online list if local profile is not set yet
+    if (!hasLocalSaved) {
+      fetchPegawaiList().then((list) => {
+        if (list && list.length > 0) {
+          const p = list[0];
+          if (p.nama && !p.nama.includes('NIP:')) setNama(p.nama);
+          if (p.nip && !p.nip.includes('@')) setNip(p.nip);
+          if (p.jabatan) setJabatan(p.jabatan);
+          if (p.email) setEmail(p.email);
+        }
+      });
     }
   }, []);
 
@@ -57,24 +65,32 @@ export default function PengaturanAkunPage() {
     e.preventDefault();
     setSavingProfile(true);
 
+    const updatedUser: UserProfile = {
+      nama: nama.trim(),
+      nip: nip.trim(),
+      jabatan: jabatan.trim(),
+      email: email.trim(),
+    };
+
+    // 1. Immediately update localStorage synchronously
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('bps_auth_user', JSON.stringify(updatedUser));
+      localStorage.setItem('bps_saved_profile', JSON.stringify(updatedUser));
+    }
+
+    // 2. Sync to online server API & Supabase DB
     try {
-      // Save online to server API & Supabase DB so ALL browsers/devices get this updated profile
-      const savedRecord = await savePegawaiOnline({
+      await savePegawaiOnline({
         id: 'peg-main',
-        nama,
-        nip,
-        jabatan,
-        email,
+        nama: updatedUser.nama,
+        nip: updatedUser.nip,
+        jabatan: updatedUser.jabatan,
+        email: updatedUser.email,
       });
 
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('bps_auth_user', JSON.stringify(savedRecord));
-        localStorage.setItem('bps_saved_profile', JSON.stringify(savedRecord));
-      }
-
-      showToast('Profil akun pegawai berhasil diperbarui dan tersimpan online lintas browser!', 'success');
+      showToast('Profil akun pegawai berhasil diperbarui dan tersimpan permanen!', 'success');
     } catch (err: any) {
-      showToast(err.message || 'Gagal menyimpan profil pegawai online', 'error');
+      showToast('Profil tersimpan di perangkat lokal!', 'info');
     } finally {
       setSavingProfile(false);
     }
@@ -119,7 +135,7 @@ export default function PengaturanAkunPage() {
             <span>Pengaturan Akun & Kata Sandi</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Kelola profil identitas pegawai BPS dan ubah kata sandi akun Anda (Tersimpan Online Lintas Browser)
+            Kelola profil identitas pegawai BPS dan ubah kata sandi akun Anda (Tersimpan Permanen)
           </p>
         </div>
 
@@ -199,7 +215,7 @@ export default function PengaturanAkunPage() {
             className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all flex items-center gap-1.5"
           >
             <Save className="w-4 h-4" />
-            <span>{savingProfile ? 'Menyimpan Online...' : 'Simpan Perubahan Profil'}</span>
+            <span>{savingProfile ? 'Menyimpan...' : 'Simpan Perubahan Profil'}</span>
           </button>
         </div>
       </form>
