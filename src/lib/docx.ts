@@ -9,6 +9,7 @@ import {
   WidthType,
   AlignmentType,
   ImageRun,
+  BorderStyle,
 } from 'docx';
 import fs from 'fs';
 import path from 'path';
@@ -58,6 +59,22 @@ function generateDateList(startDateStr: string, endDateStr?: string): { dateStr:
   return list;
 }
 
+const tableBordersConfig = {
+  top: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+  bottom: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+  left: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+  right: { style: BorderStyle.SINGLE, size: 6, color: '000000' },
+  insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: '000000' },
+  insideVertical: { style: BorderStyle.SINGLE, size: 4, color: '000000' },
+};
+
+const cellMarginsConfig = {
+  top: 100,
+  bottom: 100,
+  left: 120,
+  right: 120,
+};
+
 /**
  * Generate official BPS Bukti Dukung Kegiatan Word Document (.docx)
  */
@@ -66,7 +83,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
   const formattedDate = formatDateIndonesian(data.tanggal, data.tanggalSelesai);
   const dates = generateDateList(data.tanggal, data.tanggalSelesai);
 
-  // Check logo
+  // Check custom logo_bps.webp
   const logoPathWebp = path.join(process.cwd(), 'public', 'logo_bps.webp');
   let logoParagraph: Paragraph | null = null;
 
@@ -78,7 +95,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
         children: [
           new ImageRun({
             data: pngBuffer,
-            transformation: { width: 80, height: 50 },
+            transformation: { width: 75, height: 48 },
             type: 'png',
           }),
         ],
@@ -146,6 +163,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
         ],
         shading: { fill: 'F8C48C' },
         columnSpan: 4,
+        margins: cellMarginsConfig,
       }),
     ],
   });
@@ -155,18 +173,22 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
       children: [
         new TableCell({
           width: { size: 5, type: WidthType.PERCENTAGE },
+          margins: cellMarginsConfig,
           children: [new Paragraph({ children: [new TextRun({ text: no, font: 'Arial', size: 20 })] })],
         }),
         new TableCell({
           width: { size: 25, type: WidthType.PERCENTAGE },
+          margins: cellMarginsConfig,
           children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, font: 'Arial', size: 20 })] })],
         }),
         new TableCell({
           width: { size: 3, type: WidthType.PERCENTAGE },
+          margins: cellMarginsConfig,
           children: [new Paragraph({ children: [new TextRun({ text: ':', font: 'Arial', size: 20 })] })],
         }),
         new TableCell({
           width: { size: 67, type: WidthType.PERCENTAGE },
+          margins: cellMarginsConfig,
           children: [new Paragraph({ children: [new TextRun({ text: value, font: 'Arial', size: 20 })] })],
         }),
       ],
@@ -174,6 +196,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
 
   const tableSection1 = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: tableBordersConfig,
     rows: [
       sec1HeaderRow,
       createDetailRow('1.', 'NAMA', data.namaPegawai),
@@ -202,8 +225,11 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
     let datePhotos: DocxReportPhoto[] = [];
     if (isMultiDate) {
       datePhotos = allPhotos.filter((p) => p.tanggal_foto === dItem.dateStr);
-      if (datePhotos.length === 0 && dIdx === 0 && allPhotos.length > 0) {
-        datePhotos = allPhotos.filter((p) => !p.tanggal_foto);
+      if (datePhotos.length === 0) {
+        // Even distribution fallback across multi-days
+        const photosPerDay = Math.ceil(allPhotos.length / dates.length);
+        const startIdx = dIdx * photosPerDay;
+        datePhotos = allPhotos.slice(startIdx, startIdx + photosPerDay);
       }
     } else {
       datePhotos = allPhotos;
@@ -231,6 +257,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
           ],
           shading: { fill: 'F8C48C' },
           columnSpan: 2,
+          margins: cellMarginsConfig,
         }),
       ],
     });
@@ -248,13 +275,14 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
             children: [
               new TableCell({
                 columnSpan: 2,
+                margins: cellMarginsConfig,
                 children: [
                   new Paragraph({
                     alignment: AlignmentType.CENTER,
                     children: [
                       new ImageRun({
                         data: imageBuffer,
-                        transformation: { width: 320, height: 220 },
+                        transformation: { width: 280, height: 200 },
                         type: datePhotos[0].base64.includes('png') ? 'png' : 'jpg',
                       }),
                     ],
@@ -271,6 +299,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
           children: [
             new TableCell({
               columnSpan: 2,
+              margins: cellMarginsConfig,
               children: [
                 new Paragraph({
                   alignment: AlignmentType.CENTER,
@@ -298,13 +327,14 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
               cells.push(
                 new TableCell({
                   width: { size: 50, type: WidthType.PERCENTAGE },
+                  margins: cellMarginsConfig,
                   children: [
                     new Paragraph({
                       alignment: AlignmentType.CENTER,
                       children: [
                         new ImageRun({
                           data: imageBuffer,
-                          transformation: { width: 220, height: 160 },
+                          transformation: { width: 210, height: 155 },
                           type: datePhotos[photoIdx].base64.includes('png') ? 'png' : 'jpg',
                         }),
                       ],
@@ -316,6 +346,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
               cells.push(
                 new TableCell({
                   width: { size: 50, type: WidthType.PERCENTAGE },
+                  margins: cellMarginsConfig,
                   children: [new Paragraph({ text: '[ Foto ]' })],
                 })
               );
@@ -324,6 +355,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
             cells.push(
               new TableCell({
                 width: { size: 50, type: WidthType.PERCENTAGE },
+                margins: cellMarginsConfig,
                 children: [new Paragraph({ text: '' })],
               })
             );
@@ -337,6 +369,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
           children: [
             new TableCell({
               columnSpan: 2,
+              margins: cellMarginsConfig,
               children: [
                 new Paragraph({
                   alignment: AlignmentType.CENTER,
@@ -357,6 +390,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
           children: [
             new TableCell({
               columnSpan: 2,
+              margins: cellMarginsConfig,
               children: [
                 new Paragraph({
                   alignment: AlignmentType.CENTER,
@@ -372,6 +406,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
     docxTables.push(
       new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: tableBordersConfig,
         rows: photoRows,
       })
     );

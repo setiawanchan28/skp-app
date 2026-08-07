@@ -284,8 +284,11 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     let datePhotos: PdfReportPhoto[] = [];
     if (isMultiDate) {
       datePhotos = allPhotos.filter((p) => p.tanggal_foto === dItem.dateStr);
-      if (datePhotos.length === 0 && dIdx === 0 && allPhotos.length > 0) {
-        datePhotos = allPhotos.filter((p) => !p.tanggal_foto);
+      if (datePhotos.length === 0) {
+        // Even distribution fallback across multi-days
+        const photosPerDay = Math.ceil(allPhotos.length / dates.length);
+        const startIdx = dIdx * photosPerDay;
+        datePhotos = allPhotos.slice(startIdx, startIdx + photosPerDay);
       }
     } else {
       datePhotos = allPhotos;
