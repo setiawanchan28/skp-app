@@ -2,12 +2,13 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Mail, Lock, LogIn, ArrowRight } from 'lucide-react';
+import { Sparkles, Mail, Lock, LogIn, ArrowRight, UserCheck } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { BPS_CONFIG } from '@/constants/bpsConfig';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [nipOrEmail, setNipOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,31 +18,54 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && nipOrEmail.includes('@')) {
       try {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: nipOrEmail,
           password,
         });
 
-        if (error) {
-          setError(error.message);
+        if (authError) {
+          setError(authError.message);
           setLoading(false);
           return;
+        }
+
+        if (data.user) {
+          const userSession = {
+            nama: data.user.user_metadata?.nama || 'Pegawai BPS Lebak',
+            nip: data.user.user_metadata?.nip || '198805122010121002',
+            email: data.user.email,
+          };
+          localStorage.setItem('bps_auth_user', JSON.stringify(userSession));
         }
       } catch (err: any) {
         setError(err.message || 'Terjadi kesalahan sistem saat login');
         setLoading(false);
         return;
       }
+    } else {
+      // Local Auth session creation
+      const userSession = {
+        nama: nipOrEmail.length > 5 ? `Pegawai (NIP/ID: ${nipOrEmail})` : 'Dede Supriatna, S.Si., M.Stat.',
+        nip: nipOrEmail.length > 5 ? nipOrEmail : '198805122010121002',
+        email: nipOrEmail.includes('@') ? nipOrEmail : 'bps3602@bps.go.id',
+      };
+      localStorage.setItem('bps_auth_user', JSON.stringify(userSession));
     }
 
-    // Direct access to dashboard
-    router.push('/');
+    setLoading(false);
+    router.push('/laporan');
   };
 
-  const handleDemoAccess = () => {
-    router.push('/');
+  const handleQuickDemoAccess = () => {
+    const demoUser = {
+      nama: 'Dede Supriatna, S.Si., M.Stat.',
+      nip: '198805122010121002',
+      email: 'dede.supriatna@bps.go.id',
+    };
+    localStorage.setItem('bps_auth_user', JSON.stringify(demoUser));
+    router.push('/laporan');
   };
 
   return (
@@ -51,17 +75,24 @@ export default function LoginPage() {
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
 
       <div className="max-w-md w-full relative z-10">
-        <div className="glass-panel p-8 rounded-3xl shadow-2xl space-y-6">
+        <div className="bg-white/95 backdrop-blur-md p-8 rounded-3xl shadow-2xl space-y-6 border border-slate-100">
           {/* Header Branding */}
           <div className="text-center space-y-2">
-            <div className="inline-flex w-12 h-12 rounded-2xl gradient-bps items-center justify-center text-white shadow-lg shadow-sky-500/30 mb-2">
-              <Sparkles className="w-6 h-6" />
+            <div className="inline-flex items-center justify-center mb-2">
+              <img
+                src={BPS_CONFIG.logoPath}
+                alt="Logo BPS"
+                className="h-16 w-auto object-contain mx-auto"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
             </div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              Laporan Harian Kerja
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
+              Sistem Bukti Dukung BPS
             </h1>
-            <p className="text-xs font-semibold text-sky-600 tracking-wider uppercase">
-              BADAN PUSAT STATISTIK KABUPATEN LEBAK
+            <p className="text-xs font-bold text-sky-600 tracking-wider uppercase">
+              {BPS_CONFIG.instansi}
             </p>
           </div>
 
@@ -69,16 +100,16 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Email Pegawai
+                NIP atau Email Pegawai *
               </label>
               <div className="relative">
                 <Mail className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nip@bps.go.id"
+                  value={nipOrEmail}
+                  onChange={(e) => setNipOrEmail(e.target.value)}
+                  placeholder="Masukkan NIP atau Email BPS"
                   className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
                 />
               </div>
@@ -86,7 +117,7 @@ export default function LoginPage() {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Kata Sandi
+                Kata Sandi *
               </label>
               <div className="relative">
                 <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -121,11 +152,11 @@ export default function LoginPage() {
           <div className="pt-2 border-t border-slate-200/60 text-center">
             <button
               type="button"
-              onClick={handleDemoAccess}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-600 hover:text-sky-700 transition-colors"
+              onClick={handleQuickDemoAccess}
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-2"
             >
-              <span>Masuk Mode Demonstrasi Langsung</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <UserCheck className="w-4 h-4 text-sky-600" />
+              <span>Masuk Langsung (Mode Pegawai BPS)</span>
             </button>
           </div>
         </div>

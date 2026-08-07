@@ -28,6 +28,8 @@ const DEFAULT_PEGAWAI: Pegawai[] = [
 ];
 
 export async function fetchPegawaiList(): Promise<Pegawai[]> {
+  let supabaseData: Pegawai[] = [];
+
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase
@@ -35,8 +37,8 @@ export async function fetchPegawaiList(): Promise<Pegawai[]> {
         .select('*')
         .order('nama', { ascending: true });
 
-      if (!error && data && data.length > 0) {
-        return data;
+      if (!error && data) {
+        supabaseData = data;
       }
     } catch (err) {
       console.warn('Supabase fetch error, fallback to local storage:', err);
@@ -44,16 +46,25 @@ export async function fetchPegawaiList(): Promise<Pegawai[]> {
   }
 
   // Local storage fallback
+  let localData: Pegawai[] = [];
   if (typeof window !== 'undefined') {
     const local = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (local) {
       try {
-        return JSON.parse(local);
+        localData = JSON.parse(local);
       } catch (e) {}
+    } else {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(DEFAULT_PEGAWAI));
+      localData = DEFAULT_PEGAWAI;
     }
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(DEFAULT_PEGAWAI));
   }
-  return DEFAULT_PEGAWAI;
+
+  const mergedMap = new Map<string, Pegawai>();
+  localData.forEach((p) => mergedMap.set(p.id, p));
+  supabaseData.forEach((p) => mergedMap.set(p.id, p));
+
+  const list = Array.from(mergedMap.values());
+  return list.length > 0 ? list : DEFAULT_PEGAWAI;
 }
 
 export async function createPegawai(input: PegawaiInput): Promise<Pegawai> {
@@ -62,6 +73,13 @@ export async function createPegawai(input: PegawaiInput): Promise<Pegawai> {
     ...input,
     created_at: new Date().toISOString(),
   };
+
+  // Save to local storage
+  if (typeof window !== 'undefined') {
+    const list = await fetchPegawaiList();
+    const updated = [newPegawai, ...list];
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+  }
 
   if (isSupabaseConfigured()) {
     try {
@@ -72,17 +90,16 @@ export async function createPegawai(input: PegawaiInput): Promise<Pegawai> {
     }
   }
 
-  // Save to local storage
-  if (typeof window !== 'undefined') {
-    const list = await fetchPegawaiList();
-    const updated = [newPegawai, ...list];
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-  }
-
   return newPegawai;
 }
 
 export async function updatePegawai(id: string, input: PegawaiInput): Promise<Pegawai> {
+  if (typeof window !== 'undefined') {
+    const list = await fetchPegawaiList();
+    const updated = list.map((p) => (p.id === id ? { ...p, ...input } : p));
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+  }
+
   if (isSupabaseConfigured()) {
     try {
       const { data, error } = await supabase
@@ -97,29 +114,22 @@ export async function updatePegawai(id: string, input: PegawaiInput): Promise<Pe
     }
   }
 
-  // Update local storage
-  if (typeof window !== 'undefined') {
-    const list = await fetchPegawaiList();
-    const updated = list.map((p) => (p.id === id ? { ...p, ...input } : p));
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
-  }
-
   return { id, ...input };
 }
 
 export async function deletePegawai(id: string): Promise<boolean> {
+  if (typeof window !== 'undefined') {
+    const list = await fetchPegawaiList();
+    const updated = list.filter((p) => p.id !== id);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+  }
+
   if (isSupabaseConfigured()) {
     try {
       await supabase.from('pegawai').delete().eq('id', id);
     } catch (err) {
       console.warn('Supabase delete pegawai error:', err);
     }
-  }
-
-  if (typeof window !== 'undefined') {
-    const list = await fetchPegawaiList();
-    const updated = list.filter((p) => p.id !== id);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
   }
 
   return true;

@@ -32,7 +32,7 @@ export default function RiwayatLaporanPage() {
   const [laporanList, setLaporanList] = useState<Laporan[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Filters - default to 'all' for month and year so no new report is accidentally hidden
+  // Filters - default to 'all' for month and year so no report is accidentally hidden
   const [search, setSearch] = useState('');
   const [selectedMonth, setSelectedMonth] = useState<string>('all');
   const [selectedYear, setSelectedYear] = useState<string>('all');
@@ -184,7 +184,7 @@ export default function RiwayatLaporanPage() {
           </div>
         </div>
 
-        {/* Data Table */}
+        {/* Data Table without Ringkasan column to fit 100% cleanly without horizontal scroll */}
         {loading ? (
           <div className="py-12 text-center text-sm text-slate-500 animate-pulse">
             Memuat riwayat laporan...
@@ -203,7 +203,6 @@ export default function RiwayatLaporanPage() {
                   <th className="py-3 px-4">Tanggal</th>
                   <th className="py-3 px-4">Pegawai</th>
                   <th className="py-3 px-4">Nama Kegiatan</th>
-                  <th className="py-3 px-4">Ringkasan</th>
                   <th className="py-3 px-4 text-center">Google Drive PDF</th>
                   <th className="py-3 px-4 text-center">Aksi</th>
                 </tr>
@@ -217,11 +216,8 @@ export default function RiwayatLaporanPage() {
                     <td className="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap">
                       {lap.nama_pegawai}
                     </td>
-                    <td className="py-3.5 px-4 font-semibold text-sky-900 max-w-xs truncate">
+                    <td className="py-3.5 px-4 font-semibold text-sky-900">
                       {lap.nama_kegiatan}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600 max-w-md truncate">
-                      {lap.ringkasan_kegiatan}
                     </td>
                     <td className="py-3.5 px-4 text-center whitespace-nowrap">
                       {lap.drive_pdf_url ? (

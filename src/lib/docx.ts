@@ -226,7 +226,6 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
     if (isMultiDate) {
       datePhotos = allPhotos.filter((p) => p.tanggal_foto === dItem.dateStr);
       if (datePhotos.length === 0) {
-        // Even distribution fallback across multi-days
         const photosPerDay = Math.ceil(allPhotos.length / dates.length);
         const startIdx = dIdx * photosPerDay;
         datePhotos = allPhotos.slice(startIdx, startIdx + photosPerDay);
@@ -235,9 +234,7 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
       datePhotos = allPhotos;
     }
 
-    const secHeaderTitle = isMultiDate
-      ? `II. DOKUMENTASI (${dItem.label.toUpperCase()})`
-      : 'II. DOKUMENTASI';
+    const secHeaderTitle = 'II. DOKUMENTASI';
 
     const sec2HeaderRow = new TableRow({
       children: [

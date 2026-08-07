@@ -121,7 +121,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     });
     y -= 25;
   } else {
-    // Add generous spacing below logo image before Title 1
     y -= 65;
   }
 
@@ -299,9 +298,7 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
       y = pageHeight - 50;
     }
 
-    const secHeaderTitle = isMultiDate
-      ? `II. DOKUMENTASI (${dItem.label.toUpperCase()})`
-      : 'II. DOKUMENTASI';
+    const secHeaderTitle = 'II. DOKUMENTASI';
 
     page.drawRectangle({
       x: margin,

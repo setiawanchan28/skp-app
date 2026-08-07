@@ -188,14 +188,10 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                 datePhotos = allPhotos;
               }
 
-              const secHeaderTitle = isMultiDate
-                ? `II. DOKUMENTASI (${dItem.label.toUpperCase()})`
-                : 'II. DOKUMENTASI';
-
               return (
                 <div key={dItem.dateStr} className="border border-black">
                   <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-xs text-black uppercase tracking-wider">
-                    {secHeaderTitle}
+                    II. DOKUMENTASI
                   </div>
 
                   <div className="p-3">
