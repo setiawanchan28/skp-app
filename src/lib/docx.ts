@@ -10,6 +10,9 @@ import {
   AlignmentType,
   ImageRun,
 } from 'docx';
+import fs from 'fs';
+import path from 'path';
+import sharp from 'sharp';
 import { formatDateIndonesian } from '@/utils/formatters';
 import { BPS_CONFIG, BULAN_INDONESIA } from '@/constants/bpsConfig';
 
@@ -63,8 +66,31 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
   const formattedDate = formatDateIndonesian(data.tanggal, data.tanggalSelesai);
   const dates = generateDateList(data.tanggal, data.tanggalSelesai);
 
+  // Check logo
+  const logoPathWebp = path.join(process.cwd(), 'public', 'logo_bps.webp');
+  let logoParagraph: Paragraph | null = null;
+
+  if (fs.existsSync(logoPathWebp)) {
+    try {
+      const pngBuffer = await sharp(logoPathWebp).png().toBuffer();
+      logoParagraph = new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new ImageRun({
+            data: pngBuffer,
+            transformation: { width: 80, height: 50 },
+            type: 'png',
+          }),
+        ],
+      });
+    } catch (e) {
+      console.warn('Failed to embed logo_bps.webp in Word:', e);
+    }
+  }
+
   // 1. Header Paragraphs
   const headerParagraphs = [
+    ...(logoParagraph ? [logoParagraph] : []),
     new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [
@@ -159,7 +185,6 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
     ],
   });
 
-  // Extract photos list
   let allPhotos: DocxReportPhoto[] = [];
   if (data.photos && data.photos.length > 0) {
     allPhotos = data.photos;
@@ -307,7 +332,6 @@ export async function generateBpsDocxBuffer(data: DocxReportData): Promise<Buffe
         photoRows.push(new TableRow({ children: cells }));
       }
 
-      // Shared caption row for grid
       photoRows.push(
         new TableRow({
           children: [

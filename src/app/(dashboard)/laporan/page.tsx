@@ -13,6 +13,8 @@ import {
   Trash2,
   Folder,
   FilePlus,
+  Copy,
+  CheckCircle2,
 } from 'lucide-react';
 import { fetchLaporanList, deleteLaporanRecord } from '@/services/laporanService';
 import { Laporan } from '@/types/laporan';
@@ -36,6 +38,7 @@ export default function RiwayatLaporanPage() {
   // Modals
   const [previewLaporan, setPreviewLaporan] = useState<Laporan | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -82,6 +85,17 @@ export default function RiwayatLaporanPage() {
     showToast('Riwayat laporan berhasil diexport ke Excel!', 'success');
   };
 
+  const handleCopyPdfUrl = (url: string, id: string) => {
+    if (!url) {
+      showToast('Link PDF Drive belum tersedia', 'error');
+      return;
+    }
+    navigator.clipboard.writeText(url);
+    setCopiedId(id);
+    showToast('Link PDF Google Drive (Akses View) berhasil disalin ke clipboard!', 'success');
+    setTimeout(() => setCopiedId(null), 2500);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -92,7 +106,7 @@ export default function RiwayatLaporanPage() {
             <span>Riwayat Laporan Harian Kerja</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Arsip seluruh bukti dukung kegiatan harian resmi BPS Kabupaten Lebak
+            Arsip seluruh bukti dukung kegiatan harian resmi BPS Kabupaten Lebak (Terhubung Google Drive)
           </p>
         </div>
 
@@ -177,7 +191,7 @@ export default function RiwayatLaporanPage() {
                   <th className="py-3 px-4">Pegawai</th>
                   <th className="py-3 px-4">Nama Kegiatan</th>
                   <th className="py-3 px-4">Ringkasan</th>
-                  <th className="py-3 px-4 text-center">Drive Links</th>
+                  <th className="py-3 px-4 text-center">Google Drive PDF</th>
                   <th className="py-3 px-4 text-center">Aksi</th>
                 </tr>
               </thead>
@@ -185,7 +199,7 @@ export default function RiwayatLaporanPage() {
                 {filteredList.map((lap) => (
                   <tr key={lap.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4 font-medium text-slate-700 whitespace-nowrap">
-                      {formatDateIndonesian(lap.tanggal)}
+                      {formatDateIndonesian(lap.tanggal, lap.tanggal_selesai)}
                     </td>
                     <td className="py-3.5 px-4 font-bold text-slate-900 whitespace-nowrap">
                       {lap.nama_pegawai}
@@ -197,27 +211,48 @@ export default function RiwayatLaporanPage() {
                       {lap.ringkasan_kegiatan}
                     </td>
                     <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-2">
-                        {lap.drive_pdf_url && (
+                      {lap.drive_pdf_url ? (
+                        <div className="flex items-center justify-center gap-1.5">
                           <a
                             href={lap.drive_pdf_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1.5 text-sky-600 hover:bg-sky-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium"
-                            title="Buka PDF di Drive"
+                            className="p-1.5 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-lg transition-colors flex items-center gap-1 text-xs font-bold border border-sky-200"
+                            title="Buka file PDF di Google Drive (View Mode)"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
-                            <span>PDF</span>
+                            <span>View PDF</span>
                           </a>
-                        )}
-                      </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopyPdfUrl(lap.drive_pdf_url!, lap.id)}
+                            className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors flex items-center gap-1 text-xs font-semibold"
+                            title="Salin Link PDF Google Drive"
+                          >
+                            {copiedId === lap.id ? (
+                              <>
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span className="text-emerald-700">Tersalin!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5 text-slate-600" />
+                                <span>Salin Link</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">Belum diunggah</span>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => setPreviewLaporan(lap)}
                           className="p-1.5 text-slate-600 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition-colors"
-                          title="Lihat Detail & Preview"
+                          title="Lihat Detail & Preview Dokumen"
                         >
                           <Eye className="w-4 h-4" />
                         </button>

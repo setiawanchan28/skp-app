@@ -1,4 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import fs from 'fs';
+import path from 'path';
+import sharp from 'sharp';
 import { formatDateIndonesian } from '@/utils/formatters';
 import { BPS_CONFIG, BULAN_INDONESIA } from '@/constants/bpsConfig';
 
@@ -16,7 +19,7 @@ export interface PdfReportData {
   namaKegiatan: string;
   ringkasanKegiatan: string;
   photos?: PdfReportPhoto[];
-  photosBase64?: string[]; // fallback
+  photosBase64?: string[];
 }
 
 /**
@@ -59,7 +62,7 @@ function generateDateList(startDateStr: string, endDateStr?: string): { dateStr:
 }
 
 /**
- * Generate official BPS Bukti Dukung Kegiatan PDF with separate daily documentation tables and clean captions
+ * Generate official BPS Bukti Dukung Kegiatan PDF with server-side logo_bps.webp embedding
  */
 export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer> {
   const pdfDoc = await PDFDocument.create();
@@ -78,29 +81,48 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   const peachBg = rgb(0.97, 0.78, 0.56); // #F8C48C exact BPS header color
 
   // 1. LOGO & HEADER TITLE
-  const logoX = pageWidth / 2;
-  const logoY = y - 20;
+  const logoPathWebp = path.join(process.cwd(), 'public', 'logo_bps.webp');
+  let hasEmbeddedCustomLogo = false;
 
-  // Blue Polygon
-  page.drawRectangle({ x: logoX - 25, y: logoY + 12, width: 22, height: 18, color: rgb(0, 0.63, 0.91) });
-  // Orange Polygon
-  page.drawRectangle({ x: logoX, y: logoY + 3, width: 22, height: 18, color: rgb(0.95, 0.44, 0.14) });
-  // Green Polygon
-  page.drawRectangle({ x: logoX - 25, y: logoY - 6, width: 22, height: 18, color: rgb(0.55, 0.78, 0.25) });
+  if (fs.existsSync(logoPathWebp)) {
+    try {
+      const pngBuffer = await sharp(logoPathWebp).png().toBuffer();
+      const embeddedLogo = await pdfDoc.embedPng(pngBuffer);
+      const logoWidth = 70;
+      const logoHeight = 45;
+      page.drawImage(embeddedLogo, {
+        x: (pageWidth - logoWidth) / 2,
+        y: y - 45,
+        width: logoWidth,
+        height: logoHeight,
+      });
+      hasEmbeddedCustomLogo = true;
+    } catch (e) {
+      console.warn('Failed to embed custom logo_bps.webp:', e);
+    }
+  }
 
-  y -= 55;
+  if (!hasEmbeddedCustomLogo) {
+    const logoX = pageWidth / 2;
+    const logoY = y - 20;
+    page.drawRectangle({ x: logoX - 25, y: logoY + 12, width: 22, height: 18, color: rgb(0, 0.63, 0.91) });
+    page.drawRectangle({ x: logoX, y: logoY + 3, width: 22, height: 18, color: rgb(0.95, 0.44, 0.14) });
+    page.drawRectangle({ x: logoX - 25, y: logoY - 6, width: 22, height: 18, color: rgb(0.55, 0.78, 0.25) });
 
-  // Logo Subtext
-  const logoSubtext = BPS_CONFIG.instansi;
-  const logoSubtextWidth = fontBold.widthOfTextAtSize(logoSubtext, 11);
-  page.drawText(logoSubtext, {
-    x: (pageWidth - logoSubtextWidth) / 2,
-    y: y,
-    size: 11,
-    font: fontBold,
-    color: black,
-  });
-  y -= 25;
+    y -= 55;
+    const logoSubtext = BPS_CONFIG.instansi;
+    const logoSubtextWidth = fontBold.widthOfTextAtSize(logoSubtext, 11);
+    page.drawText(logoSubtext, {
+      x: (pageWidth - logoSubtextWidth) / 2,
+      y: y,
+      size: 11,
+      font: fontBold,
+      color: black,
+    });
+    y -= 25;
+  } else {
+    y -= 55;
+  }
 
   // Title 1: BUKTI DUKUNG KEGIATAN
   const title1 = BPS_CONFIG.judulLaporan;
@@ -247,7 +269,6 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
 
   y -= 15;
 
-  // Extract photos list
   let allPhotos: PdfReportPhoto[] = [];
   if (data.photos && data.photos.length > 0) {
     allPhotos = data.photos;
@@ -260,12 +281,10 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     const dItem = dates[dIdx];
     const isMultiDate = dates.length > 1;
 
-    // Filter photos for this date
     let datePhotos: PdfReportPhoto[] = [];
     if (isMultiDate) {
       datePhotos = allPhotos.filter((p) => p.tanggal_foto === dItem.dateStr);
       if (datePhotos.length === 0 && dIdx === 0 && allPhotos.length > 0) {
-        // Fallback: assign unassigned photos to first date
         datePhotos = allPhotos.filter((p) => !p.tanggal_foto);
       }
     } else {
@@ -322,7 +341,7 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
       });
       y -= emptyBoxHeight + 15;
     } else if (totalCount === 1) {
-      // 1 PHOTO UPLOADED: CENTERED HORIZONTALLY IN CELL
+      // 1 PHOTO UPLOADED: CENTERED HORIZONTALLY IN CELL WITH WHITE CANVAS
       const photoBoxHeight = 240;
       const photoInnerY = y - photoBoxHeight;
 
@@ -380,7 +399,7 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
         });
       } catch (e) {}
 
-      // Clean separate caption row at bottom (no inner overlays)
+      // Clean separate caption row
       const cap1 = cleanNamaKegiatan;
       const cap1Width = fontRegular.widthOfTextAtSize(cap1, 10);
       page.drawText(cap1, {
@@ -484,7 +503,7 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
           } catch (e) {}
         }
 
-        // Clean separate caption at bottom of row
+        // Clean separate caption
         const cap1 = cleanNamaKegiatan;
         const cap1Width = fontRegular.widthOfTextAtSize(cap1, 10);
         page.drawText(cap1, {
