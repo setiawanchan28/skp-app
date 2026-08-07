@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
+import { supabaseAdmin, supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export async function GET() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -15,26 +15,36 @@ export async function GET() {
 
   if (isConfigured) {
     try {
-      const { count: pCount, error: pErr } = await supabaseAdmin
+      const client = serviceKey && !serviceKey.includes('dummy') ? supabaseAdmin : supabase;
+
+      // 1. Fetch actual rows for Pegawai
+      const { data: pData, error: pErr } = await client
         .from('pegawai')
-        .select('*', { count: 'exact', head: true });
+        .select('id, nama, nip');
 
-      const { count: lCount, error: lErr } = await supabaseAdmin
+      // 2. Fetch actual rows for Laporan
+      const { data: lData, error: lErr } = await client
         .from('laporan')
-        .select('*', { count: 'exact', head: true });
+        .select('id, nama_kegiatan');
 
-      if (!pErr && !lErr) {
+      if (!pErr && pData) {
+        pegawaiCount = pData.length;
         dbConnected = true;
-        pegawaiCount = pCount || 0;
-        laporanCount = lCount || 0;
-      } else {
-        errorMessage = pErr?.message || lErr?.message || 'Gagal membaca tabel Supabase';
+      } else if (pErr) {
+        errorMessage = `Tabel pegawai: ${pErr.message}`;
+      }
+
+      if (!lErr && lData) {
+        laporanCount = lData.length;
+        dbConnected = true;
+      } else if (lErr) {
+        errorMessage = errorMessage ? `${errorMessage}; Tabel laporan: ${lErr.message}` : `Tabel laporan: ${lErr.message}`;
       }
     } catch (err: any) {
-      errorMessage = err.message || 'Eksepsi saat menghubungkan ke Supabase';
+      errorMessage = err.message || 'Eksepsi saat membaca Supabase DB';
     }
   } else {
-    errorMessage = 'Variabel lingkungan NEXT_PUBLIC_SUPABASE_URL atau NEXT_PUBLIC_SUPABASE_ANON_KEY di Vercel belum diisi!';
+    errorMessage = 'NEXT_PUBLIC_SUPABASE_URL atau NEXT_PUBLIC_SUPABASE_ANON_KEY belum dikonfigurasi!';
   }
 
   return NextResponse.json({

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
+import { supabaseAdmin, supabase, isSupabaseConfigured } from '@/lib/supabase';
 import fs from 'fs';
 import path from 'path';
 import { Pegawai } from '@/types/pegawai';
@@ -19,10 +19,13 @@ function getStoredPegawai(): Pegawai[] {
 export async function GET() {
   let supabaseData: Pegawai[] = [];
 
-  // Query Supabase DB directly using supabaseAdmin on server
+  // Query Supabase DB directly on server
   if (isSupabaseConfigured()) {
     try {
-      const { data, error } = await supabaseAdmin
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const client = serviceKey && !serviceKey.includes('dummy') ? supabaseAdmin : supabase;
+
+      const { data, error } = await client
         .from('pegawai')
         .select('*')
         .order('nama', { ascending: true });
@@ -42,7 +45,7 @@ export async function GET() {
   // Merge server JSON store and Supabase DB
   const mergedMap = new Map<string, Pegawai>();
   serverData.forEach((p) => { if (p && p.id) mergedMap.set(p.id, p); });
-  supabaseData.forEach((p) => { if (p && p.id) mergedMap.set(p.id, p); });
+  supabaseData.forEach((p) => { if (p && (p.id || p.nip)) mergedMap.set(p.id || p.nip, p); });
 
   const finalResult = Array.from(mergedMap.values()).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
 
