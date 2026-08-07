@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   RefreshCw,
   Bookmark,
+  Database,
 } from 'lucide-react';
 import { fetchLaporanList, deleteLaporanRecord } from '@/services/laporanService';
 import { Laporan } from '@/types/laporan';
@@ -31,6 +32,7 @@ export default function RiwayatLaporanPage() {
   const { showToast } = useToast();
   const [laporanList, setLaporanList] = useState<Laporan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncingSupabase, setSyncingSupabase] = useState(false);
 
   // Filters - default to 'all' for month and year so no report is accidentally hidden
   const [search, setSearch] = useState('');
@@ -52,6 +54,24 @@ export default function RiwayatLaporanPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleForceSyncSupabase = async () => {
+    setSyncingSupabase(true);
+    try {
+      const res = await fetch('/api/supabase-sync', { method: 'POST' });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        showToast(`Sinkronisasi Supabase Berhasil! ${result.data.laporanSynced} Laporan, ${result.data.pegawaiSynced} Pegawai masuk DB.`, 'success');
+      } else {
+        showToast(result.error || 'Gagal menyelaraskan ke Supabase DB. Cek ketersediaan variabel URL/Anon Key.', 'error');
+      }
+    } catch (err: any) {
+      showToast('Gagal menghubungi API server sinkronisasi', 'error');
+    } finally {
+      setSyncingSupabase(false);
+      loadData();
+    }
+  };
 
   // Filtered List
   const filteredList = laporanList.filter((lap) => {
@@ -108,11 +128,21 @@ export default function RiwayatLaporanPage() {
             <span>Riwayat Laporan Harian Kerja</span>
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Arsip seluruh bukti dukung kegiatan harian resmi BPS Kabupaten Lebak (Terhubung Google Drive)
+            Arsip seluruh bukti dukung kegiatan harian resmi BPS Kabupaten Lebak (Terhubung Google Drive & Supabase DB)
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleForceSyncSupabase}
+            disabled={syncingSupabase}
+            className="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5 border border-emerald-200"
+            title="Dorong dan Sinkronkan Seluruh Data ke Supabase DB Online"
+          >
+            <Database className={`w-4 h-4 ${syncingSupabase ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{syncingSupabase ? 'Menyinkronkan...' : 'Sinkron Supabase'}</span>
+          </button>
+
           <button
             onClick={loadData}
             disabled={loading}
