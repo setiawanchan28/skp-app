@@ -78,6 +78,26 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       setDeskripsiKegiatan(initialData.deskripsi_kegiatan || '');
       setRingkasanKegiatan(initialData.ringkasan_kegiatan || '');
       setKategori(initialData.kategori || 'Pelatihan');
+
+      // Map existing photos with Google Drive thumbnail previews
+      if (initialData.fotos && Array.isArray(initialData.fotos) && initialData.fotos.length > 0) {
+        const mappedPhotos: PhotoItem[] = initialData.fotos.map((f: any, idx: number) => {
+          const driveId = f.drive_file_id;
+          const preview = driveId
+            ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1000`
+            : f.drive_file_url || f.previewUrl || '';
+
+          return {
+            id: f.id || `foto_${idx}_${Date.now()}`,
+            fileName: f.file_name || `Foto Dokumentasi ${idx + 1}.jpg`,
+            previewUrl: preview,
+            tanggalFoto: f.tanggal_foto || initialData.tanggal,
+            drive_file_id: driveId,
+            drive_file_url: f.drive_file_url,
+          };
+        });
+        setPhotos(mappedPhotos);
+      }
     } else {
       const savedDraft = localStorage.getItem(DRAFT_KEY);
       if (savedDraft) {
