@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -11,10 +11,6 @@ import {
   Calendar,
   Settings,
   Sparkles,
-  Database,
-  CheckCircle2,
-  AlertCircle,
-  RefreshCw,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -28,29 +24,6 @@ const NAV_ITEMS = [
 
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
-  const [status, setStatus] = useState<{
-    connected?: boolean;
-    pegawaiCountInDb?: number;
-    laporanCountInDb?: number;
-    errorMessage?: string | null;
-  } | null>(null);
-  const [checking, setChecking] = useState(false);
-
-  const checkSupabaseStatus = async () => {
-    setChecking(true);
-    try {
-      const res = await fetch('/api/status', { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        setStatus(data);
-      }
-    } catch (e) {}
-    setChecking(false);
-  };
-
-  useEffect(() => {
-    checkSupabaseStatus();
-  }, []);
 
   return (
     <aside className="hidden lg:flex flex-col w-64 border-r border-slate-200 bg-white min-h-screen sticky top-0 z-30">
@@ -95,49 +68,16 @@ export const Sidebar: React.FC = () => {
         })}
       </div>
 
-      {/* Footer System Status Info */}
-      <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-2">
+      {/* Footer Info */}
+      <div className="p-4 border-t border-slate-100 bg-slate-50/50">
         <div className="p-3 bg-white rounded-xl border border-slate-200/60 shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-              <Database className="w-3.5 h-3.5 text-sky-600" />
-              <span>Status Supabase</span>
-            </span>
-            <button
-              onClick={checkSupabaseStatus}
-              disabled={checking}
-              className="text-slate-400 hover:text-sky-600 transition-colors"
-              title="Cek Status Ulang"
-            >
-              <RefreshCw className={`w-3 h-3 ${checking ? 'animate-spin' : ''}`} />
-            </button>
+            <span className="text-[11px] font-bold text-slate-500 uppercase">System Status</span>
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
           </div>
-
-          {status ? (
-            status.connected ? (
-              <div className="space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Terhubung Ke Supabase DB</span>
-                </div>
-                <p className="text-[10px] text-slate-500">
-                  {status.pegawaiCountInDb} Pegawai, {status.laporanCountInDb} Laporan Terdeteksi di DB
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>Belum Terhubung Server</span>
-                </div>
-                <p className="text-[10px] text-amber-700 leading-tight">
-                  {status.errorMessage || 'Cek Vercel Environment Variables'}
-                </p>
-              </div>
-            )
-          ) : (
-            <p className="text-[11px] text-slate-400 animate-pulse">Memeriksa koneksi Supabase...</p>
-          )}
+          <p className="text-xs text-slate-600 leading-snug">
+            Connected to Supabase DB & Google Drive API
+          </p>
         </div>
       </div>
     </aside>
