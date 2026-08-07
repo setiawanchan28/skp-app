@@ -27,7 +27,18 @@ export default function LoginPage() {
       return;
     }
 
-    // Try to match input to existing Pegawai record from Master Pegawai
+    // 1. Try saved profile in localStorage first
+    let savedProfile: any = null;
+    if (typeof window !== 'undefined') {
+      const raw = localStorage.getItem('bps_saved_profile') || localStorage.getItem('bps_auth_user');
+      if (raw) {
+        try {
+          savedProfile = JSON.parse(raw);
+        } catch (e) {}
+      }
+    }
+
+    // 2. Try to match input to existing Pegawai record from Master Pegawai
     const pegawaiList = await fetchPegawaiList();
     const matchedPegawai = pegawaiList.find(
       (p) =>
@@ -37,24 +48,11 @@ export default function LoginPage() {
     );
 
     let userSession = {
-      nama: matchedPegawai?.nama || 'Dede Setiawan, S.Tr.Stat.',
-      nip: matchedPegawai?.nip || (inputClean.length === 18 && /^\d+$/.test(inputClean) ? inputClean : '199502282024211021'),
-      jabatan: matchedPegawai?.jabatan || 'Pranata Komputer Ahli Pertama',
-      email: inputClean.includes('@') ? inputClean : matchedPegawai?.email || 'ddsetiawan28@gmail.com',
+      nama: savedProfile?.nama || matchedPegawai?.nama || 'Dede Setiawan, S.Tr.Stat.',
+      nip: savedProfile?.nip || matchedPegawai?.nip || '199502282024211021',
+      jabatan: savedProfile?.jabatan || matchedPegawai?.jabatan || 'Pranata Komputer Ahli Pertama',
+      email: inputClean.includes('@') ? inputClean : savedProfile?.email || matchedPegawai?.email || 'ddsetiawan28@gmail.com',
     };
-
-    // If existing auth user exists in localStorage, preserve custom profile edits
-    if (typeof window !== 'undefined') {
-      const existingAuth = localStorage.getItem('bps_auth_user');
-      if (existingAuth) {
-        try {
-          const parsed = JSON.parse(existingAuth);
-          if (parsed.nama && !parsed.nama.includes('NIP:')) userSession.nama = parsed.nama;
-          if (parsed.nip && !parsed.nip.includes('@')) userSession.nip = parsed.nip;
-          if (parsed.jabatan) userSession.jabatan = parsed.jabatan;
-        } catch (e) {}
-      }
-    }
 
     if (isSupabaseConfigured() && inputClean.includes('@')) {
       try {
@@ -78,6 +76,7 @@ export default function LoginPage() {
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('bps_auth_user', JSON.stringify(userSession));
+      localStorage.setItem('bps_saved_profile', JSON.stringify(userSession));
     }
 
     setLoading(false);
@@ -85,14 +84,25 @@ export default function LoginPage() {
   };
 
   const handleQuickDemoAccess = () => {
+    let savedProfile: any = null;
+    if (typeof window !== 'undefined') {
+      const raw = localStorage.getItem('bps_saved_profile');
+      if (raw) {
+        try {
+          savedProfile = JSON.parse(raw);
+        } catch (e) {}
+      }
+    }
+
     const demoUser = {
-      nama: 'Dede Setiawan, S.Tr.Stat.',
-      nip: '199502282024211021',
-      jabatan: 'Pranata Komputer Ahli Pertama',
-      email: 'ddsetiawan28@gmail.com',
+      nama: savedProfile?.nama || 'Dede Setiawan, S.Tr.Stat.',
+      nip: savedProfile?.nip || '199502282024211021',
+      jabatan: savedProfile?.jabatan || 'Pranata Komputer Ahli Pertama',
+      email: savedProfile?.email || 'ddsetiawan28@gmail.com',
     };
     if (typeof window !== 'undefined') {
       localStorage.setItem('bps_auth_user', JSON.stringify(demoUser));
+      localStorage.setItem('bps_saved_profile', JSON.stringify(demoUser));
     }
     router.push('/laporan');
   };

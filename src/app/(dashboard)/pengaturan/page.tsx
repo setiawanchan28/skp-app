@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Lock, Mail, ShieldCheck, Key, Save, CheckCircle2, Building, BadgeCheck } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
+import { fetchPegawaiList, createPegawai, updatePegawai } from '@/services/pegawaiService';
 
 interface UserProfile {
   nama: string;
@@ -28,7 +29,7 @@ export default function PengaturanAkunPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('bps_auth_user');
+      const savedUser = localStorage.getItem('bps_auth_user') || localStorage.getItem('bps_saved_profile');
       if (savedUser) {
         try {
           const parsed = JSON.parse(savedUser);
@@ -41,18 +42,34 @@ export default function PengaturanAkunPage() {
     }
   }, []);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingProfile(true);
 
     const updatedUser: UserProfile = { nama, nip, jabatan, email };
+
     if (typeof window !== 'undefined') {
+      // Save permanently to auth user and saved profile
       localStorage.setItem('bps_auth_user', JSON.stringify(updatedUser));
+      localStorage.setItem('bps_saved_profile', JSON.stringify(updatedUser));
+    }
+
+    // Also sync to Master Pegawai database/localStorage
+    try {
+      const list = await fetchPegawaiList();
+      const existing = list.find((p) => p.nip === nip || (p.email && p.email === email));
+      if (existing) {
+        await updatePegawai(existing.id, { nama, nip, jabatan, email });
+      } else {
+        await createPegawai({ nama, nip, jabatan, email });
+      }
+    } catch (err) {
+      console.warn('Sync to pegawai master notice:', err);
     }
 
     setTimeout(() => {
       setSavingProfile(false);
-      showToast('Profil akun pegawai berhasil diperbarui!', 'success');
+      showToast('Profil akun pegawai berhasil diperbarui dan tersimpan permanen!', 'success');
     }, 400);
   };
 

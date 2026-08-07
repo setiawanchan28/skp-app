@@ -13,6 +13,7 @@ interface NavbarProps {
 interface AuthUser {
   nama: string;
   nip: string;
+  jabatan?: string;
   email?: string;
 }
 
@@ -23,20 +24,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedUser = localStorage.getItem('bps_auth_user');
+      const savedUser = localStorage.getItem('bps_auth_user') || localStorage.getItem('bps_saved_profile');
       if (savedUser) {
         try {
           setUser(JSON.parse(savedUser));
         } catch (e) {}
       } else {
-        // Default login user profile
         const defaultUser: AuthUser = {
-          nama: 'Dede Supriatna, S.Si., M.Stat.',
-          nip: '198805122010121002',
-          email: 'dede.supriatna@bps.go.id',
+          nama: 'Dede Setiawan, S.Tr.Stat.',
+          nip: '199502282024211021',
+          jabatan: 'Pranata Komputer Ahli Pertama',
+          email: 'ddsetiawan28@gmail.com',
         };
         setUser(defaultUser);
         localStorage.setItem('bps_auth_user', JSON.stringify(defaultUser));
+        localStorage.setItem('bps_saved_profile', JSON.stringify(defaultUser));
       }
     }
   }, []);
