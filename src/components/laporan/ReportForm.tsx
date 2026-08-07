@@ -13,6 +13,7 @@ import { ActivityTemplate } from '@/constants/templates';
 import { Laporan } from '@/types/laporan';
 import { formatDateIndonesian } from '@/utils/formatters';
 import { BULAN_INDONESIA } from '@/constants/bpsConfig';
+import { saveLaporanRecord } from '@/services/laporanService';
 
 const DRAFT_KEY = 'laporan_form_draft';
 
@@ -261,6 +262,11 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
 
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Gagal menyimpan laporan');
+
+      // ALWAYS SAVE CLIENT-SIDE LOCAL STORAGE RECORD IMMEDIATELY AFTER API SUCCESS
+      if (result.data) {
+        await saveLaporanRecord(result.data, result.data.fotos || []);
+      }
 
       localStorage.removeItem(DRAFT_KEY);
 

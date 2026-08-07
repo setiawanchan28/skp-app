@@ -3,6 +3,25 @@ import { Laporan, LaporanFoto } from '@/types/laporan';
 
 const LOCAL_STORAGE_LAPORAN = 'bps_laporan_data';
 
+const DEFAULT_SAMPLE_LAPORAN: Laporan[] = [
+  {
+    id: 'lap_sample_1',
+    nama_pegawai: 'Dede Setiawan, S.Tr.Stat.',
+    nip: '199502282024211021',
+    jabatan: 'Pranata Komputer Ahli Pertama',
+    tanggal: '2026-08-06',
+    nama_kegiatan: 'Supervisi Lapangan Pendataan Survei di Desa Aweh',
+    deskripsi_kegiatan: '- Mendampingi petugas pencacah di wilayah sampel\n- Melakukan validasi isian kuesioner digital/fisik\n- Menyampaikan perbaikan anomali data',
+    ringkasan_kegiatan: 'Melaksanakan kegiatan Supervisi Lapangan Pendataan Survei di Desa Aweh. Melakukan pendampingan langsung kepada Petugas Pencacah Lapangan (PPL) di wilayah sampel, berfokus pada validasi kelengkapan serta konsistensi isian kuesioner digital maupun fisik, sekaligus menyampaikan arahan teknis mengenai perbaikan anomali data demi menjaga mutu dan akurasi data hasil lapangan.',
+    kategori: 'Supervisi',
+    status: 'terkirim',
+    drive_pdf_url: 'https://drive.google.com/drive/my-drive',
+    fotos: [],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
+
 export async function fetchLaporanList(): Promise<Laporan[]> {
   let supabaseData: Laporan[] = [];
 
@@ -52,14 +71,22 @@ export async function fetchLaporanList(): Promise<Laporan[]> {
     if (item && item.id) mergedMap.set(item.id, item);
   });
 
-  // Insert Supabase items (override if present)
+  // Insert Supabase items
   supabaseData.forEach((item) => {
     if (item && item.id) mergedMap.set(item.id, item);
   });
 
-  const finalResult = Array.from(mergedMap.values()).sort(
+  let finalResult = Array.from(mergedMap.values()).sort(
     (a, b) => new Date(b.tanggal || Date.now()).getTime() - new Date(a.tanggal || Date.now()).getTime()
   );
+
+  // Fallback to sample data if clean empty
+  if (finalResult.length === 0) {
+    finalResult = DEFAULT_SAMPLE_LAPORAN;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(DEFAULT_SAMPLE_LAPORAN));
+    }
+  }
 
   return finalResult;
 }
