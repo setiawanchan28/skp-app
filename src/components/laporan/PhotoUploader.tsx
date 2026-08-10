@@ -12,6 +12,8 @@ export interface PhotoItem {
   existingUrl?: string;
   fitMode?: 'contain' | 'cover';
   tanggal_foto?: string;
+  drive_file_id?: string;
+  drive_file_url?: string;
 }
 
 export interface DateGroupOption {
