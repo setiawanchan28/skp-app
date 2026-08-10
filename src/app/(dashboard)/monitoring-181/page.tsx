@@ -17,10 +17,8 @@ import {
   Eye,
   X,
   Layers,
-  Download,
   Maximize2,
   Minimize2,
-  Sparkles,
   Camera
 } from 'lucide-react';
 import { Mon181ParsedResult, SummaryPetugas, parseMon181CsvContent } from '@/utils/mon181Parser';
@@ -52,7 +50,7 @@ export default function Monitoring181Page() {
   const [uploadingPpl, setUploadingPpl] = useState<boolean>(false);
   const [uploadingPml, setUploadingPml] = useState<boolean>(false);
   const [downloadingImg, setDownloadingImg] = useState<boolean>(false);
-  const [isCompactView, setIsCompactView] = useState<boolean>(true); // Mode Ringkas 1 Halaman
+  const [isCompactView, setIsCompactView] = useState<boolean>(false); // Default disabled on mobile for scrollability
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [pplData, setPplData] = useState<Mon181ParsedResult | null>(null);
@@ -67,15 +65,36 @@ export default function Monitoring181Page() {
 
   const dashboardRef = useRef<HTMLDivElement>(null);
 
-  // Fetch initial data from server Mon181 folder
+  // Load cache from LocalStorage if available
+  const loadCacheFromLocalStorage = () => {
+    try {
+      const cachedPpl = localStorage.getItem('MON181_PPL_CACHE');
+      const cachedPml = localStorage.getItem('MON181_PML_CACHE');
+
+      if (cachedPpl) setPplData(JSON.parse(cachedPpl));
+      if (cachedPml) setPmlData(JSON.parse(cachedPml));
+    } catch (e) {
+      console.warn('LocalStorage not available or error parsing:', e);
+    }
+  };
+
+  // Fetch initial data from server API & fallback to LocalStorage
   const fetchMon181Data = async () => {
     setLoading(true);
+    loadCacheFromLocalStorage();
+
     try {
       const res = await fetch('/api/monitoring-181');
       const json = await res.json();
       if (json.success) {
-        if (json.pplResult) setPplData(json.pplResult);
-        if (json.pmlResult) setPmlData(json.pmlResult);
+        if (json.pplResult) {
+          setPplData(json.pplResult);
+          try { localStorage.setItem('MON181_PPL_CACHE', JSON.stringify(json.pplResult)); } catch (e) {}
+        }
+        if (json.pmlResult) {
+          setPmlData(json.pmlResult);
+          try { localStorage.setItem('MON181_PML_CACHE', JSON.stringify(json.pmlResult)); } catch (e) {}
+        }
       }
     } catch (err) {
       console.error('Error fetching Mon181 data:', err);
@@ -102,11 +121,15 @@ export default function Monitoring181Page() {
       parsed.type = 'PPL';
       setPplData(parsed);
 
+      try {
+        localStorage.setItem('MON181_PPL_CACHE', JSON.stringify(parsed));
+      } catch (e) {}
+
       const formData = new FormData();
       formData.append('file', file);
       await fetch('/api/monitoring-181', { method: 'POST', body: formData });
 
-      setMessage({ type: 'success', text: `File PPL "${file.name}" berhasil diproses!` });
+      setMessage({ type: 'success', text: `File PPL "${file.name}" berhasil diproses & disimpan!` });
     } catch (err: any) {
       setMessage({ type: 'error', text: `Gagal memproses file PPL: ${err.message}` });
     } finally {
@@ -128,11 +151,15 @@ export default function Monitoring181Page() {
       parsed.type = 'PML';
       setPmlData(parsed);
 
+      try {
+        localStorage.setItem('MON181_PML_CACHE', JSON.stringify(parsed));
+      } catch (e) {}
+
       const formData = new FormData();
       formData.append('file', file);
       await fetch('/api/monitoring-181', { method: 'POST', body: formData });
 
-      setMessage({ type: 'success', text: `File PML "${file.name}" berhasil diproses!` });
+      setMessage({ type: 'success', text: `File PML "${file.name}" berhasil diproses & disimpan!` });
     } catch (err: any) {
       setMessage({ type: 'error', text: `Gagal memproses file PML: ${err.message}` });
     } finally {
@@ -282,7 +309,7 @@ export default function Monitoring181Page() {
     <div className="space-y-4 animate-in fade-in duration-300">
       {/* Top Action Bar (Buttons for Upload & Download Image) */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Mode 1 Halaman Toggle */}
           <button
             onClick={() => setIsCompactView(!isCompactView)}
@@ -294,7 +321,7 @@ export default function Monitoring181Page() {
             title="Sembunyikan/Tampilkan Scrollbar (Mode Tampil 1 Halaman Full)"
           >
             {isCompactView ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            <span>{isCompactView ? 'Tampilan 1 Halaman (Aktif)' : 'Mode Normal Scroll'}</span>
+            <span>{isCompactView ? '1 Halaman' : 'Scroll Normal'}</span>
           </button>
 
           {/* Download Image Button */}
@@ -305,12 +332,12 @@ export default function Monitoring181Page() {
             title="Unduh Tampilan Dashboard sebagai Gambar PNG"
           >
             <Camera className="w-3.5 h-3.5" />
-            <span>{downloadingImg ? 'Membuat Gambar...' : 'Unduh Gambar PNG'}</span>
+            <span>{downloadingImg ? 'Memproses...' : 'Unduh PNG'}</span>
           </button>
         </div>
 
         {/* Dual Upload Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-xs transition-all active:scale-95">
             <Upload className="w-3.5 h-3.5" />
             <span>{uploadingPpl ? 'Proses...' : 'Upload CSV PPL'}</span>
@@ -354,18 +381,18 @@ export default function Monitoring181Page() {
       )}
 
       {/* CAPTURE WRAPPER FOR IMAGE DOWNLOAD */}
-      <div ref={dashboardRef} className="space-y-4 bg-slate-50 dark:bg-slate-950 p-3 rounded-2xl">
+      <div ref={dashboardRef} className="space-y-4 bg-slate-50 dark:bg-slate-950 p-2 sm:p-3 rounded-2xl">
         {/* Header Title Banner */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-900 via-indigo-900 to-slate-900 p-5 text-white shadow-md">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-sky-900 via-indigo-900 to-slate-900 p-4 sm:p-5 text-white shadow-md">
           <div className="flex items-center justify-between">
             <div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-[10px] font-bold uppercase tracking-wider mb-1">
                 <ShieldCheck className="w-3 h-3" /> Monitoring BPS Mon181
               </div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+              <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white">
                 Dashboard Capaian PPL & PML
               </h1>
-              <p className="text-xs text-sky-200/80 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-sky-200/80 mt-0.5">
                 Monitoring Progres Pendataan Lapangan (PPL) dan Pemeriksaan (PML) per Petugas
               </p>
             </div>
@@ -373,12 +400,12 @@ export default function Monitoring181Page() {
             {/* Quick Badges File */}
             <div className="hidden md:flex items-center gap-3">
               <div className="text-right">
-                <span className="text-[10px] text-sky-300 block font-semibold">Progres Pendataan PPL</span>
+                <span className="text-[10px] text-sky-300 block font-semibold">Progres PPL</span>
                 <span className="text-lg font-black text-emerald-400">{pplData ? `${pplData.overallProgres}%` : '-'}</span>
               </div>
               <div className="h-8 w-px bg-white/20" />
               <div className="text-right">
-                <span className="text-[10px] text-indigo-300 block font-semibold">Progres Pemeriksaan PML</span>
+                <span className="text-[10px] text-indigo-300 block font-semibold">Progres PML</span>
                 <span className="text-lg font-black text-emerald-400">{pmlData ? `${pmlData.overallProgres}%` : '-'}</span>
               </div>
             </div>
@@ -387,10 +414,10 @@ export default function Monitoring181Page() {
 
         {/* Navigation Tabs & Filters */}
         <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-1.5 w-full md:w-auto">
+          <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
             <button
               onClick={() => setActiveTab('GABUNGAN')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 transition-all ${
                 activeTab === 'GABUNGAN'
                   ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white shadow-xs'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
@@ -405,7 +432,7 @@ export default function Monitoring181Page() {
 
             <button
               onClick={() => setActiveTab('PPL')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 transition-all ${
                 activeTab === 'PPL'
                   ? 'bg-sky-600 text-white shadow-xs'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
@@ -417,7 +444,7 @@ export default function Monitoring181Page() {
 
             <button
               onClick={() => setActiveTab('PML')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold text-xs transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 transition-all ${
                 activeTab === 'PML'
                   ? 'bg-indigo-600 text-white shadow-xs'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
@@ -456,9 +483,9 @@ export default function Monitoring181Page() {
           </div>
         </div>
 
-        {/* MAIN DATA TABLE CONTAINER */}
-        <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs ${
-          isCompactView ? 'overflow-hidden' : 'overflow-x-auto'
+        {/* MAIN DATA TABLE CONTAINER WITH RESPONSIVE OVERFLOW */}
+        <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-x-auto ${
+          isCompactView ? 'max-h-[68vh] overflow-y-auto' : ''
         }`}>
           {loading ? (
             <div className="p-8 text-center">
@@ -467,167 +494,163 @@ export default function Monitoring181Page() {
             </div>
           ) : activeTab === 'GABUNGAN' ? (
             /* GABUNGAN COMPACT TABLE */
-            <div className={isCompactView ? 'max-h-[68vh] overflow-y-auto' : ''}>
-              <table className="w-full text-left text-[11px] border-collapse">
-                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800">
-                  <tr>
-                    <th className="px-3 py-2 text-center w-10">No</th>
-                    <th className="px-3 py-2">Nama Petugas</th>
-                    <th className="px-2 py-2 text-center bg-sky-50 dark:bg-sky-950/40 border-l border-sky-100 dark:border-sky-900" colSpan={3}>
-                      Capaian Pendataan PPL
-                    </th>
-                    <th className="px-2 py-2 text-center bg-indigo-50 dark:bg-indigo-950/40 border-l border-indigo-100 dark:border-indigo-900" colSpan={3}>
-                      Capaian Pemeriksaan PML
-                    </th>
-                    <th className="px-2 py-2 text-center w-16">Aksi</th>
-                  </tr>
-                  <tr className="bg-slate-100/70 dark:bg-slate-800/80 text-[10px]">
-                    {/* Sub PPL */}
-                    <th className="px-2 py-1.5 text-center bg-sky-50/70 dark:bg-sky-950/40 border-l border-sky-100/50">Target</th>
-                    <th className="px-2 py-1.5 text-center bg-sky-50/70 dark:bg-sky-950/40">Realisasi</th>
-                    <th className="px-2 py-1.5 text-center bg-sky-50/70 dark:bg-sky-950/40">Progres %</th>
+            <table className="w-full text-left text-[11px] border-collapse min-w-[640px]">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold sticky top-0 z-10 border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className="px-3 py-2 text-center w-10">No</th>
+                  <th className="px-3 py-2">Nama Petugas</th>
+                  <th className="px-2 py-2 text-center bg-sky-50 dark:bg-sky-950/40 border-l border-sky-100 dark:border-sky-900" colSpan={3}>
+                    Capaian Pendataan PPL
+                  </th>
+                  <th className="px-2 py-2 text-center bg-indigo-50 dark:bg-indigo-950/40 border-l border-indigo-100 dark:border-indigo-900" colSpan={3}>
+                    Capaian Pemeriksaan PML
+                  </th>
+                  <th className="px-2 py-2 text-center w-16">Aksi</th>
+                </tr>
+                <tr className="bg-slate-100/70 dark:bg-slate-800/80 text-[10px]">
+                  {/* Sub PPL */}
+                  <th className="px-2 py-1.5 text-center bg-sky-50/70 dark:bg-sky-950/40 border-l border-sky-100/50">Target</th>
+                  <th className="px-2 py-1.5 text-center bg-sky-50/70 dark:bg-sky-950/40">Realisasi</th>
+                  <th className="px-2 py-1.5 text-center bg-sky-50/70 dark:bg-sky-950/40">Progres %</th>
 
-                    {/* Sub PML */}
-                    <th className="px-2 py-1.5 text-center bg-indigo-50/70 dark:bg-indigo-950/40 border-l border-indigo-100/50">Target</th>
-                    <th className="px-2 py-1.5 text-center bg-indigo-50/70 dark:bg-indigo-950/40">Approved</th>
-                    <th className="px-2 py-1.5 text-center bg-indigo-50/70 dark:bg-indigo-950/40">Progres %</th>
+                  {/* Sub PML */}
+                  <th className="px-2 py-1.5 text-center bg-indigo-50/70 dark:bg-indigo-950/40 border-l border-indigo-100/50">Target</th>
+                  <th className="px-2 py-1.5 text-center bg-indigo-50/70 dark:bg-indigo-950/40">Approved</th>
+                  <th className="px-2 py-1.5 text-center bg-indigo-50/70 dark:bg-indigo-950/40">Progres %</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredCombined.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="p-6 text-center text-slate-400">
+                      Tidak ada data petugas. Silakan unggah CSV PPL & PML via tombol di atas.
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredCombined.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} className="p-6 text-center text-slate-400">
-                        Tidak ada data petugas.
+                ) : (
+                  filteredCombined.map((row, idx) => (
+                    <tr key={row.namaPetugas} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="px-3 py-2 text-center font-semibold text-slate-400">{idx + 1}</td>
+                      <td className="px-3 py-2 font-bold text-slate-900 dark:text-white truncate max-w-[180px]">
+                        {row.namaPetugas}
+                      </td>
+
+                      {/* PPL COLUMNS */}
+                      <td className="px-2 py-2 text-center font-medium bg-sky-50/20 dark:bg-sky-950/10 border-l border-sky-100/40">
+                        {row.pplTarget}
+                      </td>
+                      <td className="px-2 py-2 text-center font-bold text-sky-700 dark:text-sky-300 bg-sky-50/20 dark:bg-sky-950/10">
+                        {row.pplRealisasi}
+                      </td>
+                      <td className="px-2 py-2 text-center bg-sky-50/20 dark:bg-sky-950/10">
+                        {row.pplTarget > 0 ? (
+                          <span className={`px-1.5 py-0.5 rounded-md font-bold text-[10px] ${
+                            row.pplProgres >= 100
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                              : row.pplProgres < 50
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                          }`}>
+                            {row.pplProgres}%
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 font-normal">-</span>
+                        )}
+                      </td>
+
+                      {/* PML COLUMNS */}
+                      <td className="px-2 py-2 text-center font-medium bg-indigo-50/20 dark:bg-indigo-950/10 border-l border-indigo-100/40">
+                        {row.pmlTarget}
+                      </td>
+                      <td className="px-2 py-2 text-center font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50/20 dark:bg-indigo-950/10">
+                        {row.pmlApproved}
+                      </td>
+                      <td className="px-2 py-2 text-center bg-indigo-50/20 dark:bg-indigo-950/10">
+                        {row.pmlTarget > 0 ? (
+                          <span className={`px-1.5 py-0.5 rounded-md font-bold text-[10px] ${
+                            row.pmlProgres >= 100
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                              : row.pmlProgres < 50
+                              ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                              : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                          }`}>
+                            {row.pmlProgres}%
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 font-normal">-</span>
+                        )}
+                      </td>
+
+                      {/* ACTION DETAIL */}
+                      <td className="px-2 py-2 text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {row.pplSummary && (
+                            <button
+                              onClick={() => openPetugasDetail(row.pplSummary!, 'PPL')}
+                              className="px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 font-bold text-[9px]"
+                            >
+                              PPL
+                            </button>
+                          )}
+                          {row.pmlSummary && (
+                            <button
+                              onClick={() => openPetugasDetail(row.pmlSummary!, 'PML')}
+                              className="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold text-[9px]"
+                            >
+                              PML
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
-                  ) : (
-                    filteredCombined.map((row, idx) => (
-                      <tr key={row.namaPetugas} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="px-3 py-2 text-center font-semibold text-slate-400">{idx + 1}</td>
-                        <td className="px-3 py-2 font-bold text-slate-900 dark:text-white truncate max-w-[180px]">
-                          {row.namaPetugas}
-                        </td>
-
-                        {/* PPL COLUMNS */}
-                        <td className="px-2 py-2 text-center font-medium bg-sky-50/20 dark:bg-sky-950/10 border-l border-sky-100/40">
-                          {row.pplTarget}
-                        </td>
-                        <td className="px-2 py-2 text-center font-bold text-sky-700 dark:text-sky-300 bg-sky-50/20 dark:bg-sky-950/10">
-                          {row.pplRealisasi}
-                        </td>
-                        <td className="px-2 py-2 text-center bg-sky-50/20 dark:bg-sky-950/10">
-                          {row.pplTarget > 0 ? (
-                            <span className={`px-1.5 py-0.5 rounded-md font-bold text-[10px] ${
-                              row.pplProgres >= 100
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                : row.pplProgres < 50
-                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                            }`}>
-                              {row.pplProgres}%
-                            </span>
-                          ) : (
-                            <span className="text-slate-300 font-normal">-</span>
-                          )}
-                        </td>
-
-                        {/* PML COLUMNS */}
-                        <td className="px-2 py-2 text-center font-medium bg-indigo-50/20 dark:bg-indigo-950/10 border-l border-indigo-100/40">
-                          {row.pmlTarget}
-                        </td>
-                        <td className="px-2 py-2 text-center font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50/20 dark:bg-indigo-950/10">
-                          {row.pmlApproved}
-                        </td>
-                        <td className="px-2 py-2 text-center bg-indigo-50/20 dark:bg-indigo-950/10">
-                          {row.pmlTarget > 0 ? (
-                            <span className={`px-1.5 py-0.5 rounded-md font-bold text-[10px] ${
-                              row.pmlProgres >= 100
-                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                                : row.pmlProgres < 50
-                                ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
-                            }`}>
-                              {row.pmlProgres}%
-                            </span>
-                          ) : (
-                            <span className="text-slate-300 font-normal">-</span>
-                          )}
-                        </td>
-
-                        {/* ACTION DETAIL */}
-                        <td className="px-2 py-2 text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            {row.pplSummary && (
-                              <button
-                                onClick={() => openPetugasDetail(row.pplSummary!, 'PPL')}
-                                className="px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-950 text-sky-700 dark:text-sky-300 font-bold text-[9px]"
-                              >
-                                PPL
-                              </button>
-                            )}
-                            {row.pmlSummary && (
-                              <button
-                                onClick={() => openPetugasDetail(row.pmlSummary!, 'PML')}
-                                className="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold text-[9px]"
-                              >
-                                PML
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           ) : (
             /* SINGLE TAB VIEW */
-            <div className={isCompactView ? 'max-h-[68vh] overflow-y-auto' : ''}>
-              <table className="w-full text-left text-[11px]">
-                <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold sticky top-0 z-10 border-b border-slate-200">
-                  <tr>
-                    <th className="px-3 py-2 text-center w-10">No</th>
-                    <th className="px-3 py-2">Nama Petugas {activeTab}</th>
-                    <th className="px-3 py-2 text-center">SLS</th>
-                    <th className="px-3 py-2 text-center">Target</th>
-                    <th className="px-3 py-2 text-center">Open/Draft</th>
-                    <th className="px-3 py-2 text-center">Submit PPL</th>
-                    <th className="px-3 py-2 text-center">Approve PML</th>
-                    <th className="px-3 py-2 text-center">Realisasi</th>
-                    <th className="px-3 py-2 text-center">Progres %</th>
-                    <th className="px-3 py-2 text-center">Detail</th>
+            <table className="w-full text-left text-[11px] min-w-[640px]">
+              <thead className="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-bold sticky top-0 z-10 border-b border-slate-200">
+                <tr>
+                  <th className="px-3 py-2 text-center w-10">No</th>
+                  <th className="px-3 py-2">Nama Petugas {activeTab}</th>
+                  <th className="px-3 py-2 text-center">SLS</th>
+                  <th className="px-3 py-2 text-center">Target</th>
+                  <th className="px-3 py-2 text-center">Open/Draft</th>
+                  <th className="px-3 py-2 text-center">Submit PPL</th>
+                  <th className="px-3 py-2 text-center">Approve PML</th>
+                  <th className="px-3 py-2 text-center">Realisasi</th>
+                  <th className="px-3 py-2 text-center">Progres %</th>
+                  <th className="px-3 py-2 text-center">Detail</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredSingleSummary.map((p, idx) => (
+                  <tr key={p.namaPetugas} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <td className="px-3 py-2 text-center font-semibold text-slate-400">{idx + 1}</td>
+                    <td className="px-3 py-2 font-bold text-slate-900 dark:text-white">{p.namaPetugas}</td>
+                    <td className="px-3 py-2 text-center font-semibold">{p.totalSls}</td>
+                    <td className="px-3 py-2 text-center font-semibold">{p.targetAssignment}</td>
+                    <td className="px-3 py-2 text-center text-amber-600">{p.open + p.draft}</td>
+                    <td className="px-3 py-2 text-center text-sky-600">{p.submittedByPpl}</td>
+                    <td className="px-3 py-2 text-center text-indigo-600">{p.approvedByPml}</td>
+                    <td className="px-3 py-2 text-center font-bold text-emerald-600">{p.realisasi}</td>
+                    <td className="px-3 py-2 text-center font-bold">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] ${p.progresPercent >= 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {p.progresPercent}%
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <button
+                        onClick={() => openPetugasDetail(p, activeTab)}
+                        className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-600 text-[10px] font-bold rounded"
+                      >
+                        Detail
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filteredSingleSummary.map((p, idx) => (
-                    <tr key={p.namaPetugas} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      <td className="px-3 py-2 text-center font-semibold text-slate-400">{idx + 1}</td>
-                      <td className="px-3 py-2 font-bold text-slate-900 dark:text-white">{p.namaPetugas}</td>
-                      <td className="px-3 py-2 text-center font-semibold">{p.totalSls}</td>
-                      <td className="px-3 py-2 text-center font-semibold">{p.targetAssignment}</td>
-                      <td className="px-3 py-2 text-center text-amber-600">{p.open + p.draft}</td>
-                      <td className="px-3 py-2 text-center text-sky-600">{p.submittedByPpl}</td>
-                      <td className="px-3 py-2 text-center text-indigo-600">{p.approvedByPml}</td>
-                      <td className="px-3 py-2 text-center font-bold text-emerald-600">{p.realisasi}</td>
-                      <td className="px-3 py-2 text-center font-bold">
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] ${p.progresPercent >= 100 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                          {p.progresPercent}%
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-center">
-                        <button
-                          onClick={() => openPetugasDetail(p, activeTab)}
-                          className="px-2 py-1 bg-sky-50 hover:bg-sky-100 text-sky-600 text-[10px] font-bold rounded"
-                        >
-                          Detail
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
