@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   FileText,
   Eye,
+  Sparkles,
 } from 'lucide-react';
 import { fetchPegawaiList } from '@/services/pegawaiService';
 import { Pegawai } from '@/types/pegawai';
@@ -58,17 +59,21 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
     { nama: 'Husnul Khotimah', jabatan: 'PPL' },
   ]);
 
-  // IV. Resume Perjalanan Dinas
+  // Field Bantu & IV. Resume Perjalanan Dinas
+  const [deskripsiBantu, setDeskripsiBantu] = useState('');
   const [resumeKegiatan, setResumeKegiatan] = useState('');
+  const [jumlahParagraf, setJumlahParagraf] = useState('auto');
 
   // V. Photos
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
 
   // UI state
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState('');
+  const [isListeningDeskripsi, setIsListeningDeskripsi] = useState(false);
   const [isListeningResume, setIsListeningResume] = useState(false);
-  const [isFullscreenResume, setIsFullscreenResume] = useState(false);
+  const [fullscreenField, setFullscreenField] = useState<'deskripsi' | 'resume' | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Load Pegawai List
@@ -153,8 +158,8 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
     setPetugasDitemui(updated);
   };
 
-  // Voice Dictation
-  const toggleVoiceDictation = () => {
+  // Voice Dictation Helper
+  const toggleVoiceDictation = (targetField: 'deskripsi' | 'resume') => {
     if (typeof window === 'undefined') return;
 
     const SpeechRecognition =
@@ -165,7 +170,10 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
       return;
     }
 
-    if (isListeningResume) {
+    const isCurrentlyListening = targetField === 'deskripsi' ? isListeningDeskripsi : isListeningResume;
+
+    if (isCurrentlyListening) {
+      setIsListeningDeskripsi(false);
       setIsListeningResume(false);
       showToast('Dikte Suara Dihentikan', 'info');
       return;
@@ -177,22 +185,69 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
       recognition.continuous = true;
       recognition.interimResults = false;
 
-      setIsListeningResume(true);
+      if (targetField === 'deskripsi') setIsListeningDeskripsi(true);
+      if (targetField === 'resume') setIsListeningResume(true);
+
       showToast('🎙️ Dikte Suara Aktif! Silakan bicaralah dalam Bahasa Indonesia...', 'info');
 
       recognition.onresult = (event: any) => {
         const lastIndex = event.results.length - 1;
         const transcript = event.results[lastIndex][0].transcript;
-        setResumeKegiatan((prev) => (prev ? `${prev} ${transcript}` : transcript));
+        if (targetField === 'deskripsi') {
+          setDeskripsiBantu((prev) => (prev ? `${prev} ${transcript}` : transcript));
+        } else {
+          setResumeKegiatan((prev) => (prev ? `${prev} ${transcript}` : transcript));
+        }
       };
 
-      recognition.onerror = () => setIsListeningResume(false);
-      recognition.onend = () => setIsListeningResume(false);
+      recognition.onerror = () => {
+        setIsListeningDeskripsi(false);
+        setIsListeningResume(false);
+      };
+      recognition.onend = () => {
+        setIsListeningDeskripsi(false);
+        setIsListeningResume(false);
+      };
 
       recognition.start();
     } catch (err) {
+      setIsListeningDeskripsi(false);
       setIsListeningResume(false);
       showToast('Gagal mengaktifkan mikrofon', 'error');
+    }
+  };
+
+  // Generate Resume with Gemini AI
+  const handleGenerateGemini = async () => {
+    if (!namaKegiatan.trim()) {
+      showToast('Mohon isi Nama Kegiatan Penugasan terlebih dahulu!', 'error');
+      return;
+    }
+
+    const bahanAcuan = deskripsiBantu.trim() || `Penugasan di ${tempatTujuan} sesuai ST: ${nomorSurat} dan SPD: ${nomorSpd}`;
+
+    try {
+      setIsGeneratingAi(true);
+      const res = await fetch('/api/gemini/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          namaKegiatan,
+          deskripsiKegiatan: bahanAcuan,
+          namaPegawai,
+          jumlahParagraf,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Gagal generate resume penugasan');
+
+      setResumeKegiatan(data.ringkasan);
+      showToast('Resume Perjalanan Dinas resmi BPS berhasil dibuat dengan Gemini AI!', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal menghubungi Gemini API', 'error');
+    } finally {
+      setIsGeneratingAi(false);
     }
   };
 
@@ -519,9 +574,49 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
             </div>
           </div>
 
-          {/* BAGIAN IV: RESUME PERJALANAN DINAS */}
+          {/* KOLOM BANTU: DESKRIPSI KEGIATAN (Poin-poin / Catatan Lapangan) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Kolom Bantu Deskripsi Kegiatan (Poin-poin / Catatan Lapangan)
+              </label>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleVoiceDictation('deskripsi')}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border ${
+                    isListeningDeskripsi
+                      ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 text-rose-600 animate-pulse'
+                      : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  <Mic className={`w-3.5 h-3.5 ${isListeningDeskripsi ? 'text-rose-600 animate-spin' : 'text-sky-600 dark:text-sky-400'}`} />
+                  <span className="hidden xs:inline">{isListeningDeskripsi ? 'Mendengarkan...' : 'Dikte Suara 🎙️'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFullscreenField('deskripsi')}
+                  className="p-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              rows={4}
+              value={deskripsiBantu}
+              onChange={(e) => setDeskripsiBantu(e.target.value)}
+              placeholder="- Mendampingi PML Bu Sundari & PPL Husnul Khotimah di Desa Aweh&#10;- Melakukan supervisi kuesioner digital/fisik&#10;- Meneliti anomali isian data responden"
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 leading-relaxed min-h-[100px] resize-y dark:text-white"
+            />
+          </div>
+
+          {/* BAGIAN IV: RESUME PERJALANAN DINAS & GEMINI CONTROLS */}
+          <div className="space-y-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
                 IV. RESUME PERJALANAN DINAS *
               </h4>
@@ -529,7 +624,7 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={toggleVoiceDictation}
+                  onClick={() => toggleVoiceDictation('resume')}
                   className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border ${
                     isListeningResume
                       ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 text-rose-600 animate-pulse'
@@ -537,15 +632,46 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
                   }`}
                 >
                   <Mic className={`w-3.5 h-3.5 ${isListeningResume ? 'text-rose-600 animate-spin' : 'text-sky-600 dark:text-sky-400'}`} />
-                  <span>{isListeningResume ? 'Mendengarkan...' : 'Dikte Suara 🎙️'}</span>
+                  <span className="hidden xs:inline">{isListeningResume ? 'Mendengarkan...' : 'Dikte Suara 🎙️'}</span>
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setIsFullscreenResume(true)}
+                  onClick={() => setFullscreenField('resume')}
                   className="p-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg"
                 >
                   <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+
+                <select
+                  value={jumlahParagraf}
+                  onChange={(e) => setJumlahParagraf(e.target.value)}
+                  className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none"
+                  title="Pilih Jumlah Paragraf Resume AI"
+                >
+                  <option value="auto">Paragraf: Otomatis</option>
+                  <option value="1">Paragraf: 1 Paragraf</option>
+                  <option value="2">Paragraf: 2 Paragraf</option>
+                  <option value="3">Paragraf: 3 Paragraf</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={handleGenerateGemini}
+                  disabled={isGeneratingAi}
+                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 ai-pulse-button"
+                >
+                  {isGeneratingAi ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menyusun Resume...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Generate Narasi AI</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -620,17 +746,21 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
       </form>
 
       {/* Fullscreen Writing Modal */}
-      {isFullscreenResume && (
+      {fullscreenField && (
         <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-3xl h-[85vh] flex flex-col shadow-2xl p-4 sm:p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
                 <Maximize2 className="w-5 h-5 text-sky-600" />
-                <span>Tulis Resume Perjalanan Dinas (Layar Penuh HP)</span>
+                <span>
+                  {fullscreenField === 'deskripsi'
+                    ? 'Tulis Catatan Lapangan (Layar Penuh HP)'
+                    : 'Tulis Resume Perjalanan Dinas (Layar Penuh HP)'}
+                </span>
               </h3>
               <button
                 type="button"
-                onClick={() => setIsFullscreenResume(false)}
+                onClick={() => setFullscreenField(null)}
                 className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg"
               >
                 <X className="w-5 h-5" />
@@ -641,19 +771,25 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
               <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={toggleVoiceDictation}
+                  onClick={() => toggleVoiceDictation(fullscreenField)}
                   className="px-3 py-1.5 bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 text-sky-700 dark:text-sky-300 rounded-xl text-xs font-bold border border-sky-200 dark:border-sky-800 flex items-center gap-1.5"
                 >
                   <Mic className="w-4 h-4 text-sky-600" />
                   <span>Dikte Suara 🎙️</span>
                 </button>
-                <span className="text-xs text-slate-400">{resumeKegiatan.length} karakter</span>
+                <span className="text-xs text-slate-400">
+                  {(fullscreenField === 'deskripsi' ? deskripsiBantu : resumeKegiatan).length} karakter
+                </span>
               </div>
 
               <textarea
-                value={resumeKegiatan}
-                onChange={(e) => setResumeKegiatan(e.target.value)}
-                placeholder="Ketik atau gunakan dikte suara untuk mengisi narasi resume perjalanan dinas..."
+                value={fullscreenField === 'deskripsi' ? deskripsiBantu : resumeKegiatan}
+                onChange={(e) =>
+                  fullscreenField === 'deskripsi'
+                    ? setDeskripsiBantu(e.target.value)
+                    : setResumeKegiatan(e.target.value)
+                }
+                placeholder="Ketik atau gunakan dikte suara di sini..."
                 className="w-full flex-1 p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm leading-relaxed focus:outline-none dark:text-white resize-none"
               />
             </div>
@@ -661,7 +797,7 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
             <div className="pt-2 text-right">
               <button
                 type="button"
-                onClick={() => setIsFullscreenResume(false)}
+                onClick={() => setFullscreenField(null)}
                 className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 ml-auto"
               >
                 <Check className="w-4 h-4" />
