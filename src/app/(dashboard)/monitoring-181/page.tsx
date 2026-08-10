@@ -19,7 +19,10 @@ import {
   Layers,
   Maximize2,
   Minimize2,
-  Camera
+  Camera,
+  History,
+  Trash2,
+  Clock
 } from 'lucide-react';
 import { Mon181ParsedResult, SummaryPetugas, parseMon181CsvContent } from '@/utils/mon181Parser';
 import { toPng } from 'html-to-image';
@@ -50,11 +53,12 @@ export default function Monitoring181Page() {
   const [uploadingPpl, setUploadingPpl] = useState<boolean>(false);
   const [uploadingPml, setUploadingPml] = useState<boolean>(false);
   const [downloadingImg, setDownloadingImg] = useState<boolean>(false);
-  const [isCompactView, setIsCompactView] = useState<boolean>(false); // Default disabled on mobile for scrollability
+  const [isCompactView, setIsCompactView] = useState<boolean>(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [pplData, setPplData] = useState<Mon181ParsedResult | null>(null);
   const [pmlData, setPmlData] = useState<Mon181ParsedResult | null>(null);
+  const [historyList, setHistoryList] = useState<any[]>([]);
 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterDesa, setFilterDesa] = useState<string>('ALL');
@@ -62,6 +66,7 @@ export default function Monitoring181Page() {
 
   const [selectedPetugas, setSelectedPetugas] = useState<{ petugas: SummaryPetugas; type: 'PPL' | 'PML' } | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState<boolean>(false);
 
   const dashboardRef = useRef<HTMLDivElement>(null);
 
@@ -74,11 +79,11 @@ export default function Monitoring181Page() {
       if (cachedPpl) setPplData(JSON.parse(cachedPpl));
       if (cachedPml) setPmlData(JSON.parse(cachedPml));
     } catch (e) {
-      console.warn('LocalStorage not available or error parsing:', e);
+      console.warn('LocalStorage error:', e);
     }
   };
 
-  // Fetch initial data from server API & fallback to LocalStorage
+  // Fetch initial data from server database (Supabase)
   const fetchMon181Data = async () => {
     setLoading(true);
     loadCacheFromLocalStorage();
@@ -94,6 +99,9 @@ export default function Monitoring181Page() {
         if (json.pmlResult) {
           setPmlData(json.pmlResult);
           try { localStorage.setItem('MON181_PML_CACHE', JSON.stringify(json.pmlResult)); } catch (e) {}
+        }
+        if (json.historyList) {
+          setHistoryList(json.historyList);
         }
       }
     } catch (err) {
@@ -121,15 +129,15 @@ export default function Monitoring181Page() {
       parsed.type = 'PPL';
       setPplData(parsed);
 
-      try {
-        localStorage.setItem('MON181_PPL_CACHE', JSON.stringify(parsed));
-      } catch (e) {}
+      try { localStorage.setItem('MON181_PPL_CACHE', JSON.stringify(parsed)); } catch (e) {}
 
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('type', 'PPL');
       await fetch('/api/monitoring-181', { method: 'POST', body: formData });
 
-      setMessage({ type: 'success', text: `File PPL "${file.name}" berhasil diproses & disimpan!` });
+      setMessage({ type: 'success', text: `File PPL "${file.name}" berhasil disimpan ke database!` });
+      fetchMon181Data();
     } catch (err: any) {
       setMessage({ type: 'error', text: `Gagal memproses file PPL: ${err.message}` });
     } finally {
@@ -151,19 +159,32 @@ export default function Monitoring181Page() {
       parsed.type = 'PML';
       setPmlData(parsed);
 
-      try {
-        localStorage.setItem('MON181_PML_CACHE', JSON.stringify(parsed));
-      } catch (e) {}
+      try { localStorage.setItem('MON181_PML_CACHE', JSON.stringify(parsed)); } catch (e) {}
 
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('type', 'PML');
       await fetch('/api/monitoring-181', { method: 'POST', body: formData });
 
-      setMessage({ type: 'success', text: `File PML "${file.name}" berhasil diproses & disimpan!` });
+      setMessage({ type: 'success', text: `File PML "${file.name}" berhasil disimpan ke database!` });
+      fetchMon181Data();
     } catch (err: any) {
       setMessage({ type: 'error', text: `Gagal memproses file PML: ${err.message}` });
     } finally {
       setUploadingPml(false);
+    }
+  };
+
+  // Delete history item
+  const handleDeleteHistory = async (id: string) => {
+    if (!confirm('Apakah Anda yakin ingin menghapus catatan histori upload ini?')) return;
+
+    try {
+      await fetch(`/api/monitoring-181?id=${id}`, { method: 'DELETE' });
+      setMessage({ type: 'success', text: 'Riwayat data berhasil dihapus!' });
+      fetchMon181Data();
+    } catch (e: any) {
+      setMessage({ type: 'error', text: e.message || 'Gagal menghapus histori' });
     }
   };
 
@@ -307,9 +328,24 @@ export default function Monitoring181Page() {
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
-      {/* Top Action Bar (Buttons for Upload & Download Image) */}
+      {/* Top Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div className="flex flex-wrap items-center gap-2">
+          {/* Histori Upload Button */}
+          <button
+            onClick={() => setIsHistoryModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200 border border-slate-200 dark:border-slate-700 transition-all"
+            title="Lihat Riwayat File CSV yang Pernah Diunggah"
+          >
+            <History className="w-3.5 h-3.5 text-sky-500" />
+            <span>Riwayat Upload</span>
+            {historyList.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-500 text-white font-bold">
+                {historyList.length}
+              </span>
+            )}
+          </button>
+
           {/* Mode 1 Halaman Toggle */}
           <button
             onClick={() => setIsCompactView(!isCompactView)}
@@ -318,7 +354,6 @@ export default function Monitoring181Page() {
                 ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700'
             }`}
-            title="Sembunyikan/Tampilkan Scrollbar (Mode Tampil 1 Halaman Full)"
           >
             {isCompactView ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             <span>{isCompactView ? '1 Halaman' : 'Scroll Normal'}</span>
@@ -329,7 +364,6 @@ export default function Monitoring181Page() {
             onClick={handleDownloadImage}
             disabled={downloadingImg}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-600/20 transition-all duration-200 active:scale-95 disabled:opacity-50"
-            title="Unduh Tampilan Dashboard sebagai Gambar PNG"
           >
             <Camera className="w-3.5 h-3.5" />
             <span>{downloadingImg ? 'Memproses...' : 'Unduh PNG'}</span>
@@ -340,13 +374,13 @@ export default function Monitoring181Page() {
         <div className="flex flex-wrap items-center gap-2">
           <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold shadow-xs transition-all active:scale-95">
             <Upload className="w-3.5 h-3.5" />
-            <span>{uploadingPpl ? 'Proses...' : 'Upload CSV PPL'}</span>
+            <span>{uploadingPpl ? 'Simpan...' : 'Upload CSV PPL'}</span>
             <input type="file" accept=".csv, .xlsx, .xls" className="hidden" onChange={handleUploadPpl} disabled={uploadingPpl} />
           </label>
 
           <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-all active:scale-95">
             <Upload className="w-3.5 h-3.5" />
-            <span>{uploadingPml ? 'Proses...' : 'Upload CSV PML'}</span>
+            <span>{uploadingPml ? 'Simpan...' : 'Upload CSV PML'}</span>
             <input type="file" accept=".csv, .xlsx, .xls" className="hidden" onChange={handleUploadPml} disabled={uploadingPml} />
           </label>
 
@@ -387,13 +421,13 @@ export default function Monitoring181Page() {
           <div className="flex items-center justify-between">
             <div>
               <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-500/20 border border-sky-400/30 text-sky-300 text-[10px] font-bold uppercase tracking-wider mb-1">
-                <ShieldCheck className="w-3 h-3" /> Monitoring BPS Mon181
+                <ShieldCheck className="w-3 h-3" /> Database Permanen • Mon181 BPS
               </div>
               <h1 className="text-lg sm:text-2xl font-black tracking-tight text-white">
                 Dashboard Capaian PPL & PML
               </h1>
               <p className="text-[11px] sm:text-xs text-sky-200/80 mt-0.5">
-                Monitoring Progres Pendataan Lapangan (PPL) dan Pemeriksaan (PML) per Petugas
+                Data tersimpan secara permanen di database server dan dapat diakses dari perangkat manapun
               </p>
             </div>
 
@@ -490,7 +524,7 @@ export default function Monitoring181Page() {
           {loading ? (
             <div className="p-8 text-center">
               <RefreshCw className="w-6 h-6 animate-spin text-sky-500 mx-auto mb-2" />
-              <p className="text-xs text-slate-500">Memuat data monitoring...</p>
+              <p className="text-xs text-slate-500">Memuat data dari database database...</p>
             </div>
           ) : activeTab === 'GABUNGAN' ? (
             /* GABUNGAN COMPACT TABLE */
@@ -654,6 +688,64 @@ export default function Monitoring181Page() {
           )}
         </div>
       </div>
+
+      {/* History Modal */}
+      {isHistoryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[85vh] overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-800/40">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-sky-500" />
+                <h2 className="text-base font-black text-slate-900 dark:text-white">Riwayat Database Upload Mon181</h2>
+              </div>
+              <button onClick={() => setIsHistoryModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {historyList.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  Belum ada riwayat upload di database.
+                </div>
+              ) : (
+                historyList.map(h => (
+                  <div key={h.id} className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          h.type === 'PPL' ? 'bg-sky-100 text-sky-700' : 'bg-indigo-100 text-indigo-700'
+                        }`}>
+                          {h.type}
+                        </span>
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{h.file_name}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-1">
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(h.uploaded_at).toLocaleString('id-ID')}</span>
+                        <span>Target: {h.total_target}</span>
+                        <span>Realisasi: {h.total_realisasi} ({h.overall_progres}%)</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteHistory(h.id)}
+                      className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg"
+                      title="Hapus Catatan Histori Ini"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button onClick={() => setIsHistoryModalOpen(false)} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-xs font-bold">
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Drill-down Detail Modal */}
       {isDetailModalOpen && selectedPetugas && (
