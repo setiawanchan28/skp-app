@@ -291,6 +291,10 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
     ringkasan_kegiatan: resumeKegiatan || 'Resume Perjalanan Dinas...',
     kategori: 'Perjalanan Dinas',
     jenis_laporan: 'penugasan',
+    tempat_tujuan: tempatTujuan,
+    nomor_surat: nomorSurat,
+    nomor_spd: nomorSpd,
+    petugas_ditemui: petugasDitemui.filter((p) => p.nama.trim()),
     fotos: photos.map((p, idx) => ({
       id: p.id,
       drive_file_id: p.drive_file_id || `preview_${idx}`,

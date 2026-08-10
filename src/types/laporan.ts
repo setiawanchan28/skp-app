@@ -22,6 +22,10 @@ export interface Laporan {
   ringkasan_kegiatan: string;
   kategori?: string;
   jenis_laporan?: 'harian' | 'penugasan';
+  tempat_tujuan?: string;
+  nomor_surat?: string;
+  nomor_spd?: string;
+  petugas_ditemui?: { nama: string; jabatan: string }[];
   status?: 'draft' | 'terkirim'; // 'draft' for incremental work, 'terkirim' for completed
   drive_pdf_url?: string;
   drive_pdf_file_id?: string;

@@ -79,8 +79,8 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
 
   const dateYear = new Date(laporan.tanggal || Date.now()).getFullYear();
   const isPenugasan = laporan.jenis_laporan === 'penugasan';
-  const dates = generateDateList(laporan.tanggal, laporan.tanggal_selesai);
   const allPhotos = laporan.fotos || [];
+  const petugasList = laporan.petugas_ditemui || [];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={isPenugasan ? 'Preview Laporan Penugasan BPS' : 'Preview Bukti Dukung BPS'} maxWidth="4xl">
@@ -121,9 +121,9 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
             </div>
 
             {isPenugasan ? (
-              /* PENUGASAN DOCUMENT FORMAT */
+              /* EXACT PENUGASAN DOCUMENT FORMAT MATCHING LAMPIRAN USER */
               <div className="space-y-4 text-xs">
-                {/* I. PELAKSANA */}
+                {/* I. KETERANGAN PELAKSANA PERJALANAN DINAS */}
                 <div className="border border-slate-300 overflow-hidden">
                   <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
                     I. KETERANGAN PELAKSANA PERJALANAN DINAS
@@ -137,26 +137,76 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   </table>
                 </div>
 
-                {/* II. PERJALANAN DINAS */}
+                {/* II. KETERANGAN PERJALANAN DINAS (SEPARATE INDIVIDUAL ROWS) */}
                 <div className="border border-slate-300 overflow-hidden">
                   <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
                     II. KETERANGAN PERJALANAN DINAS
                   </div>
                   <table className="w-full text-xs">
                     <tbody>
-                      <tr className="border-b border-slate-200"><td className="w-1/3 p-2 font-medium">Nama Kegiatan</td><td className="p-2 font-semibold">{laporan.nama_kegiatan}</td></tr>
-                      <tr className="border-b border-slate-200"><td className="p-2 font-medium">Tanggal Perjadin</td><td className="p-2 font-medium">{formatDateIndonesian(laporan.tanggal, laporan.tanggal_selesai)}</td></tr>
-                      <tr className="border-b border-slate-200"><td className="p-2 font-medium">Deskripsi / ST / SPD</td><td className="p-2 font-mono">{laporan.deskripsi_kegiatan}</td></tr>
+                      <tr className="border-b border-slate-200">
+                        <td className="w-1/3 p-2 font-medium">Nama Kegiatan</td>
+                        <td className="p-2 font-semibold">{laporan.nama_kegiatan}</td>
+                      </tr>
+                      <tr className="border-b border-slate-200">
+                        <td className="p-2 font-medium">Tanggal Perjadin</td>
+                        <td className="p-2 font-medium">{formatDateIndonesian(laporan.tanggal, laporan.tanggal_selesai)}</td>
+                      </tr>
+                      <tr className="border-b border-slate-200">
+                        <td className="p-2 font-medium">Tempat Tujuan</td>
+                        <td className="p-2 font-semibold">{laporan.tempat_tujuan || '-'}</td>
+                      </tr>
+                      <tr className="border-b border-slate-200">
+                        <td className="p-2 font-medium">Nomor Surat</td>
+                        <td className="p-2 font-mono">{laporan.nomor_surat || '-'}</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 font-medium">Nomor SPD</td>
+                        <td className="p-2 font-mono">{laporan.nomor_spd || '-'}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
 
-                {/* IV. RESUME */}
+                {/* III. DAFTAR PETUGAS YANG DITEMUI */}
+                <div className="border border-slate-300 overflow-hidden">
+                  <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
+                    III. DAFTAR PETUGAS YANG DITEMUI
+                  </div>
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 border-b border-slate-300 font-bold text-center">
+                        <th className="w-12 p-2 border-r border-slate-300">No</th>
+                        <th className="p-2 border-r border-slate-300">Nama</th>
+                        <th className="p-2">Jabatan</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {petugasList.length === 0 ? (
+                        <tr className="border-b border-slate-200 text-center">
+                          <td className="p-2 border-r border-slate-200">1</td>
+                          <td className="p-2 border-r border-slate-200">-</td>
+                          <td className="p-2">-</td>
+                        </tr>
+                      ) : (
+                        petugasList.map((p, idx) => (
+                          <tr key={idx} className="border-b border-slate-200">
+                            <td className="p-2 text-center border-r border-slate-200 font-semibold">{idx + 1}</td>
+                            <td className="p-2 border-r border-slate-200 font-semibold">{p.nama}</td>
+                            <td className="p-2 font-medium">{p.jabatan}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* IV. RESUME PERJALANAN DINAS */}
                 <div className="border border-slate-300 overflow-hidden">
                   <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
                     IV. RESUME PERJALANAN DINAS
                   </div>
-                  <div className="p-3 leading-relaxed whitespace-pre-line text-slate-800">
+                  <div className="p-3 leading-relaxed whitespace-pre-line text-slate-800 text-justify">
                     {laporan.ringkasan_kegiatan}
                   </div>
                 </div>
