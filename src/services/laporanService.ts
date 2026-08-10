@@ -154,16 +154,84 @@ export async function deleteLaporanRecord(id: string, jenis_laporan?: 'harian' |
 }
 
 export async function saveLaporanRecord(laporan: Partial<Laporan>, photosData?: any[]): Promise<Laporan> {
-  const res = await fetch('/api/laporan/save', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...laporan, fotos: photosData || laporan.fotos }),
-  });
+  const newId = laporan.id || `lap_${Date.now()}`;
+  const fullRecord: Laporan = {
+    id: newId,
+    nama_pegawai: laporan.nama_pegawai || '',
+    nip: laporan.nip || '',
+    jabatan: laporan.jabatan || '',
+    tanggal: laporan.tanggal || new Date().toISOString().split('T')[0],
+    tanggal_selesai: laporan.tanggal_selesai,
+    nama_kegiatan: laporan.nama_kegiatan || '',
+    deskripsi_kegiatan: laporan.deskripsi_kegiatan || '',
+    ringkasan_kegiatan: laporan.ringkasan_kegiatan || '',
+    kategori: laporan.kategori || 'Lainnya',
+    jenis_laporan: 'harian',
+    drive_pdf_url: laporan.drive_pdf_url,
+    drive_pdf_file_id: laporan.drive_pdf_file_id,
+    drive_folder_id: laporan.drive_folder_id,
+    fotos: photosData || laporan.fotos || [],
+    created_at: laporan.created_at || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
 
-  const result = await res.json();
-  if (!res.ok) {
-    throw new Error(result.error || 'Gagal menyimpan laporan');
+  // 1. Save to Supabase DB if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const { data: dbData, error } = await supabaseAdmin
+        .from('laporan')
+        .upsert(
+          {
+            id: fullRecord.id,
+            nama_pegawai: fullRecord.nama_pegawai,
+            nip: fullRecord.nip,
+            jabatan: fullRecord.jabatan,
+            tanggal: fullRecord.tanggal,
+            tanggal_selesai: fullRecord.tanggal_selesai,
+            nama_kegiatan: fullRecord.nama_kegiatan,
+            deskripsi_kegiatan: fullRecord.deskripsi_kegiatan,
+            ringkasan_kegiatan: fullRecord.ringkasan_kegiatan,
+            kategori: fullRecord.kategori,
+            drive_pdf_url: fullRecord.drive_pdf_url,
+            drive_pdf_file_id: fullRecord.drive_pdf_file_id,
+            drive_folder_id: fullRecord.drive_folder_id,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        )
+        .select()
+        .single();
+
+      if (!error && dbData) {
+        if (photosData && photosData.length > 0) {
+          const photoRows = photosData.map((p) => ({
+            laporan_id: dbData.id,
+            drive_file_id: p.drive_file_id,
+            drive_file_url: p.drive_file_url,
+            file_name: p.file_name,
+            tanggal_foto: p.tanggal_foto,
+          }));
+          await supabaseAdmin.from('laporan_foto').delete().eq('laporan_id', dbData.id);
+          await supabaseAdmin.from('laporan_foto').insert(photoRows);
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase save record exception:', e);
+    }
   }
 
-  return result.data;
+  // 2. Save to LocalStorage if client-side
+  if (typeof window !== 'undefined') {
+    let list: Laporan[] = [];
+    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+    if (local) {
+      try { list = JSON.parse(local); } catch (e) {}
+    }
+    const idx = list.findIndex((l) => l.id === fullRecord.id);
+    if (idx >= 0) list[idx] = fullRecord;
+    else list.unshift(fullRecord);
+    localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(list));
+  }
+
+  return fullRecord;
 }
