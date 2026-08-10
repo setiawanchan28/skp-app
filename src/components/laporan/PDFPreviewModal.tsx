@@ -78,16 +78,15 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
   if (!laporan) return null;
 
   const dateYear = new Date(laporan.tanggal || Date.now()).getFullYear();
-  const formattedDateRange = formatDateIndonesian(laporan.tanggal, laporan.tanggal_selesai);
+  const isPenugasan = laporan.jenis_laporan === 'penugasan';
   const dates = generateDateList(laporan.tanggal, laporan.tanggal_selesai);
   const allPhotos = laporan.fotos || [];
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Preview Bukti Dukung BPS" maxWidth="4xl">
+    <Modal isOpen={isOpen} onClose={onClose} title={isPenugasan ? 'Preview Laporan Penugasan BPS' : 'Preview Bukti Dukung BPS'} maxWidth="4xl">
       <div className="space-y-4 sm:space-y-6">
         {/* Responsive Document Scroll Wrapper */}
         <div className="overflow-x-auto pb-2 -mx-2 sm:mx-0 px-2 sm:px-0">
-          {/* PDF Document Render Preview */}
           <div className="bg-white border border-slate-300 shadow-xl rounded-sm p-4 sm:p-8 min-w-[320px] max-w-2xl mx-auto space-y-5 sm:space-y-6 font-sans text-black">
             {/* Header Logo & Titles */}
             <div className="text-center space-y-2 sm:space-y-3">
@@ -107,172 +106,169 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                       </div>
                       <span className="w-4 h-3.5 bg-emerald-500 rounded-2xs inline-block" />
                     </div>
-                    <h2 className="text-[10px] sm:text-xs font-extrabold text-black tracking-tight mt-1 uppercase">
-                      {BPS_CONFIG.instansi}
-                    </h2>
                   </div>
                 )}
               </div>
 
               <div className="pt-1 space-y-0.5">
                 <h1 className="text-xs sm:text-sm font-extrabold tracking-wide uppercase">
-                  {BPS_CONFIG.judulLaporan}
+                  {isPenugasan ? 'LAPORAN PENUGASAN BADAN PUSAT STATISTIK KABUPATEN LEBAK' : BPS_CONFIG.judulLaporan}
                 </h1>
                 <h2 className="text-[10px] sm:text-xs font-extrabold tracking-wide uppercase">
-                  BADAN PUSAT STATISTIK KABUPATEN LEBAK TAHUN {dateYear}
+                  TAHUN {dateYear}
                 </h2>
               </div>
             </div>
 
-            {/* Bagian I Table */}
-            <div className="border border-black overflow-hidden">
-              <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-[11px] sm:text-xs text-black uppercase tracking-wider">
-                I. KETERANGAN PELAKSANA
-              </div>
-              <table className="w-full text-[11px] sm:text-xs border-collapse">
-                <tbody>
-                  <tr className="border-b border-black">
-                    <td className="w-6 sm:w-8 p-1.5 sm:p-2 text-center border-r border-black font-semibold">1.</td>
-                    <td className="w-24 sm:w-32 p-1.5 sm:p-2 border-r border-black font-bold uppercase">NAMA</td>
-                    <td className="w-3 sm:w-4 p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                    <td className="p-1.5 sm:p-2 font-medium">{laporan.nama_pegawai}</td>
-                  </tr>
-                  <tr className="border-b border-black">
-                    <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">2.</td>
-                    <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">JABATAN</td>
-                    <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                    <td className="p-1.5 sm:p-2 font-medium">{laporan.jabatan}</td>
-                  </tr>
-                  <tr className="border-b border-black">
-                    <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">3.</td>
-                    <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">NIP</td>
-                    <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                    <td className="p-1.5 sm:p-2 font-mono font-medium">{laporan.nip}</td>
-                  </tr>
-                  <tr className="border-b border-black">
-                    <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">4.</td>
-                    <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">KEGIATAN</td>
-                    <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                    <td className="p-1.5 sm:p-2 font-bold">{laporan.nama_kegiatan}</td>
-                  </tr>
-                  <tr className="border-b border-black">
-                    <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">5.</td>
-                    <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">TANGGAL</td>
-                    <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                    <td className="p-1.5 sm:p-2 font-semibold text-slate-800">{formattedDateRange}</td>
-                  </tr>
-                  <tr>
-                    <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">6.</td>
-                    <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">RINGKASAN</td>
-                    <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                    <td className="p-1.5 sm:p-2 leading-relaxed text-justify whitespace-pre-wrap">
-                      {laporan.ringkasan_kegiatan}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            {isPenugasan ? (
+              /* PENUGASAN DOCUMENT FORMAT */
+              <div className="space-y-4 text-xs">
+                {/* I. PELAKSANA */}
+                <div className="border border-slate-300 overflow-hidden">
+                  <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
+                    I. KETERANGAN PELAKSANA PERJALANAN DINAS
+                  </div>
+                  <table className="w-full text-xs">
+                    <tbody>
+                      <tr className="border-b border-slate-200"><td className="w-1/3 p-2 font-medium">Nama</td><td className="p-2 font-bold">{laporan.nama_pegawai}</td></tr>
+                      <tr className="border-b border-slate-200"><td className="p-2 font-medium">Jabatan</td><td className="p-2 font-semibold">{laporan.jabatan}</td></tr>
+                      <tr><td className="p-2 font-medium">NIP</td><td className="p-2 font-mono">{laporan.nip}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
 
-            {/* Bagian II Dokumentasi Tables */}
-            <div className="space-y-4 sm:space-y-6">
-              {dates.map((dItem, dIdx) => {
-                const isMultiDate = dates.length > 1;
-                let datePhotos: LaporanFoto[] = [];
+                {/* II. PERJALANAN DINAS */}
+                <div className="border border-slate-300 overflow-hidden">
+                  <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
+                    II. KETERANGAN PERJALANAN DINAS
+                  </div>
+                  <table className="w-full text-xs">
+                    <tbody>
+                      <tr className="border-b border-slate-200"><td className="w-1/3 p-2 font-medium">Nama Kegiatan</td><td className="p-2 font-semibold">{laporan.nama_kegiatan}</td></tr>
+                      <tr className="border-b border-slate-200"><td className="p-2 font-medium">Tanggal Perjadin</td><td className="p-2 font-medium">{formatDateIndonesian(laporan.tanggal, laporan.tanggal_selesai)}</td></tr>
+                      <tr className="border-b border-slate-200"><td className="p-2 font-medium">Deskripsi / ST / SPD</td><td className="p-2 font-mono">{laporan.deskripsi_kegiatan}</td></tr>
+                    </tbody>
+                  </table>
+                </div>
 
-                if (isMultiDate) {
-                  datePhotos = allPhotos.filter((p) => p.tanggal_foto === dItem.dateStr);
-                  if (datePhotos.length === 0) {
-                    const photosPerDay = Math.ceil(allPhotos.length / dates.length);
-                    const startIdx = dIdx * photosPerDay;
-                    datePhotos = allPhotos.slice(startIdx, startIdx + photosPerDay);
-                  }
-                } else {
-                  datePhotos = allPhotos;
-                }
+                {/* IV. RESUME */}
+                <div className="border border-slate-300 overflow-hidden">
+                  <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
+                    IV. RESUME PERJALANAN DINAS
+                  </div>
+                  <div className="p-3 leading-relaxed whitespace-pre-line text-slate-800">
+                    {laporan.ringkasan_kegiatan}
+                  </div>
+                </div>
 
-                return (
-                  <div key={dItem.dateStr} className="border border-black overflow-hidden">
-                    <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-[11px] sm:text-xs text-black uppercase tracking-wider">
-                      II. DOKUMENTASI
+                {/* V. DOKUMENTASI */}
+                {allPhotos.length > 0 && (
+                  <div className="border border-slate-300 overflow-hidden">
+                    <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
+                      V. DOKUMENTASI
                     </div>
-
-                    <div className="p-2 sm:p-3">
-                      {datePhotos.length === 0 ? (
-                        <div className="text-center py-4 sm:py-6 text-slate-400 text-[11px] sm:text-xs italic">
-                          Tidak ada foto dokumentasi terlampir
+                    <div className="grid grid-cols-2 gap-3 p-3 bg-white">
+                      {allPhotos.map((foto, idx) => (
+                        <div key={idx} className="border border-slate-200 p-2 text-center rounded bg-white">
+                          <img src={getDirectImageUrl(foto)} alt={foto.file_name} className="h-32 w-full object-contain mx-auto rounded" />
+                          <div className="text-[10px] text-slate-500 mt-1 font-medium">{foto.file_name}</div>
                         </div>
-                      ) : datePhotos.length === 1 ? (
-                        <div className="flex flex-col items-center justify-center p-1 sm:p-2">
-                          <div className="border border-slate-300 rounded overflow-hidden max-w-xs sm:max-w-sm h-48 sm:h-56 bg-white flex items-center justify-center p-1 w-full">
-                            <img
-                              src={getDirectImageUrl(datePhotos[0])}
-                              alt="Dokumentasi"
-                              className="max-w-full max-h-full object-contain"
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                          {datePhotos.map((foto, idx) => {
-                            const imgSrc = getDirectImageUrl(foto);
-                            return (
-                              <div
-                                key={idx}
-                                className="border border-slate-300 rounded overflow-hidden h-40 sm:h-44 bg-white flex items-center justify-center p-1"
-                              >
-                                {imgSrc ? (
-                                  <img
-                                    src={imgSrc}
-                                    alt={`Dokumentasi #${idx + 1}`}
-                                    className="max-w-full max-h-full object-contain"
-                                  />
-                                ) : (
-                                  <FileText className="w-8 h-8 text-slate-400" />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="p-1.5 sm:p-2 text-center text-[11px] sm:text-xs space-y-0.5 border-t border-black bg-slate-50">
-                      <p className="font-bold text-black">{laporan.nama_kegiatan}</p>
-                      <p className="text-slate-700 text-[10px] sm:text-[11px]">{dItem.label}</p>
+                      ))}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                )}
+              </div>
+            ) : (
+              /* LAPORAN HARIAN FORMAT */
+              <>
+                <div className="border border-black overflow-hidden">
+                  <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-[11px] sm:text-xs text-black uppercase tracking-wider">
+                    I. KETERANGAN PELAKSANA
+                  </div>
+                  <table className="w-full text-[11px] sm:text-xs border-collapse">
+                    <tbody>
+                      <tr className="border-b border-black">
+                        <td className="w-6 sm:w-8 p-1.5 sm:p-2 text-center border-r border-black font-semibold">1.</td>
+                        <td className="w-24 sm:w-32 p-1.5 sm:p-2 border-r border-black font-bold uppercase">NAMA</td>
+                        <td className="w-3 sm:w-4 p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
+                        <td className="p-1.5 sm:p-2 font-medium">{laporan.nama_pegawai}</td>
+                      </tr>
+                      <tr className="border-b border-black">
+                        <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">2.</td>
+                        <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">JABATAN</td>
+                        <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
+                        <td className="p-1.5 sm:p-2 font-medium">{laporan.jabatan}</td>
+                      </tr>
+                      <tr>
+                        <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">3.</td>
+                        <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">NIP</td>
+                        <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
+                        <td className="p-1.5 sm:p-2 font-medium font-mono">{laporan.nip}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
 
-            {/* Footer Address */}
-            <div className="pt-2 sm:pt-4 text-center text-[9px] sm:text-[10px] text-slate-700 space-y-0.5">
-              <p>{BPS_CONFIG.alamatFooter}</p>
-              <p>{BPS_CONFIG.contactFooter}</p>
-            </div>
+                <div className="border border-black overflow-hidden">
+                  <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-[11px] sm:text-xs text-black uppercase tracking-wider">
+                    II. DOKUMENTASI
+                  </div>
+                  <div className="p-2 sm:p-4 space-y-3 sm:space-y-4">
+                    <div className="space-y-1">
+                      <div className="font-bold text-[11px] sm:text-xs text-black">A. Nama Kegiatan :</div>
+                      <div className="pl-3 sm:pl-4 text-[11px] sm:text-xs font-semibold text-black leading-snug">
+                        {laporan.nama_kegiatan}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="font-bold text-[11px] sm:text-xs text-black">B. Tanggal Kegiatan :</div>
+                      <div className="pl-3 sm:pl-4 text-[11px] sm:text-xs font-semibold text-black">
+                        {formatDateIndonesian(laporan.tanggal, laporan.tanggal_selesai)}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="font-bold text-[11px] sm:text-xs text-black">C. Ringkasan Kegiatan :</div>
+                      <div className="pl-3 sm:pl-4 text-[11px] sm:text-xs text-black leading-relaxed whitespace-pre-line text-justify font-normal">
+                        {laporan.ringkasan_kegiatan}
+                      </div>
+                    </div>
+
+                    {allPhotos.length > 0 && (
+                      <div className="space-y-2 pt-2">
+                        <div className="font-bold text-[11px] sm:text-xs text-black">D. Foto Bukti Dukung :</div>
+                        <div className="grid grid-cols-2 gap-3 p-3 bg-white border border-black">
+                          {allPhotos.map((foto, idx) => (
+                            <div key={idx} className="border border-slate-300 p-2 text-center bg-white">
+                              <img src={getDirectImageUrl(foto)} alt={foto.file_name} className="h-32 w-full object-contain mx-auto" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-100 pt-3 sm:pt-4">
-          {laporan.drive_pdf_url && (
+        {/* Footer Drive Action Link */}
+        {laporan.drive_pdf_url && (
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <span className="text-xs text-slate-500">Berkas PDF resmi tersimpan di Google Drive BPS</span>
             <a
               href={laporan.drive_pdf_url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 text-xs font-semibold text-sky-600 hover:text-sky-700 underline"
+              className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
             >
               <ExternalLink className="w-4 h-4" />
-              <span>Buka File di Google Drive</span>
+              <span>Buka Google Drive PDF</span>
             </a>
-          )}
-          <button
-            onClick={onClose}
-            className="w-full sm:w-auto px-5 py-2.5 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900 transition-colors"
-          >
-            Tutup Preview
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     </Modal>
   );

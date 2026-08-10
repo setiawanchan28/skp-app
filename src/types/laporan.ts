@@ -21,6 +21,7 @@ export interface Laporan {
   deskripsi_kegiatan: string;
   ringkasan_kegiatan: string;
   kategori?: string;
+  jenis_laporan?: 'harian' | 'penugasan';
   status?: 'draft' | 'terkirim'; // 'draft' for incremental work, 'terkirim' for completed
   drive_pdf_url?: string;
   drive_pdf_file_id?: string;
