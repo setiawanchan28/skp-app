@@ -249,11 +249,29 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
                         <td className="p-1.5 sm:p-2 font-medium">{laporan.jabatan}</td>
                       </tr>
-                      <tr>
+                      <tr className="border-b border-black">
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">3.</td>
                         <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">NIP</td>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
                         <td className="p-1.5 sm:p-2 font-medium font-mono">{laporan.nip}</td>
+                      </tr>
+                      <tr className="border-b border-black">
+                        <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">4.</td>
+                        <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">KEGIATAN</td>
+                        <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
+                        <td className="p-1.5 sm:p-2 font-medium">{laporan.nama_kegiatan}</td>
+                      </tr>
+                      <tr className="border-b border-black">
+                        <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">5.</td>
+                        <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">TANGGAL</td>
+                        <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
+                        <td className="p-1.5 sm:p-2 font-medium">{formatDateIndonesian(laporan.tanggal, laporan.tanggal_selesai)}</td>
+                      </tr>
+                      <tr>
+                        <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">6.</td>
+                        <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">RINGKASAN</td>
+                        <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
+                        <td className="p-1.5 sm:p-2 font-normal leading-relaxed whitespace-pre-line text-justify">{laporan.ringkasan_kegiatan}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -263,38 +281,18 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   <div className="bg-[#F8C48C] border-b border-black py-1.5 text-center font-bold text-[11px] sm:text-xs text-black uppercase tracking-wider">
                     II. DOKUMENTASI
                   </div>
-                  <div className="p-2 sm:p-4 space-y-3 sm:space-y-4">
-                    <div className="space-y-1">
-                      <div className="font-bold text-[11px] sm:text-xs text-black">A. Nama Kegiatan :</div>
-                      <div className="pl-3 sm:pl-4 text-[11px] sm:text-xs font-semibold text-black leading-snug">
-                        {laporan.nama_kegiatan}
+                  <div className="p-2 sm:p-4">
+                    {allPhotos.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-3 p-3 bg-white border border-black">
+                        {allPhotos.map((foto, idx) => (
+                          <div key={idx} className="border border-slate-300 p-2 text-center bg-white">
+                            <img src={getDirectImageUrl(foto)} alt={foto.file_name} className="h-32 w-full object-contain mx-auto" />
+                          </div>
+                        ))}
                       </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="font-bold text-[11px] sm:text-xs text-black">B. Tanggal Kegiatan :</div>
-                      <div className="pl-3 sm:pl-4 text-[11px] sm:text-xs font-semibold text-black">
-                        {formatDateIndonesian(laporan.tanggal, laporan.tanggal_selesai)}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="font-bold text-[11px] sm:text-xs text-black">C. Ringkasan Kegiatan :</div>
-                      <div className="pl-3 sm:pl-4 text-[11px] sm:text-xs text-black leading-relaxed whitespace-pre-line text-justify font-normal">
-                        {laporan.ringkasan_kegiatan}
-                      </div>
-                    </div>
-
-                    {allPhotos.length > 0 && (
-                      <div className="space-y-2 pt-2">
-                        <div className="font-bold text-[11px] sm:text-xs text-black">D. Foto Bukti Dukung :</div>
-                        <div className="grid grid-cols-2 gap-3 p-3 bg-white border border-black">
-                          {allPhotos.map((foto, idx) => (
-                            <div key={idx} className="border border-slate-300 p-2 text-center bg-white">
-                              <img src={getDirectImageUrl(foto)} alt={foto.file_name} className="h-32 w-full object-contain mx-auto" />
-                            </div>
-                          ))}
-                        </div>
+                    ) : (
+                      <div className="p-4 text-center text-xs text-slate-500 italic">
+                        [ Tidak Ada Foto Dokumentasi Terlampir ]
                       </div>
                     )}
                   </div>
