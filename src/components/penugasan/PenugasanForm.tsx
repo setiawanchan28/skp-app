@@ -15,16 +15,17 @@ import {
   Check,
   CheckCircle2,
   FileText,
+  Eye,
 } from 'lucide-react';
 import { fetchPegawaiList } from '@/services/pegawaiService';
 import { Pegawai } from '@/types/pegawai';
 import { PhotoUploader, PhotoItem, DateGroupOption } from '../laporan/PhotoUploader';
+import { PDFPreviewModal } from '../laporan/PDFPreviewModal';
 import { useToast } from '@/components/ui/Toast';
 import { LaporanPenugasan, PetugasDitemui } from '@/types/penugasan';
+import { Laporan } from '@/types/laporan';
 import { formatDateIndonesian } from '@/utils/formatters';
 import { BULAN_INDONESIA } from '@/constants/bpsConfig';
-
-const DRAFT_PENUGASAN_KEY = 'penugasan_form_draft';
 
 interface PenugasanFormProps {
   initialData?: LaporanPenugasan | null;
@@ -68,6 +69,7 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
   const [submitProgress, setSubmitProgress] = useState('');
   const [isListeningResume, setIsListeningResume] = useState(false);
   const [isFullscreenResume, setIsFullscreenResume] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Load Pegawai List
   useEffect(() => {
@@ -267,7 +269,7 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
       if (!res.ok) throw new Error(result.error || 'Gagal menyimpan laporan penugasan');
 
       showToast('Laporan Penugasan BPS berhasil disimpan!', 'success');
-      router.push('/penugasan');
+      router.push('/laporan');
     } catch (err: any) {
       showToast(err.message || 'Gagal memproses pembuatan laporan penugasan', 'error');
     } finally {
@@ -276,305 +278,342 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
     }
   };
 
+  // Transient preview object
+  const transientPenugasanPreview: Laporan = {
+    id: initialData?.id || 'preview_penugasan',
+    nama_pegawai: namaPegawai || 'Dede Setiawan',
+    nip: nip || '199502282024211021',
+    jabatan: jabatan || 'Pranata Komputer',
+    tanggal: tanggalPerjadin,
+    tanggal_selesai: isRangeDate ? tanggalSelesaiPerjadin : undefined,
+    nama_kegiatan: namaKegiatan || 'Nama Kegiatan Penugasan',
+    deskripsi_kegiatan: `Tempat Tujuan: ${tempatTujuan} | Nomor ST: ${nomorSurat} | Nomor SPD: ${nomorSpd}`,
+    ringkasan_kegiatan: resumeKegiatan || 'Resume Perjalanan Dinas...',
+    kategori: 'Perjalanan Dinas',
+    jenis_laporan: 'penugasan',
+    fotos: photos.map((p, idx) => ({
+      id: p.id,
+      drive_file_id: p.drive_file_id || `preview_${idx}`,
+      drive_file_url: p.previewUrl || p.drive_file_url || '',
+      file_name: p.name,
+      previewUrl: p.previewUrl,
+      tanggal_foto: p.tanggal_foto,
+    })),
+  };
+
   return (
-    <form onSubmit={handleSubmitPenugasan} className="space-y-6 max-w-4xl mx-auto">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs p-6 space-y-6 transition-colors">
-        <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
-          <h3 className="font-extrabold text-slate-900 dark:text-white text-lg flex items-center gap-2">
-            <FileText className="w-5 h-5 text-sky-600 dark:text-sky-400" />
-            <span>Formulir Laporan Penugasan / Perjalanan Dinas BPS</span>
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Format resmi laporan perjalanan dinas BPS Kabupaten Lebak (Dilengkapi Nomor Surat, Nomor SPD, Petugas Ditemui, Resume & Dokumentasi)
-          </p>
-        </div>
+    <>
+      <form onSubmit={handleSubmitPenugasan} className="space-y-6 max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs p-6 space-y-6 transition-colors">
+          <div className="border-b border-slate-100 dark:border-slate-800 pb-4">
+            <h3 className="font-extrabold text-slate-900 dark:text-white text-lg flex items-center gap-2">
+              <FileText className="w-5 h-5 text-sky-600 dark:text-sky-400" />
+              <span>Formulir Laporan Penugasan / Perjalanan Dinas BPS</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Format resmi laporan perjalanan dinas BPS Kabupaten Lebak (Dilengkapi Nomor Surat, Nomor SPD, Petugas Ditemui, Resume & Dokumentasi)
+            </p>
+          </div>
 
-        {/* BAGIAN I: KETERANGAN PELAKSANA PERJALANAN DINAS */}
-        <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl">
-          <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-            I. KETERANGAN PELAKSANA PERJALANAN DINAS
-          </h4>
+          {/* BAGIAN I: KETERANGAN PELAKSANA PERJALANAN DINAS */}
+          <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl">
+            <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+              I. KETERANGAN PELAKSANA PERJALANAN DINAS
+            </h4>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Pilih Nama Pegawai *
-              </label>
-              <select
-                value={selectedPegawaiId}
-                onChange={handlePegawaiChange}
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none dark:text-white"
-              >
-                {pegawaiList.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nama}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Pilih Nama Pegawai *
+                </label>
+                <select
+                  value={selectedPegawaiId}
+                  onChange={handlePegawaiChange}
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none dark:text-white"
+                >
+                  {pegawaiList.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nama}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Jabatan
-              </label>
-              <input
-                type="text"
-                value={jabatan}
-                onChange={(e) => setJabatan(e.target.value)}
-                placeholder="Contoh: Pranata Komputer Terampil"
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-sm font-medium"
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Jabatan
+                </label>
+                <input
+                  type="text"
+                  value={jabatan}
+                  onChange={(e) => setJabatan(e.target.value)}
+                  placeholder="Contoh: Pranata Komputer Terampil"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-sm font-medium"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                NIP
-              </label>
-              <input
-                type="text"
-                readOnly
-                value={nip}
-                className="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl text-sm font-mono cursor-not-allowed"
-              />
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  NIP
+                </label>
+                <input
+                  type="text"
+                  readOnly
+                  value={nip}
+                  className="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl text-sm font-mono cursor-not-allowed"
+                />
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* BAGIAN II: KETERANGAN PERJALANAN DINAS */}
-        <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl">
-          <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-            II. KETERANGAN PERJALANAN DINAS
-          </h4>
+          {/* BAGIAN II: KETERANGAN PERJALANAN DINAS */}
+          <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl">
+            <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+              II. KETERANGAN PERJALANAN DINAS
+            </h4>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Nama Kegiatan Penugasan *
-            </label>
-            <input
-              type="text"
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Nama Kegiatan Penugasan *
+              </label>
+              <input
+                type="text"
+                required
+                value={namaKegiatan}
+                onChange={(e) => setNamaKegiatan(e.target.value)}
+                placeholder="Contoh: Pengawasan dan Pemeriksaan ke Kecamatan Kalanganyar dalam rangka Sensus Ekonomi 2026 di Kabupaten Lebak"
+                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-sm font-semibold"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Tanggal Perjadin *
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-600 dark:text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={isRangeDate}
+                      onChange={(e) => setIsRangeDate(e.target.checked)}
+                      className="w-3.5 h-3.5 text-sky-600 rounded"
+                    />
+                    <span>Multi-Hari</span>
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    type="date"
+                    value={tanggalPerjadin}
+                    onChange={(e) => setTanggalPerjadin(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-xs font-semibold"
+                  />
+                  {isRangeDate && (
+                    <input
+                      type="date"
+                      value={tanggalSelesaiPerjadin}
+                      onChange={(e) => setTanggalSelesaiPerjadin(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-xs font-semibold"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Tempat Tujuan Perjadin *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={tempatTujuan}
+                  onChange={(e) => setTempatTujuan(e.target.value)}
+                  placeholder="Contoh: Kecamatan Kalanganyar / Desa Aweh"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Nomor Surat Tugas (ST) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={nomorSurat}
+                  onChange={(e) => setNomorSurat(e.target.value)}
+                  placeholder="Contoh: 635/ST/36020/2026"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-sm font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Nomor SPD *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={nomorSpd}
+                  onChange={(e) => setNomorSpd(e.target.value)}
+                  placeholder="Contoh: 651/SPD/36020/2026"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-sm font-mono"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* BAGIAN III: DAFTAR PETUGAS YANG DITEMUI */}
+          <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                III. DAFTAR PETUGAS YANG DITEMUI
+              </h4>
+
+              <button
+                type="button"
+                onClick={handleAddPetugasRow}
+                className="px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tambah Baris Petugas</span>
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {petugasDitemui.map((petugas, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <span className="w-6 text-center text-xs font-bold text-slate-500">{idx + 1}.</span>
+                  <input
+                    type="text"
+                    value={petugas.nama}
+                    onChange={(e) => handlePetugasChange(idx, 'nama', e.target.value)}
+                    placeholder="Nama Petugas Ditemui (misal: Sundari)"
+                    className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold dark:text-white"
+                  />
+                  <input
+                    type="text"
+                    value={petugas.jabatan}
+                    onChange={(e) => handlePetugasChange(idx, 'jabatan', e.target.value)}
+                    placeholder="Jabatan (misal: PML / PPL / Koseka)"
+                    className="w-36 sm:w-48 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold dark:text-white"
+                  />
+                  {petugasDitemui.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePetugasRow(idx)}
+                      className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* BAGIAN IV: RESUME PERJALANAN DINAS */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                IV. RESUME PERJALANAN DINAS *
+              </h4>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleVoiceDictation}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border ${
+                    isListeningResume
+                      ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 text-rose-600 animate-pulse'
+                      : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                  }`}
+                >
+                  <Mic className={`w-3.5 h-3.5 ${isListeningResume ? 'text-rose-600 animate-spin' : 'text-sky-600 dark:text-sky-400'}`} />
+                  <span>{isListeningResume ? 'Mendengarkan...' : 'Dikte Suara 🎙️'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreenResume(true)}
+                  className="p-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              rows={7}
               required
-              value={namaKegiatan}
-              onChange={(e) => setNamaKegiatan(e.target.value)}
-              placeholder="Contoh: Pengawasan dan Pemeriksaan ke Kecamatan Kalanganyar dalam rangka Sensus Ekonomi 2026 di Kabupaten Lebak"
-              className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-sm font-semibold"
+              value={resumeKegiatan}
+              onChange={(e) => setResumeKegiatan(e.target.value)}
+              placeholder="Pada hari Selasa, 28 Juli 2026, dilaksanakan kegiatan Pengawasan Lapangan Sensus Ekonomi 2026 di Desa Aweh, Kecamatan Kalanganyar..."
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 leading-relaxed min-h-[150px] resize-y dark:text-white"
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Tanggal Perjadin *
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-600 dark:text-slate-400">
-                  <input
-                    type="checkbox"
-                    checked={isRangeDate}
-                    onChange={(e) => setIsRangeDate(e.target.checked)}
-                    className="w-3.5 h-3.5 text-sky-600 rounded"
-                  />
-                  <span>Multi-Hari</span>
-                </label>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <input
-                  type="date"
-                  value={tanggalPerjadin}
-                  onChange={(e) => setTanggalPerjadin(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-xs font-semibold"
-                />
-                {isRangeDate && (
-                  <input
-                    type="date"
-                    value={tanggalSelesaiPerjadin}
-                    onChange={(e) => setTanggalSelesaiPerjadin(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-xs font-semibold"
-                  />
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Tempat Tujuan Perjadin *
-              </label>
-              <input
-                type="text"
-                required
-                value={tempatTujuan}
-                onChange={(e) => setTempatTujuan(e.target.value)}
-                placeholder="Contoh: Kecamatan Kalanganyar / Desa Aweh"
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Nomor Surat Tugas (ST) *
-              </label>
-              <input
-                type="text"
-                required
-                value={nomorSurat}
-                onChange={(e) => setNomorSurat(e.target.value)}
-                placeholder="Contoh: 635/ST/36020/2026"
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-sm font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Nomor SPD *
-              </label>
-              <input
-                type="text"
-                required
-                value={nomorSpd}
-                onChange={(e) => setNomorSpd(e.target.value)}
-                placeholder="Contoh: 651/SPD/36020/2026"
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white rounded-xl text-sm font-mono"
-              />
-            </div>
+          {/* BAGIAN V: DOKUMENTASI (Up to 24 photos supported) */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
+            <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-3">
+              V. DOKUMENTASI FOTO PERJALANAN DINAS (Hingga 24 Foto, Kompresi Hemat Drive)
+            </h4>
+            <PhotoUploader
+              photos={photos}
+              onChange={setPhotos}
+              dateList={computedDateList}
+              isRangeDate={isRangeDate}
+              maxPhotos={24}
+            />
           </div>
         </div>
 
-        {/* BAGIAN III: DAFTAR PETUGAS YANG DITEMUI */}
-        <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 rounded-xl">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-              III. DAFTAR PETUGAS YANG DITEMUI
-            </h4>
+        {/* Action Footer */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs transition-colors">
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            {submitProgress ? (
+              <span className="font-bold text-sky-600 dark:text-sky-400 flex items-center gap-1.5 animate-pulse">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{submitProgress}</span>
+              </span>
+            ) : (
+              <span>Dokumen Penugasan PDF & Word akan di-generate resmi di Google Drive</span>
+            )}
+          </div>
 
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               type="button"
-              onClick={handleAddPetugasRow}
-              className="px-3 py-1 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1"
+              onClick={() => setIsPreviewOpen(true)}
+              className="flex-1 sm:flex-none px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Tambah Baris Petugas</span>
+              <Eye className="w-4 h-4 text-sky-600" />
+              <span>Preview PDF</span>
+            </button>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 sm:flex-none px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-extrabold rounded-xl text-xs shadow-md shadow-sky-600/20 transition-all flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Menyimpan Penugasan...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Simpan Laporan Penugasan</span>
+                </>
+              )}
             </button>
           </div>
-
-          <div className="space-y-2">
-            {petugasDitemui.map((petugas, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <span className="w-6 text-center text-xs font-bold text-slate-500">{idx + 1}.</span>
-                <input
-                  type="text"
-                  value={petugas.nama}
-                  onChange={(e) => handlePetugasChange(idx, 'nama', e.target.value)}
-                  placeholder="Nama Petugas Ditemui (misal: Sundari)"
-                  className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold dark:text-white"
-                />
-                <input
-                  type="text"
-                  value={petugas.jabatan}
-                  onChange={(e) => handlePetugasChange(idx, 'jabatan', e.target.value)}
-                  placeholder="Jabatan (misal: PML / PPL / Koseka)"
-                  className="w-36 sm:w-48 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold dark:text-white"
-                />
-                {petugasDitemui.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemovePetugasRow(idx)}
-                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
         </div>
-
-        {/* BAGIAN IV: RESUME PERJALANAN DINAS */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-              IV. RESUME PERJALANAN DINAS *
-            </h4>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={toggleVoiceDictation}
-                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border ${
-                  isListeningResume
-                    ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 text-rose-600 animate-pulse'
-                    : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-                }`}
-              >
-                <Mic className={`w-3.5 h-3.5 ${isListeningResume ? 'text-rose-600 animate-spin' : 'text-sky-600 dark:text-sky-400'}`} />
-                <span>{isListeningResume ? 'Mendengarkan...' : 'Dikte Suara 🎙️'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setIsFullscreenResume(true)}
-                className="p-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <textarea
-            rows={7}
-            required
-            value={resumeKegiatan}
-            onChange={(e) => setResumeKegiatan(e.target.value)}
-            placeholder="Pada hari Selasa, 28 Juli 2026, dilaksanakan kegiatan Pengawasan Lapangan Sensus Ekonomi 2026 di Desa Aweh, Kecamatan Kalanganyar. Kegiatan diawali dengan koordinasi bersama Petugas Pemeriksa Lapangan (PML) Sundari dan Petugas Pencacah Lapangan (PPL) Husnul Khotimah untuk membahas perkembangan pelaksanaan pendataan..."
-            className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 leading-relaxed min-h-[150px] resize-y dark:text-white"
-          />
-        </div>
-
-        {/* BAGIAN V: DOKUMENTASI */}
-        <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
-          <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-3">
-            V. DOKUMENTASI FOTO PERJALANAN DINAS
-          </h4>
-          <PhotoUploader
-            photos={photos}
-            onChange={setPhotos}
-            dateList={computedDateList}
-            isRangeDate={isRangeDate}
-          />
-        </div>
-      </div>
-
-      {/* Action Footer */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs transition-colors">
-        <div className="text-xs text-slate-500 dark:text-slate-400">
-          {submitProgress ? (
-            <span className="font-bold text-sky-600 dark:text-sky-400 flex items-center gap-1.5 animate-pulse">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>{submitProgress}</span>
-            </span>
-          ) : (
-            <span>Berkas Laporan Penugasan PDF & Word akan di-generate resmi di Google Drive</span>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full sm:w-auto px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-extrabold rounded-xl text-xs shadow-md shadow-sky-600/20 transition-all flex items-center justify-center gap-2"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Menyimpan Penugasan...</span>
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              <span>Simpan Laporan Penugasan</span>
-            </>
-          )}
-        </button>
-      </div>
+      </form>
 
       {/* Fullscreen Writing Modal */}
       {isFullscreenResume && (
@@ -628,6 +667,13 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
           </div>
         </div>
       )}
-    </form>
+
+      {/* PDF Transient Preview Modal for Laporan Penugasan */}
+      <PDFPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        laporan={transientPenugasanPreview}
+      />
+    </>
   );
 };

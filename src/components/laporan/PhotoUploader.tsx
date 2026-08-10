@@ -33,8 +33,8 @@ interface PhotoUploaderProps {
 export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
   photos,
   onChange,
-  maxPhotos = 6,
-  maxSizeMB = 10,
+  maxPhotos = 24,
+  maxSizeMB = 15,
   dateList = [],
   isRangeDate = false,
 }) => {
@@ -64,7 +64,8 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
       }
 
       try {
-        const compressed = await compressImage(file);
+        // High-clarity compression: max 1200px resolution, 75% JPEG quality (saves >85% Drive space!)
+        const compressed = await compressImage(file, 1200, 0.75);
         const previewUrl = URL.createObjectURL(compressed);
 
         validFiles.push({
