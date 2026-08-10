@@ -16,6 +16,7 @@ import {
   Sun,
   Moon,
   X,
+  FileCheck,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/laporan/tambah', label: 'Buat Laporan', icon: FilePlus },
   { href: '/laporan', label: 'Riwayat Laporan', icon: FileText },
+  { href: '/penugasan', label: 'Laporan Penugasan', icon: FileCheck },
   { href: '/pegawai', label: 'Master Pegawai', icon: Users },
   { href: '/kalender', label: 'Kalender Kegiatan', icon: Calendar },
   { href: '/pengaturan', label: 'Pengaturan Akun', icon: Settings },

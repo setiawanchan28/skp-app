@@ -11,7 +11,7 @@ function cleanEnvVal(val?: string): string {
   return val.trim().replace(/^["']|["']$/g, '');
 }
 
-function extractRawDriveFolderId(input?: string): string | null {
+export function extractRawDriveFolderId(input?: string): string | null {
   if (!input) return null;
   const trimmed = cleanEnvVal(input);
   if (trimmed.includes('folders/')) {

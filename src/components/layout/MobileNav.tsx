@@ -3,12 +3,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, FilePlus, Users, Settings } from 'lucide-react';
+import { LayoutDashboard, FileText, FilePlus, FileCheck, Users, Settings } from 'lucide-react';
 
 const MOBILE_NAV_ITEMS = [
   { href: '/', label: 'Beranda', icon: LayoutDashboard },
   { href: '/laporan/tambah', label: 'Tambah', icon: FilePlus },
   { href: '/laporan', label: 'Riwayat', icon: FileText },
+  { href: '/penugasan', label: 'Penugasan', icon: FileCheck },
   { href: '/pegawai', label: 'Pegawai', icon: Users },
   { href: '/pengaturan', label: 'Akun', icon: Settings },
 ];

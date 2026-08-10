@@ -1,0 +1,94 @@
+import { supabase, supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
+import { LaporanPenugasan } from '@/types/penugasan';
+
+const LOCAL_STORAGE_KEY = 'bps_penugasan_data';
+
+export async function fetchPenugasanList(): Promise<LaporanPenugasan[]> {
+  let supabaseData: LaporanPenugasan[] = [];
+
+  // 1. Fetch from Supabase DB
+  if (isSupabaseConfigured()) {
+    try {
+      const client = typeof window === 'undefined' ? supabaseAdmin : supabase;
+      const { data, error } = await client
+        .from('laporan_penugasan')
+        .select(`
+          *,
+          petugas_ditemui:penugasan_petugas_ditemui(*),
+          fotos:penugasan_foto(*)
+        `)
+        .order('tanggal_perjadin', { ascending: false });
+
+      if (!error && data) {
+        supabaseData = data;
+      }
+    } catch (err) {}
+  }
+
+  // 2. Fetch from Server API route
+  let serverData: LaporanPenugasan[] = [];
+  try {
+    const res = await fetch('/api/penugasan/list', { cache: 'no-store' });
+    if (res.ok) {
+      const result = await res.json();
+      if (result.data && Array.isArray(result.data)) {
+        serverData = result.data;
+      }
+    }
+  } catch (err) {}
+
+  // 3. Local Storage fallback
+  let localData: LaporanPenugasan[] = [];
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (local) {
+      try {
+        localData = JSON.parse(local);
+      } catch (e) {}
+    }
+  }
+
+  const mergedMap = new Map<string, LaporanPenugasan>();
+  localData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
+  serverData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
+  supabaseData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
+
+  const finalResult = Array.from(mergedMap.values()).sort(
+    (a, b) => new Date(b.tanggal_perjadin || Date.now()).getTime() - new Date(a.tanggal_perjadin || Date.now()).getTime()
+  );
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(finalResult));
+  }
+
+  return finalResult;
+}
+
+export async function fetchPenugasanById(id: string): Promise<LaporanPenugasan | null> {
+  const list = await fetchPenugasanList();
+  return list.find((item) => item.id === id) || null;
+}
+
+export async function deletePenugasanRecord(id: string): Promise<boolean> {
+  if (typeof window !== 'undefined') {
+    let list: LaporanPenugasan[] = [];
+    const local = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (local) {
+      try {
+        list = JSON.parse(local);
+      } catch (e) {}
+    }
+    const updated = list.filter((l) => l.id !== id);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updated));
+  }
+
+  try {
+    await fetch('/api/penugasan/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+  } catch (err) {}
+
+  return true;
+}
