@@ -76,21 +76,21 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
   return (
     <header className="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 lg:px-8 py-3 flex items-center justify-between transition-colors">
       {/* Mobile Hamburger & Title */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-2.5 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors active:scale-95"
+          className="lg:hidden p-2 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors active:scale-95 shrink-0"
           title="Buka Menu Samping"
         >
-          <Menu className="w-6 h-6" />
+          <Menu className="w-5 h-5 sm:w-6 sm:h-6" />
         </button>
-        <div>
-          <h2 className="text-sm sm:text-base font-extrabold text-slate-800 dark:text-white tracking-tight">
+        <div className="min-w-0">
+          <h2 className="text-xs sm:text-base font-extrabold text-slate-800 dark:text-white tracking-tight truncate">
             Sistem Bukti Dukung BPS
           </h2>
-          <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-            <CalendarIcon className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-            <span className="hidden xs:inline">{formatDateIndonesian(todayStr)}</span>
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">
+            <CalendarIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+            <span className="truncate">{formatDateIndonesian(todayStr)}</span>
           </div>
         </div>
       </div>

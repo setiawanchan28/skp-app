@@ -352,26 +352,34 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       const formData = new FormData();
       formData.append('id', initialData?.id || '');
       formData.append('namaPegawai', namaPegawai);
+      formData.append('nama_pegawai', namaPegawai);
       formData.append('nip', nip);
       formData.append('jabatan', jabatan);
       formData.append('tanggal', tanggal);
       if (isRangeDate && tanggalSelesai) {
         formData.append('tanggalSelesai', tanggalSelesai);
+        formData.append('tanggal_selesai', tanggalSelesai);
       }
       formData.append('namaKegiatan', namaKegiatan);
+      formData.append('nama_kegiatan', namaKegiatan);
       formData.append('deskripsiKegiatan', deskripsiKegiatan);
+      formData.append('deskripsi_kegiatan', deskripsiKegiatan);
       formData.append('ringkasanKegiatan', ringkasanKegiatan);
+      formData.append('ringkasan_kegiatan', ringkasanKegiatan);
       formData.append('kategori', finalKategori);
 
+      const photosMetadata: { index: number; tanggal_foto?: string }[] = [];
       photos.forEach((p, index) => {
         if (p.file) {
+          formData.append('photos', p.file);
           formData.append(`photo_${index}`, p.file);
-          formData.append(`photoDate_${index}`, p.tanggal_foto || tanggal);
+          photosMetadata.push({ index, tanggal_foto: p.tanggal_foto || tanggal });
         } else if (p.drive_file_id) {
           formData.append(`existing_drive_id_${index}`, p.drive_file_id);
-          formData.append(`photoDate_${index}`, p.tanggal_foto || tanggal);
+          photosMetadata.push({ index, tanggal_foto: p.tanggal_foto || tanggal });
         }
       });
+      formData.append('photos_metadata', JSON.stringify(photosMetadata));
 
       setSubmitProgress('Membuat berkas PDF & Word di Google Drive...');
       const res = await fetch('/api/laporan/save-complete', {
