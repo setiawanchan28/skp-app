@@ -123,6 +123,8 @@ export default function RiwayatLaporanPage() {
   // Filter & Sort Logic
   const filteredList = activities
     .filter((act) => {
+      if (act.status === 'TRASHED' || act.deleted_at) return false;
+
       const actDateStr = act.start_date || act.tanggal || '';
       const dateParts = actDateStr.split('T')[0].split('-');
 

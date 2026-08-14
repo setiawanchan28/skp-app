@@ -158,7 +158,8 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
     const serverStoreList = getStoredLaporanList();
     serverStoreList.forEach((item: any) => {
       if (item && item.id) {
-        if (includeTrashed || !item.deleted_at) {
+        const isTrashed = Boolean(item.deleted_at || item.status === 'TRASHED');
+        if (includeTrashed || !isTrashed) {
           mergedMap.set(item.id, item as Activity);
         }
       }
@@ -170,14 +171,18 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
     penugasanStoreList.forEach((p: any) => {
       if (p && p.id) {
         const mapped = mapPenugasanToActivity(p);
-        mergedMap.set(mapped.id, mapped);
+        const isTrashed = Boolean(mapped.deleted_at || mapped.status === 'TRASHED');
+        if (includeTrashed || !isTrashed) {
+          mergedMap.set(mapped.id, mapped);
+        }
       }
     });
   } catch (e) {}
 
   localData.forEach((item) => {
     if (item && item.id) {
-      if (includeTrashed || !item.deleted_at) {
+      const isTrashed = Boolean(item.deleted_at || item.status === 'TRASHED');
+      if (includeTrashed || !isTrashed) {
         mergedMap.set(item.id, item);
       }
     }
@@ -185,16 +190,19 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
 
   supabaseData.forEach((item) => {
     if (item && item.id) {
-      const existing = mergedMap.get(item.id);
-      const docs = item.documents?.length ? item.documents : existing?.documents || (existing as any)?.fotos || [];
-      const people = item.people?.length ? item.people : existing?.people || (existing as any)?.petugas_ditemui || [];
-      mergedMap.set(item.id, {
-        ...existing,
-        ...item,
-        documents: docs,
-        fotos: docs,
-        people: people,
-      });
+      const isTrashed = Boolean(item.deleted_at || item.status === 'TRASHED');
+      if (includeTrashed || !isTrashed) {
+        const existing = mergedMap.get(item.id);
+        const docs = item.documents?.length ? item.documents : existing?.documents || (existing as any)?.fotos || [];
+        const people = item.people?.length ? item.people : existing?.people || (existing as any)?.petugas_ditemui || [];
+        mergedMap.set(item.id, {
+          ...existing,
+          ...item,
+          documents: docs,
+          fotos: docs,
+          people: people,
+        });
+      }
     }
   });
 
