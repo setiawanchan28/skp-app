@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { fetchPegawaiList } from '@/services/pegawaiService';
 
 export default function RootPage() {
   const router = useRouter();
@@ -11,7 +12,7 @@ export default function RootPage() {
     let subscription: any = null;
 
     const processAuth = async () => {
-      // Instant fail-proof JWT hash parser (#access_token=...&provider_token=...)
+      // Instant fail-proof client-side JWT hash decoder (#access_token=...)
       if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
         try {
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -25,11 +26,22 @@ export default function RootPage() {
             const decodedJson = JSON.parse(atob(base64Clean));
             const metadata = decodedJson.user_metadata || {};
 
+            const googleEmail = decodedJson.email || metadata.email || '';
+            const googleName = metadata.full_name || metadata.name || (googleEmail ? googleEmail.split('@')[0] : 'Pegawai BPS');
+
+            let matchedPegawai: any = null;
+            if (googleEmail) {
+              const pegawaiList = await fetchPegawaiList();
+              matchedPegawai = pegawaiList.find(
+                (p) => p.email && p.email.toLowerCase() === googleEmail.toLowerCase()
+              );
+            }
+
             const userSession = {
-              nama: metadata.full_name || metadata.name || 'Dede Setiawan, S.Tr.Stat.',
-              nip: metadata.nip || '199502282024211021',
-              jabatan: metadata.position || metadata.jabatan || 'Pranata Komputer Ahli Pertama',
-              email: decodedJson.email || metadata.email || 'setiawanchan28@gmail.com',
+              nama: matchedPegawai?.nama || googleName,
+              nip: matchedPegawai?.nip || metadata.nip || '',
+              jabatan: matchedPegawai?.jabatan || metadata.position || metadata.jabatan || 'Pegawai BPS',
+              email: googleEmail,
               provider_token: providerToken,
             };
 
@@ -60,11 +72,22 @@ export default function RootPage() {
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (session?.user) {
             const metadata = session.user.user_metadata || {};
+            const googleEmail = session.user.email || metadata.email || '';
+            const googleName = metadata.full_name || metadata.name || (googleEmail ? googleEmail.split('@')[0] : 'Pegawai BPS');
+
+            let matchedPegawai: any = null;
+            if (googleEmail) {
+              const pegawaiList = await fetchPegawaiList();
+              matchedPegawai = pegawaiList.find(
+                (p) => p.email && p.email.toLowerCase() === googleEmail.toLowerCase()
+              );
+            }
+
             const userSession = {
-              nama: metadata.full_name || metadata.name || 'Dede Setiawan, S.Tr.Stat.',
-              nip: metadata.nip || '199502282024211021',
-              jabatan: metadata.position || metadata.jabatan || 'Pranata Komputer Ahli Pertama',
-              email: session.user.email,
+              nama: matchedPegawai?.nama || googleName,
+              nip: matchedPegawai?.nip || metadata.nip || '',
+              jabatan: matchedPegawai?.jabatan || metadata.position || metadata.jabatan || 'Pegawai BPS',
+              email: googleEmail,
               provider_token: session.provider_token,
               provider_refresh_token: session.provider_refresh_token,
             };
@@ -88,11 +111,22 @@ export default function RootPage() {
           const { data } = await supabase.auth.getSession();
           if (data?.session?.user) {
             const metadata = data.session.user.user_metadata || {};
+            const googleEmail = data.session.user.email || metadata.email || '';
+            const googleName = metadata.full_name || metadata.name || (googleEmail ? googleEmail.split('@')[0] : 'Pegawai BPS');
+
+            let matchedPegawai: any = null;
+            if (googleEmail) {
+              const pegawaiList = await fetchPegawaiList();
+              matchedPegawai = pegawaiList.find(
+                (p) => p.email && p.email.toLowerCase() === googleEmail.toLowerCase()
+              );
+            }
+
             const userSession = {
-              nama: metadata.full_name || metadata.name || 'Dede Setiawan, S.Tr.Stat.',
-              nip: metadata.nip || '199502282024211021',
-              jabatan: metadata.position || metadata.jabatan || 'Pranata Komputer Ahli Pertama',
-              email: data.session.user.email,
+              nama: matchedPegawai?.nama || googleName,
+              nip: matchedPegawai?.nip || metadata.nip || '',
+              jabatan: matchedPegawai?.jabatan || metadata.position || metadata.jabatan || 'Pegawai BPS',
+              email: googleEmail,
               provider_token: data.session.provider_token,
               provider_refresh_token: data.session.provider_refresh_token,
             };

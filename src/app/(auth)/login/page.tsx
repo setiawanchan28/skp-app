@@ -29,11 +29,22 @@ export default function LoginPage() {
             const decodedJson = JSON.parse(atob(base64Clean));
             const metadata = decodedJson.user_metadata || {};
 
+            const googleEmail = decodedJson.email || metadata.email || '';
+            const googleName = metadata.full_name || metadata.name || (googleEmail ? googleEmail.split('@')[0] : 'Pegawai BPS');
+
+            let matchedPegawai: any = null;
+            if (googleEmail) {
+              const pegawaiList = await fetchPegawaiList();
+              matchedPegawai = pegawaiList.find(
+                (p) => p.email && p.email.toLowerCase() === googleEmail.toLowerCase()
+              );
+            }
+
             const userSession = {
-              nama: metadata.full_name || metadata.name || 'Dede Setiawan, S.Tr.Stat.',
-              nip: metadata.nip || '199502282024211021',
-              jabatan: metadata.position || metadata.jabatan || 'Pranata Komputer Ahli Pertama',
-              email: decodedJson.email || metadata.email || 'setiawanchan28@gmail.com',
+              nama: matchedPegawai?.nama || googleName,
+              nip: matchedPegawai?.nip || metadata.nip || '',
+              jabatan: matchedPegawai?.jabatan || metadata.position || metadata.jabatan || 'Pegawai BPS',
+              email: googleEmail,
               provider_token: providerToken,
             };
 
@@ -63,11 +74,22 @@ export default function LoginPage() {
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (session?.user) {
             const metadata = session.user.user_metadata || {};
+            const googleEmail = session.user.email || metadata.email || '';
+            const googleName = metadata.full_name || metadata.name || (googleEmail ? googleEmail.split('@')[0] : 'Pegawai BPS');
+
+            let matchedPegawai: any = null;
+            if (googleEmail) {
+              const pegawaiList = await fetchPegawaiList();
+              matchedPegawai = pegawaiList.find(
+                (p) => p.email && p.email.toLowerCase() === googleEmail.toLowerCase()
+              );
+            }
+
             const userSession = {
-              nama: metadata.full_name || metadata.name || 'Dede Setiawan, S.Tr.Stat.',
-              nip: metadata.nip || '199502282024211021',
-              jabatan: metadata.position || metadata.jabatan || 'Pranata Komputer Ahli Pertama',
-              email: session.user.email,
+              nama: matchedPegawai?.nama || googleName,
+              nip: matchedPegawai?.nip || metadata.nip || '',
+              jabatan: matchedPegawai?.jabatan || metadata.position || metadata.jabatan || 'Pegawai BPS',
+              email: googleEmail,
               provider_token: session.provider_token,
               provider_refresh_token: session.provider_refresh_token,
             };
@@ -108,7 +130,6 @@ export default function LoginPage() {
         });
         if (oauthError) throw oauthError;
       } else {
-        // Fallback demo access if Supabase OAuth is not configured
         handleQuickDemoAccess();
       }
     } catch (err: any) {
@@ -136,7 +157,6 @@ export default function LoginPage() {
       return;
     }
 
-    // 1. If Supabase Auth is configured and input is an email, attempt Supabase Auth
     if (isSupabaseConfigured() && inputClean.includes('@')) {
       try {
         const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -145,10 +165,11 @@ export default function LoginPage() {
         });
 
         if (!authError && data?.user) {
+          const metadata = data.user.user_metadata || {};
           const userSession = {
-            nama: data.user.user_metadata?.full_name || data.user.user_metadata?.nama || 'Dede Setiawan, S.Tr.Stat.',
-            nip: data.user.user_metadata?.nip || '199502282024211021',
-            jabatan: data.user.user_metadata?.position || data.user.user_metadata?.jabatan || 'Pranata Komputer Ahli Pertama',
+            nama: metadata.full_name || metadata.nama || 'Pegawai BPS',
+            nip: metadata.nip || '',
+            jabatan: metadata.position || metadata.jabatan || 'Pegawai BPS',
             email: data.user.email,
           };
           if (typeof window !== 'undefined') {
@@ -162,7 +183,6 @@ export default function LoginPage() {
       } catch (err) {}
     }
 
-    // 2. Fetch active Pegawai Master list from database/server
     const pegawaiList = await fetchPegawaiList();
     const matchedPegawai = pegawaiList.find(
       (p) =>
@@ -170,7 +190,6 @@ export default function LoginPage() {
         (p.email && p.email.toLowerCase() === inputClean)
     );
 
-    // 3. Read saved local profile
     let savedProfile: any = null;
     if (typeof window !== 'undefined') {
       const raw = localStorage.getItem('bps_saved_profile');
@@ -194,10 +213,10 @@ export default function LoginPage() {
 
     const activeProfile = matchedPegawai || savedProfile;
     const userSession = {
-      nama: activeProfile?.nama || 'Dede Setiawan, S.Tr.Stat.',
-      nip: activeProfile?.nip || '199502282024211021',
-      jabatan: activeProfile?.jabatan || 'Pranata Komputer Ahli Pertama',
-      email: inputClean.includes('@') ? inputClean : activeProfile?.email || 'ddsetiawan28@gmail.com',
+      nama: activeProfile?.nama || 'Pegawai BPS',
+      nip: activeProfile?.nip || '',
+      jabatan: activeProfile?.jabatan || 'Pegawai BPS',
+      email: inputClean.includes('@') ? inputClean : activeProfile?.email || '',
     };
 
     if (typeof window !== 'undefined') {

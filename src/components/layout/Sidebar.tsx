@@ -17,73 +17,90 @@ import {
   Moon,
   X,
   FileCheck,
+  LogOut,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { BPS_CONFIG } from '@/constants/bpsConfig';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 const NAV_ITEMS = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/laporan/tambah', label: 'Buat Laporan', icon: FilePlus },
   { href: '/laporan', label: 'Riwayat Laporan', icon: FileText },
-  { href: '/penugasan', label: 'Laporan Penugasan', icon: FileCheck },
+  { href: '/penugasan', label: 'Perjadin & Penugasan', icon: FileCheck },
+  { href: '/kalender', label: 'Kalender Kerja', icon: Calendar },
   { href: '/pegawai', label: 'Master Pegawai', icon: Users },
-  { href: '/kalender', label: 'Kalender Kegiatan', icon: Calendar },
   { href: '/pengaturan', label: 'Pengaturan Akun', icon: Settings },
 ];
 
 interface SidebarProps {
-  isCollapsed?: boolean;
-  onToggleCollapse?: () => void;
-  isMobileOpen?: boolean;
-  onCloseMobile?: () => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  isMobileOpen: boolean;
+  onCloseMobile: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  isCollapsed = false,
+  isCollapsed,
   onToggleCollapse,
-  isMobileOpen = false,
+  isMobileOpen,
   onCloseMobile,
 }) => {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
 
+  const handleLogout = async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('bps_auth_user');
+      localStorage.removeItem('bps_saved_profile');
+      localStorage.removeItem('google_provider_token');
+    }
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {}
+    }
+
+    window.location.href = '/login';
+  };
+
   return (
     <>
-      {/* Mobile Backdrop Overlay */}
+      {/* Backdrop overlay for mobile drawer */}
       {isMobileOpen && (
         <div
           onClick={onCloseMobile}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 lg:hidden transition-opacity duration-300"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-40 lg:hidden transition-opacity"
         />
       )}
 
-      {/* Main Sidebar Container */}
+      {/* Sidebar Container */}
       <aside
-        className={`
-          fixed lg:sticky top-0 left-0 h-screen z-50 flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 transition-all duration-300 ease-in-out shadow-lg lg:shadow-none overflow-hidden
-          ${isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full lg:translate-x-0'}
-          ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}
-        `}
+        className={`fixed lg:static inset-y-0 left-0 z-50 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 transition-all duration-300 flex flex-col ${
+          isCollapsed ? 'w-20' : 'w-64'
+        } ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
-        {/* Brand Header */}
-        <div className={`border-b border-slate-100 dark:border-slate-800 flex items-center min-h-[73px] transition-all ${
-          isCollapsed ? 'px-2 py-4 justify-between gap-1' : 'p-4 justify-between gap-3'
-        }`}>
-          <div className={`flex items-center gap-2.5 overflow-hidden ${isCollapsed ? 'justify-center shrink-0' : ''}`}>
-            <button
-              onClick={onToggleCollapse}
-              className="w-10 h-10 rounded-xl gradient-bps flex items-center justify-center text-white font-bold shadow-md shadow-sky-500/20 shrink-0 hover:opacity-90 transition-opacity"
-              title={isCollapsed ? 'Klik untuk Melebarkan Sidebar' : 'BPS Kabupaten Lebak'}
-            >
-              <Sparkles className="w-5 h-5 text-white" />
-            </button>
-
+        {/* Header Logo & Branding */}
+        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-800 flex items-center justify-center shrink-0">
+              <img
+                src={BPS_CONFIG.logoPath}
+                alt="BPS"
+                className="w-6 h-6 object-contain"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            </div>
             {!isCollapsed && (
-              <div className="truncate">
-                <h1 className="font-extrabold text-slate-900 dark:text-white text-sm tracking-tight leading-tight truncate">
-                  Laporan Harian
+              <div className="min-w-0">
+                <h1 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                  Mamang Racing
                 </h1>
-                <p className="text-[10px] text-sky-600 dark:text-sky-400 font-bold tracking-wider uppercase">
-                  BPS KAB. LEBAK
+                <p className="text-[10px] font-bold text-sky-600 dark:text-sky-400 truncate">
+                  Bukti Dukung BPS
                 </p>
               </div>
             )}
@@ -116,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
 
             return (
               <Link
@@ -137,8 +154,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </div>
 
-        {/* Footer Mode Siang & Malam Toggle */}
-        <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+        {/* Footer Mode Toggle & Logout Button */}
+        <div className="p-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
           <button
             onClick={toggleTheme}
             className={`w-full py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border ${
@@ -159,6 +176,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {!isCollapsed && <span>Mode Malam (Dark)</span>}
               </>
             )}
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="w-full py-2.5 px-2 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-900/60 transition-colors flex items-center justify-center gap-2"
+            title="Keluar / Logout Akun"
+          >
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!isCollapsed && <span>Keluar / Logout</span>}
           </button>
         </div>
       </aside>

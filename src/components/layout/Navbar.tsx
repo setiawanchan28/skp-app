@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { formatDateIndonesian } from '@/utils/formatters';
 import { useTheme } from '@/context/ThemeContext';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 interface NavbarProps {
   onMenuClick?: () => void;
@@ -64,13 +65,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('bps_auth_user');
+      localStorage.removeItem('bps_saved_profile');
+      localStorage.removeItem('google_provider_token');
     }
+
+    if (isSupabaseConfigured()) {
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {}
+    }
+
     setUser(null);
     setDropdownOpen(false);
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   return (

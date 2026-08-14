@@ -15,10 +15,10 @@ interface UserProfile {
 export default function PengaturanAkunPage() {
   const { showToast } = useToast();
 
-  const [nama, setNama] = useState('Dede Setiawan, S.Tr.Stat.');
-  const [nip, setNip] = useState('199502282024211021');
-  const [jabatan, setJabatan] = useState('Pranata Komputer Ahli Pertama');
-  const [email, setEmail] = useState('ddsetiawan28@gmail.com');
+  const [nama, setNama] = useState('');
+  const [nip, setNip] = useState('');
+  const [jabatan, setJabatan] = useState('');
+  const [email, setEmail] = useState('');
 
   const [passwordLama, setPasswordLama] = useState('');
   const [passwordBaru, setPasswordBaru] = useState('');
