@@ -75,6 +75,9 @@ function normalizeNonBakuToBaku(text: string): string {
   for (const [regex, replacement] of dict) {
     result = result.replace(regex, replacement);
   }
+
+  // Clean up any double dots or broken punctuation resulting from replacements
+  result = result.replace(/\.{2,}/g, '.').replace(/\s+,/g, ',').replace(/\s+\./g, '.');
   return result;
 }
 
@@ -116,19 +119,20 @@ ${cleanDeskripsiKegiatan}
 
 PANDUAN & ATURAN PENULISAN KEDINASAN (STRICT RULES):
 1. BAHASA BAKU & FORMAL: Secara otomatis ubah bahasa percakapan, kata tidak baku, singkatan informal (yg, dgn, utk, blm, sbg, krn, tdk, dr, gak, udah), atau kalimat tidak lengkap menjadi Bahasa Indonesia yang baku, formal, dan sesuai Pedoman Umum Ejaan Bahasa Indonesia (PUEBI).
-2. PERTAHANKAN SINGKATAN RESMI BPS:
+2. DILARANG KERAS MENGULANG-ULANG KALIMAT ATAU NAMA KEGIATAN (NO REPETITIVE SENTENCES / NO DUPLICATION). Tuliskan setiap informasi HANYA SATU KALI dengan alur cerita yang logis dan mengalir.
+3. PERTAHANKAN SINGKATAN RESMI BPS:
    - BPS = Badan Pusat Statistik
    - PML = Pengawas Lapangan
    - PPL = Petugas Pendataan Lapangan
    - SE2026 = Sensus Ekonomi 2026
    - SLS = Satuan Lingkungan Setempat
    Pertahankan istilah resmi dan jangan mengubah singkatan resmi yang sudah umum secara tidak perlu.
-3. KAPITALISASI & EJAAN PUEBI: Gunakan huruf kapital untuk nama instansi, wilayah (Desa/Kecamatan/Kabupaten), nama orang, nama program, dan singkatan resmi (Contoh: "Badan Pusat Statistik Kabupaten Lebak", "Desa Cilangkap", "Kecamatan Kalanganyar").
-4. JANGAN MENGARANG (DILARANG HALUSINASI): HANYA gunakan informasi yang diberikan oleh pengguna. DILARANG KERAS mengarang nama orang, tanggal, lokasi, angka, hasil kegiatan, atau kesimpulan yang tidak terdapat pada input.
-5. GAYA HASIL & KATA KERJA AKTIF: Awali paragraf dengan Kata Kerja Aktif Formal (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...", "Menyusun...", "Memeriksa...", "Mengoordinasikan...", "Mendampingi...").
-6. DILARANG MENGGUNAKAN SIMBOL BINTANG (*) ATAU MARKDOWN BOLD/ITALIC. Tuliskan istilah asing secara polos tanpa tanda bintang (Contoh: tulis Coverage, BUKAN *Coverage*).
-7. HASIL LANGSUNG: DILARANG memberikan kata pembuka/penutup seperti "Berikut hasilnya:", "Sebagai AI...", "Berikut narasi...". Langsung hasilkan teks narasi siap pakai yang dapat langsung ditempel ke dokumen laporan kedinasan.
-8. PANJANG & PARAGRAF: ${lengthInstruction} ${paragraphInstruction}`;
+4. KAPITALISASI & EJAAN PUEBI: Gunakan huruf kapital untuk nama instansi, wilayah (Desa/Kecamatan/Kabupaten), nama orang, nama program, dan singkatan resmi (Contoh: "Badan Pusat Statistik Kabupaten Lebak", "Desa Cilangkap", "Kecamatan Kalanganyar").
+5. JANGAN MENGARANG (DILARANG HALUSINASI): HANYA gunakan informasi yang diberikan oleh pengguna. DILARANG KERAS mengarang nama orang, tanggal, lokasi, angka, hasil kegiatan, atau kesimpulan yang tidak terdapat pada input.
+6. GAYA HASIL & KATA KERJA AKTIF: Awali paragraf dengan Kata Kerja Aktif Formal (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...", "Menyusun...", "Memeriksa...", "Mengoordinasikan...", "Mendampingi...").
+7. DILARANG MENGGUNAKAN SIMBOL BINTANG (*) ATAU MARKDOWN BOLD/ITALIC. Tuliskan istilah asing secara polos tanpa tanda bintang (Contoh: tulis Coverage, BUKAN *Coverage*).
+8. HASIL LANGSUNG: DILARANG memberikan kata pembuka/penutup seperti "Berikut hasilnya:", "Sebagai AI...", "Berikut narasi...". Langsung hasilkan teks narasi siap pakai yang dapat langsung ditempel ke dokumen laporan kedinasan.
+9. PANJANG & PARAGRAF: ${lengthInstruction} ${paragraphInstruction}`;
 
   try {
     if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy')) {
@@ -191,7 +195,7 @@ PANDUAN & ATURAN PENULISAN KEDINASAN (STRICT RULES):
 }
 
 /**
- * Custom Paragraph Offline Narrative Composer (Fast & Star-free)
+ * Custom Paragraph Offline Narrative Composer (Fast, Clean & Non-repetitive)
  */
 function composeCustomParagraphNarrative(
   namaKegiatan: string,
@@ -200,10 +204,23 @@ function composeCustomParagraphNarrative(
   modePanjang: string = 'panjang'
 ): string {
   const cleanDeskripsi = normalizeNonBakuToBaku(deskripsiKegiatan);
-  const lines = cleanDeskripsi
+  const rawLines = cleanDeskripsi
     .split('\n')
     .map((line) => line.replace(/^[-*•\d.]+\s*/, '').trim())
     .filter((line) => line.length > 0);
+
+  // Remove duplicate lines or lines that just duplicate the activity title
+  const lines = Array.from(
+    new Set(
+      rawLines.filter((line) => {
+        const lowerLine = line.toLowerCase().trim();
+        const lowerName = namaKegiatan.toLowerCase().trim();
+        if (lowerLine === lowerName) return false;
+        if (lowerLine.startsWith('melaksanakan kegiatan') && lowerLine.includes(lowerName)) return false;
+        return true;
+      })
+    )
+  );
 
   if (lines.length === 0) {
     return `Melaksanakan kegiatan ${namaKegiatan} sesuai petunjuk teknis dan standar operasional prosedur yang berlaku di lingkungan Badan Pusat Statistik Kabupaten Lebak.`;
@@ -231,13 +248,29 @@ function composeCustomParagraphNarrative(
     }
   }
 
+  // Deduplicate items
+  locations = Array.from(new Set(locations));
+  personnel = Array.from(new Set(personnel));
+
+  // Filter actions so they don't repeat the activity title
+  const cleanActions = Array.from(
+    new Set(
+      actions.filter((a) => {
+        const lowerA = a.toLowerCase();
+        const lowerName = namaKegiatan.toLowerCase();
+        if (lowerA.includes(lowerName)) return false;
+        return true;
+      })
+    )
+  );
+
   let p1 = `Melaksanakan kegiatan ${namaKegiatan}`;
   if (locations.length > 0) p1 += ` di lokasi ${locations.join(', ')}`;
   if (personnel.length > 0) p1 += ` bersama ${personnel.join(' serta ')}`;
   p1 += `. `;
 
-  if (actions.length > 0) {
-    const formatted = actions.map((a) => a.charAt(0).toLowerCase() + a.slice(1));
+  if (cleanActions.length > 0) {
+    const formatted = cleanActions.map((a) => a.charAt(0).toLowerCase() + a.slice(1));
     p1 += `Rangkaian pelaksanaan tugas berfokus pada ${formatted.join(', ')}.`;
   } else {
     p1 += `Pelaksanaan tugas berfokus pada verifikasi isian kuesioner dan pemantauan kualitas data di lapangan.`;
@@ -258,6 +291,8 @@ function composeCustomParagraphNarrative(
     resultText = `${p1}\n\n${p2}\n\n${p3}`;
   }
 
-  // Strip any accidental markdown asterisks and apply final non-baku dictionary cleanup
-  return normalizeNonBakuToBaku(resultText).replace(/\*/g, '');
+  // Strip accidental asterisks, double punctuation, and cleanup
+  let finalResult = normalizeNonBakuToBaku(resultText).replace(/\*/g, '');
+  finalResult = finalResult.replace(/\.{2,}/g, '.').replace(/\s+,/g, ',').replace(/\s+\./g, '.');
+  return finalResult;
 }
