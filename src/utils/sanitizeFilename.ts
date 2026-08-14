@@ -21,44 +21,48 @@ export function normalizeActivityName(name: string): string {
 }
 
 /**
- * Generate YYMMDD date prefix from YYYY-MM-DD
+ * Generate YYYYMMDD date prefix from YYYY-MM-DD
  */
-export function getYYMMDDPrefix(dateString: string): string {
-  if (!dateString) return '000000';
+export function getYYYYMMDDPrefix(dateString: string): string {
+  if (!dateString) return '00000000';
   const cleanDate = dateString.split('T')[0];
   const parts = cleanDate.split('-');
   if (parts.length === 3) {
-    const yy = parts[0].slice(-2);
+    const yyyy = parts[0].padStart(4, '20');
     const mm = parts[1].padStart(2, '0');
     const dd = parts[2].padStart(2, '0');
-    return `${yy}${mm}${dd}`;
+    return `${yyyy}${mm}${dd}`;
   }
-  return '000000';
+  return '00000000';
+}
+
+export function getYYMMDDPrefix(dateString: string): string {
+  return getYYYYMMDDPrefix(dateString);
 }
 
 /**
- * Generate Drive folder name: YYMMDD - Nama Kegiatan
+ * Generate Drive folder name: YYYYMMDD - Nama Kegiatan
  */
 export function formatDriveFolderName(startDate: string, activityName: string): string {
-  const prefix = getYYMMDDPrefix(startDate);
+  const prefix = getYYYYMMDDPrefix(startDate);
   const safeName = sanitizeFilename(activityName);
   return `${prefix} - ${safeName}`;
 }
 
 /**
- * Generate Drive PDF filename: YYMMDD - Nama Kegiatan.pdf
+ * Generate Drive PDF filename: YYYYMMDD - Nama Kegiatan.pdf
  */
 export function formatDrivePdfName(startDate: string, activityName: string): string {
-  const prefix = getYYMMDDPrefix(startDate);
+  const prefix = getYYYYMMDDPrefix(startDate);
   const safeName = sanitizeFilename(activityName);
   return `${prefix} - ${safeName}.pdf`;
 }
 
 /**
- * Generate Drive documentation filename: YYMMDD - Nama Kegiatan - OriginalFilename
+ * Generate Drive documentation filename: YYYYMMDD - Nama Kegiatan - OriginalFilename
  */
 export function formatDriveDocName(docDate: string, activityName: string, originalFilename: string): string {
-  const prefix = getYYMMDDPrefix(docDate);
+  const prefix = getYYYYMMDDPrefix(docDate);
   const safeName = sanitizeFilename(activityName);
   const safeOriginal = sanitizeFilename(originalFilename);
   return `${prefix} - ${safeName} - ${safeOriginal}`;

@@ -139,10 +139,14 @@ export default function RiwayatLaporanPage() {
         throw new Error(data.error || 'Gagal generate PDF');
       }
 
-      const updatedAct = data.data?.activity || {
+      const rawActivity = data.data?.activity || {};
+      const updatedAct = {
         ...act,
+        ...rawActivity,
         status: 'GENERATED',
-        drive_pdf_url: data.data?.pdf_url || act.drive_pdf_url,
+        drive_pdf_url: data.data?.pdf_url || rawActivity.drive_pdf_url || act.drive_pdf_url,
+        documents: rawActivity.documents?.length ? rawActivity.documents : act.documents || (act as any).fotos || [],
+        fotos: rawActivity.fotos?.length ? rawActivity.fotos : (act as any).fotos || act.documents || [],
       };
 
       if (typeof window !== 'undefined') {

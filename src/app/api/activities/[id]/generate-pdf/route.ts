@@ -104,15 +104,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // 5. Update Activity status to GENERATED and lock identity fields
     const nowIso = new Date().toISOString();
-    const updatedActivity = await saveLaporanRecord({
-      ...activity,
-      id,
-      status: 'GENERATED',
-      generated_at: activity.generated_at || nowIso,
-      drive_pdf_url: driveResult.webViewLink,
-      drive_pdf_file_id: driveResult.id,
-      drive_folder_id: driveFolder.activityFolderId,
-    });
+    const updatedActivity = await saveLaporanRecord(
+      {
+        ...activity,
+        id,
+        status: 'GENERATED',
+        generated_at: activity.generated_at || nowIso,
+        drive_pdf_url: driveResult.webViewLink,
+        drive_pdf_file_id: driveResult.id,
+        drive_folder_id: driveFolder.activityFolderId,
+      },
+      activity.people || (activity as any).petugas_ditemui,
+      activity.documents || (activity as any).fotos
+    );
 
     // 6. Update generation status & write audit log
     if (isSupabaseConfigured()) {
