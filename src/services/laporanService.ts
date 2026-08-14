@@ -95,7 +95,16 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
 
   supabaseData.forEach((item) => {
     if (item && item.id) {
-      mergedMap.set(item.id, item);
+      const existing = mergedMap.get(item.id);
+      const docs = item.documents?.length ? item.documents : existing?.documents || (existing as any)?.fotos || [];
+      const people = item.people?.length ? item.people : existing?.people || (existing as any)?.petugas_ditemui || [];
+      mergedMap.set(item.id, {
+        ...existing,
+        ...item,
+        documents: docs,
+        fotos: docs,
+        people: people,
+      });
     }
   });
 

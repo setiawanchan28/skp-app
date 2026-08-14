@@ -67,13 +67,36 @@ export default function RiwayatLaporanPage() {
 
   const loadData = async () => {
     setLoading(true);
+    if (typeof window !== 'undefined') {
+      const local = localStorage.getItem('bps_laporan_data');
+      if (local) {
+        try {
+          const parsed = JSON.parse(local);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setActivities(parsed);
+          }
+        } catch (e) {}
+      }
+    }
+
     const data = await fetchLaporanList();
-    setActivities(data);
+    if (data) {
+      setActivities(data);
+    }
     setLoading(false);
   };
 
   useEffect(() => {
     loadData();
+    const onFocus = () => loadData();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', onFocus);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', onFocus);
+      }
+    };
   }, []);
 
   // Filter & Sort Logic
