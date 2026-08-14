@@ -213,7 +213,14 @@ export async function saveLaporanRecord(
   const endDate = activityData.end_date || activityData.tanggal_selesai || startDate;
   const startTime = activityData.start_time || '08:00';
   const endTime = activityData.end_time || '16:00';
-  const actType = activityData.activity_type || (activityData.spd_number ? 'PERJALANAN_DINAS' : 'NON_PERJALANAN_DINAS');
+  let actType: any = activityData.activity_type;
+  if (actType === 'penugasan' || actType === 'PERJALANAN_DINAS' || activityData.spd_number || (activityData as any).nomor_spd) {
+    actType = 'PERJALANAN_DINAS';
+  } else if (actType === 'harian' || actType === 'NON_PERJALANAN_DINAS') {
+    actType = 'NON_PERJALANAN_DINAS';
+  } else {
+    actType = 'NON_PERJALANAN_DINAS';
+  }
   const status: ActivityStatus = activityData.status || (existingRecord ? existingRecord.status : 'DRAFT');
 
   const fullRecord: Activity = {

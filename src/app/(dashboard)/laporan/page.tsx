@@ -103,16 +103,14 @@ export default function RiwayatLaporanPage() {
   const filteredList = activities
     .filter((act) => {
       const actDateStr = act.start_date || act.tanggal || '';
-      const dateObj = new Date(actDateStr);
+      const dateParts = actDateStr.split('T')[0].split('-');
 
-      if (filterTahun !== 'ALL') {
-        const y = String(dateObj.getFullYear());
-        if (y !== filterTahun) return false;
-      }
+      if (dateParts.length === 3) {
+        const y = dateParts[0];
+        const m = dateParts[1].padStart(2, '0');
 
-      if (filterBulan !== 'ALL') {
-        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
-        if (m !== filterBulan) return false;
+        if (filterTahun !== 'ALL' && y !== filterTahun) return false;
+        if (filterBulan !== 'ALL' && m !== filterBulan) return false;
       }
 
       const matchesSearch =
@@ -123,8 +121,13 @@ export default function RiwayatLaporanPage() {
 
       if (!matchesSearch) return false;
 
-      if (typeFilter === 'PERJALANAN_DINAS') return act.activity_type === 'PERJALANAN_DINAS';
-      if (typeFilter === 'NON_PERJALANAN_DINAS') return act.activity_type === 'NON_PERJALANAN_DINAS';
+      const isPerjadin =
+        act.activity_type === 'PERJALANAN_DINAS' ||
+        (act as any).activity_type === 'penugasan' ||
+        Boolean(act.spd_number || (act as any).nomor_spd);
+
+      if (typeFilter === 'PERJALANAN_DINAS' && !isPerjadin) return false;
+      if (typeFilter === 'NON_PERJALANAN_DINAS' && isPerjadin) return false;
 
       return true;
     })
