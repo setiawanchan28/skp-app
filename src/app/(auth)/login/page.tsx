@@ -14,37 +14,79 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Parse OAuth Callback Hash (#access_token=...) on mount
+  // Direct OAuth Hash Fragment parsing on mount (#access_token=...)
   useEffect(() => {
-    if (isSupabaseConfigured()) {
-      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session?.user) {
-          const metadata = session.user.user_metadata || {};
-          const userSession = {
-            nama: metadata.full_name || metadata.name || 'Dede Setiawan, S.Tr.Stat.',
-            nip: metadata.nip || '199502282024211021',
-            jabatan: metadata.position || metadata.jabatan || 'Pranata Komputer Ahli Pertama',
-            email: session.user.email,
-            provider_token: session.provider_token,
-            provider_refresh_token: session.provider_refresh_token,
-          };
+    const processOAuthHash = async () => {
+      if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
+        try {
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          const providerToken = hashParams.get('provider_token');
 
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('bps_auth_user', JSON.stringify(userSession));
-            localStorage.setItem('bps_saved_profile', JSON.stringify(userSession));
-            if (session.provider_token) {
-              localStorage.setItem('google_provider_token', session.provider_token);
+          if (accessToken && isSupabaseConfigured()) {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || '',
+            });
+
+            if (!error && data?.session?.user) {
+              const metadata = data.session.user.user_metadata || {};
+              const userSession = {
+                nama: metadata.full_name || metadata.name || 'Dede Setiawan, S.Tr.Stat.',
+                nip: metadata.nip || '199502282024211021',
+                jabatan: metadata.position || metadata.jabatan || 'Pranata Komputer Ahli Pertama',
+                email: data.session.user.email,
+                provider_token: providerToken || data.session.provider_token,
+              };
+
+              localStorage.setItem('bps_auth_user', JSON.stringify(userSession));
+              localStorage.setItem('bps_saved_profile', JSON.stringify(userSession));
+              if (providerToken) {
+                localStorage.setItem('google_provider_token', providerToken);
+              }
+
+              window.location.href = '/laporan';
+              return;
             }
           }
-
-          router.replace('/laporan');
+        } catch (e) {
+          console.error('Error parsing OAuth hash in login page:', e);
         }
-      });
+      }
 
-      return () => {
-        authListener?.subscription.unsubscribe();
-      };
-    }
+      if (isSupabaseConfigured()) {
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (session?.user) {
+            const metadata = session.user.user_metadata || {};
+            const userSession = {
+              nama: metadata.full_name || metadata.name || 'Dede Setiawan, S.Tr.Stat.',
+              nip: metadata.nip || '199502282024211021',
+              jabatan: metadata.position || metadata.jabatan || 'Pranata Komputer Ahli Pertama',
+              email: session.user.email,
+              provider_token: session.provider_token,
+              provider_refresh_token: session.provider_refresh_token,
+            };
+
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('bps_auth_user', JSON.stringify(userSession));
+              localStorage.setItem('bps_saved_profile', JSON.stringify(userSession));
+              if (session.provider_token) {
+                localStorage.setItem('google_provider_token', session.provider_token);
+              }
+            }
+
+            window.location.href = '/laporan';
+          }
+        });
+
+        return () => {
+          authListener?.subscription.unsubscribe();
+        };
+      }
+    };
+
+    processOAuthHash();
   }, [router]);
 
   // AUTH-001: Google Account Login via Supabase OAuth
