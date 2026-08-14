@@ -29,7 +29,13 @@ export function extractRawDriveFolderId(input?: string): string | null {
   return null;
 }
 
-function getDriveClient() {
+function getDriveClient(userAccessToken?: string) {
+  if (userAccessToken && userAccessToken.length > 5 && !userAccessToken.includes('dummy')) {
+    const oauth2Client = new google.auth.OAuth2();
+    oauth2Client.setCredentials({ access_token: userAccessToken });
+    return google.drive({ version: 'v3', auth: oauth2Client });
+  }
+
   const clientId = cleanEnvVal(process.env.GOOGLE_CLIENT_ID);
   const clientSecret = cleanEnvVal(process.env.GOOGLE_CLIENT_SECRET);
   const refreshToken = cleanEnvVal(process.env.GOOGLE_REFRESH_TOKEN);
@@ -66,9 +72,10 @@ function getDriveClient() {
  */
 export async function getOrCreateActivityDriveFolder(
   startDateString: string,
-  activityName: string
+  activityName: string,
+  userAccessToken?: string
 ): Promise<{ rootFolderId: string; yearFolderId: string; monthFolderId: string; activityFolderId: string }> {
-  const drive = getDriveClient();
+  const drive = getDriveClient(userAccessToken);
   const date = new Date(startDateString || Date.now());
   const yearStr = String(date.getFullYear());
   const monthStr = String(date.getMonth() + 1).padStart(2, '0');
@@ -101,13 +108,13 @@ export async function getOrCreateActivityDriveFolder(
       monthFolderId,
       activityFolderId,
     };
-  } catch (error) {
-    console.error('Error creating Google Drive activity folder:', error);
+  } catch (err) {
+    console.warn('Drive folder structure creation error:', err);
     return {
       rootFolderId: 'fallback_root',
-      yearFolderId: 'fallback_year',
-      monthFolderId: 'fallback_month',
-      activityFolderId: 'fallback_activity',
+      yearFolderId: `fallback_year_${yearStr}`,
+      monthFolderId: `fallback_month_${monthStr}`,
+      activityFolderId: `fallback_act_${activityFolderName}`,
     };
   }
 }
@@ -158,9 +165,10 @@ export async function uploadFileToDrive(
   fileName: string,
   mimeType: string,
   folderId: string,
-  existingFileId?: string
+  existingFileId?: string,
+  userAccessToken?: string
 ): Promise<DriveUploadResult> {
-  const drive = getDriveClient();
+  const drive = getDriveClient(userAccessToken);
 
   if (!drive || folderId.startsWith('mock_') || folderId.startsWith('fallback_')) {
     const fakeId = existingFileId || `file_${Date.now()}_${Math.random().toString(36).substring(7)}`;

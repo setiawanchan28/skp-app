@@ -82,8 +82,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const pdfBuffer = await generateBpsPdfBuffer(pdfData);
 
+    const userGoogleToken =
+      req.headers.get('x-google-token') ||
+      body.user_drive_token ||
+      body.google_token ||
+      body.activityData?.provider_token;
+
     // 3. Create or get activity folder on Google Drive
-    const driveFolder = await getOrCreateActivityDriveFolder(activity.start_date, activity.name);
+    const driveFolder = await getOrCreateActivityDriveFolder(activity.start_date, activity.name, userGoogleToken);
     const pdfFileName = formatDrivePdfName(activity.start_date, activity.name);
 
     // 4. Upload / Update PDF to Google Drive idempotently
@@ -92,7 +98,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       pdfFileName,
       'application/pdf',
       driveFolder.activityFolderId,
-      activity.drive_pdf_file_id
+      activity.drive_pdf_file_id,
+      userGoogleToken
     );
 
     // 5. Update Activity status to GENERATED and lock identity fields

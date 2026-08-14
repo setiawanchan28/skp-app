@@ -117,12 +117,21 @@ export default function RiwayatLaporanPage() {
   const handleGeneratePdf = async (act: Activity) => {
     setGeneratingPdfId(act.id);
     try {
+      const googleToken =
+        (typeof window !== 'undefined' && localStorage.getItem('google_provider_token')) ||
+        (savedProfile as any)?.provider_token ||
+        '';
+
       const res = await fetch(`/api/activities/${act.id}/generate-pdf`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-google-token': googleToken,
+        },
         body: JSON.stringify({
           idempotency_key: `gen_${act.id}_${Date.now()}`,
-          activityData: act,
+          user_drive_token: googleToken,
+          activityData: { ...act, provider_token: googleToken },
         }),
       });
       const data = await res.json();
