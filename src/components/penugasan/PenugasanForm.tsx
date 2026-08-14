@@ -27,6 +27,7 @@ import { LaporanPenugasan, PetugasDitemui } from '@/types/penugasan';
 import { Laporan } from '@/types/laporan';
 import { formatDateIndonesian } from '@/utils/formatters';
 import { BULAN_INDONESIA } from '@/constants/bpsConfig';
+import { mapPenugasanToActivity } from '@/services/laporanService';
 
 interface PenugasanFormProps {
   initialData?: LaporanPenugasan | null;
@@ -322,6 +323,18 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
 
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Gagal menyimpan laporan penugasan');
+
+      if (typeof window !== 'undefined' && result.data) {
+        try {
+          const mappedAct = mapPenugasanToActivity(result.data);
+          const local = localStorage.getItem('bps_laporan_data');
+          let list = local ? JSON.parse(local) : [];
+          const idx = list.findIndex((l: any) => l.id === mappedAct.id);
+          if (idx >= 0) list[idx] = mappedAct;
+          else list.unshift(mappedAct);
+          localStorage.setItem('bps_laporan_data', JSON.stringify(list));
+        } catch (e) {}
+      }
 
       showToast('Laporan Penugasan BPS berhasil disimpan!', 'success');
       router.push('/laporan');

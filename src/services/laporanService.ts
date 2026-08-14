@@ -3,6 +3,55 @@ import { Activity, ActivityPerson, ActivityDocument, ActivityStatus } from '@/ty
 import { normalizeActivityName } from '@/utils/sanitizeFilename';
 import { getStoredLaporanList, saveStoredLaporanList } from '@/lib/laporanStore';
 
+import { getStoredPenugasanList } from '@/lib/penugasanStore';
+import { LaporanPenugasan } from '@/types/penugasan';
+
+export function mapPenugasanToActivity(p: LaporanPenugasan): Activity {
+  const docs = (p.fotos || []).map((f: any) => ({
+    id: f.id || f.drive_file_id || Math.random().toString(36).slice(2),
+    name: f.file_name || f.name || 'Foto.jpg',
+    file_name: f.file_name || f.name || 'Foto.jpg',
+    previewUrl: f.web_view_url || f.preview_url || f.previewUrl || (f.drive_file_id ? `https://drive.google.com/thumbnail?id=${f.drive_file_id}&sz=w1000` : ''),
+    web_view_url: f.web_view_url || f.preview_url || f.previewUrl || '',
+    drive_file_id: f.drive_file_id || '',
+    tanggal_foto: f.tanggal_foto || f.documentation_date || p.tanggal_perjadin,
+  }));
+
+  const people = (p.petugas_ditemui || []).map((pt: any) => ({
+    person_name: pt.nama,
+    position: pt.jabatan,
+  }));
+
+  return {
+    id: p.id,
+    user_id: '00000000-0000-0000-0000-000000000000',
+    activity_type: 'PERJALANAN_DINAS',
+    name: p.nama_kegiatan,
+    normalized_name: (p.nama_kegiatan || '').toLowerCase(),
+    start_date: p.tanggal_perjadin,
+    end_date: p.tanggal_selesai_perjadin || p.tanggal_perjadin,
+    start_time: '08:00',
+    end_time: '16:00',
+    destination: p.tempat_tujuan,
+    letter_number: p.nomor_surat,
+    spd_number: p.nomor_spd,
+    description: p.resume_kegiatan,
+    status: p.drive_pdf_url ? 'GENERATED' : 'DRAFT',
+    drive_pdf_url: p.drive_pdf_url,
+    drive_pdf_file_id: p.drive_pdf_file_id,
+    drive_folder_id: p.drive_folder_id,
+    people: people,
+    petugas_ditemui: p.petugas_ditemui,
+    documents: docs,
+    fotos: docs,
+    created_at: p.created_at || new Date().toISOString(),
+    updated_at: p.updated_at || new Date().toISOString(),
+    nama_pegawai: p.nama_pegawai,
+    nip: p.nip,
+    jabatan: p.jabatan,
+  };
+}
+
 const LOCAL_STORAGE_LAPORAN = 'bps_laporan_data';
 
 /**
@@ -69,6 +118,24 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
           };
         });
       }
+
+      try {
+        const { data: penugasanData } = await client
+          .from('laporan_penugasan')
+          .select(`
+            *,
+            petugas_ditemui:penugasan_petugas_ditemui(*),
+            fotos:penugasan_foto(*)
+          `)
+          .order('tanggal_perjadin', { ascending: false });
+
+        if (penugasanData) {
+          penugasanData.forEach((p: any) => {
+            const mapped = mapPenugasanToActivity(p);
+            supabaseData.push(mapped);
+          });
+        }
+      } catch (e) {}
     } catch (err) {
       console.warn('Supabase fetch activities exception:', err);
     }
@@ -94,6 +161,16 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
         if (includeTrashed || !item.deleted_at) {
           mergedMap.set(item.id, item as Activity);
         }
+      }
+    });
+  } catch (e) {}
+
+  try {
+    const penugasanStoreList = getStoredPenugasanList();
+    penugasanStoreList.forEach((p: any) => {
+      if (p && p.id) {
+        const mapped = mapPenugasanToActivity(p);
+        mergedMap.set(mapped.id, mapped);
       }
     });
   } catch (e) {}
