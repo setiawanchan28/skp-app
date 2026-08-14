@@ -80,16 +80,33 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
 
       const { data, error } = await query;
       if (!error && data) {
-        supabaseData = data.map((item: any) => ({
-          ...item,
-          fotos: item.documents || [],
-          petugas_ditemui: item.people?.map((p: any) => ({ nama: p.person_name, jabatan: p.position })) || [],
-          tanggal: item.start_date,
-          tanggal_selesai: item.end_date,
-          nama_kegiatan: item.name,
-          deskripsi_kegiatan: item.description || '',
-          ringkasan_kegiatan: item.description || '',
-        }));
+        supabaseData = data.map((item: any) => {
+          const docs = (item.documents || []).map((d: any) => ({
+            id: d.id,
+            name: d.original_filename || d.file_name || d.name || 'Foto.jpg',
+            file_name: d.original_filename || d.file_name || d.name || 'Foto.jpg',
+            previewUrl: d.web_view_url || d.preview_url || d.previewUrl || (d.drive_file_id ? `https://drive.google.com/thumbnail?id=${d.drive_file_id}&sz=w1000` : ''),
+            web_view_url: d.web_view_url || d.preview_url || d.previewUrl || '',
+            drive_file_id: d.drive_file_id || '',
+            tanggal_foto: d.documentation_date || d.tanggal_foto || item.start_date,
+          }));
+
+          return {
+            ...item,
+            nama_kegiatan: item.name || item.nama_kegiatan,
+            deskripsi_kegiatan: item.description || item.deskripsi_kegiatan || '',
+            ringkasan_kegiatan: item.description || item.ringkasan_kegiatan || '',
+            nama_pegawai: item.nama_pegawai || '',
+            nip: item.nip || '',
+            jabatan: item.jabatan || '',
+            tanggal: item.start_date,
+            tanggal_selesai: item.end_date,
+            documents: docs,
+            fotos: docs,
+            people: item.people || [],
+            petugas_ditemui: item.people?.map((p: any) => ({ nama: p.person_name, jabatan: p.position })) || [],
+          };
+        });
       }
     } catch (err) {
       console.warn('Supabase fetch activities exception:', err);
@@ -237,6 +254,9 @@ export async function saveLaporanRecord(
             letter_number: fullRecord.letter_number,
             spd_number: fullRecord.spd_number,
             description: fullRecord.description,
+            nama_pegawai: fullRecord.nama_pegawai,
+            nip: fullRecord.nip,
+            jabatan: fullRecord.jabatan,
             status: fullRecord.status,
             generated_at: fullRecord.generated_at,
             drive_pdf_url: fullRecord.drive_pdf_url,
@@ -268,12 +288,12 @@ export async function saveLaporanRecord(
           const docRows = photosData.map((p, idx) => ({
             activity_id: dbData.id,
             documentation_date: p.documentation_date || p.tanggal_foto || startDate,
-            original_filename: p.original_filename || p.file_name || `foto_${idx + 1}.jpg`,
+            original_filename: p.original_filename || p.file_name || p.name || `foto_${idx + 1}.jpg`,
             mime_type: p.mime_type || 'image/jpeg',
             file_size_bytes: p.file_size_bytes || 0,
             kind: p.kind || 'PHOTO',
             drive_file_id: p.drive_file_id || '',
-            drive_name: p.drive_name || p.file_name || `foto_${idx + 1}.jpg`,
+            web_view_url: p.web_view_url || p.previewUrl || p.drive_file_url || '',
             sort_order: idx + 1,
           }));
           await supabaseAdmin.from('activity_documents').insert(docRows);

@@ -49,6 +49,19 @@ export default function RiwayatLaporanPage() {
     setLoading(false);
   };
 
+  const [savedProfile, setSavedProfile] = useState<{ nama?: string; nip?: string; jabatan?: string }>({});
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const localUser = localStorage.getItem('bps_auth_user') || localStorage.getItem('bps_saved_profile');
+      if (localUser) {
+        try {
+          setSavedProfile(JSON.parse(localUser));
+        } catch (e) {}
+      }
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -355,22 +368,37 @@ export default function RiwayatLaporanPage() {
           onClose={() => setPreviewActivity(null)}
           laporanData={{
             id: previewActivity.id,
-            namaKegiatan: previewActivity.name,
-            tanggal: previewActivity.start_date,
-            tanggalSelesai: previewActivity.end_date,
+            name: previewActivity.name || previewActivity.nama_kegiatan,
+            namaKegiatan: previewActivity.name || previewActivity.nama_kegiatan,
+            nama_kegiatan: previewActivity.name || previewActivity.nama_kegiatan,
+            start_date: previewActivity.start_date || previewActivity.tanggal,
+            end_date: previewActivity.end_date || previewActivity.tanggal_selesai,
+            tanggal: previewActivity.start_date || previewActivity.tanggal,
+            tanggalSelesai: previewActivity.end_date || previewActivity.tanggal_selesai,
+            tanggal_selesai: previewActivity.end_date || previewActivity.tanggal_selesai,
             jamMulai: previewActivity.start_time,
             jamSelesai: previewActivity.end_time,
-            deskripsiKegiatan: previewActivity.description || '',
-            ringkasanKegiatan: previewActivity.description || '',
+            description: previewActivity.description || previewActivity.deskripsi_kegiatan || previewActivity.ringkasan_kegiatan || '',
+            deskripsiKegiatan: previewActivity.description || previewActivity.deskripsi_kegiatan || previewActivity.ringkasan_kegiatan || '',
+            ringkasanKegiatan: previewActivity.description || previewActivity.ringkasan_kegiatan || previewActivity.deskripsi_kegiatan || '',
+            ringkasan_kegiatan: previewActivity.description || previewActivity.ringkasan_kegiatan || previewActivity.deskripsi_kegiatan || '',
+            activity_type: previewActivity.activity_type,
             jenisLaporan: previewActivity.activity_type === 'PERJALANAN_DINAS' ? 'penugasan' : 'harian',
-            tempatTujuan: previewActivity.destination,
-            nomorSurat: previewActivity.letter_number,
-            nomorSpd: previewActivity.spd_number,
-            petugasDitemui: previewActivity.people?.map((p) => ({ nama: p.person_name, jabatan: p.position })),
-            namaPegawai: previewActivity.nama_pegawai || 'Dede Setiawan, S.Tr.Stat.',
-            nip: previewActivity.nip || '199502282024211021',
-            jabatan: previewActivity.jabatan || 'Pranata Komputer Ahli Pertama',
-            fotos: previewActivity.documents || previewActivity.fotos || [],
+            destination: previewActivity.destination || (previewActivity as any).tempat_tujuan,
+            tempatTujuan: previewActivity.destination || (previewActivity as any).tempat_tujuan,
+            letter_number: previewActivity.letter_number || (previewActivity as any).nomor_surat,
+            nomorSurat: previewActivity.letter_number || (previewActivity as any).nomor_surat,
+            spd_number: previewActivity.spd_number || (previewActivity as any).nomor_spd,
+            nomorSpd: previewActivity.spd_number || (previewActivity as any).nomor_spd,
+            people: previewActivity.people || [],
+            petugasDitemui: previewActivity.people?.map((p) => ({ nama: p.person_name, jabatan: p.position })) || (previewActivity as any).petugas_ditemui || [],
+            petugas_ditemui: previewActivity.people?.map((p) => ({ nama: p.person_name, jabatan: p.position })) || (previewActivity as any).petugas_ditemui || [],
+            namaPegawai: previewActivity.nama_pegawai || savedProfile.nama || 'Pegawai BPS',
+            nama_pegawai: previewActivity.nama_pegawai || savedProfile.nama || 'Pegawai BPS',
+            nip: previewActivity.nip || savedProfile.nip || '',
+            jabatan: previewActivity.jabatan || savedProfile.jabatan || 'Pegawai BPS',
+            documents: previewActivity.documents || (previewActivity as any).fotos || [],
+            fotos: previewActivity.documents || (previewActivity as any).fotos || [],
           }}
         />
       )}

@@ -239,11 +239,16 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             activity: activityPayload,
             people: validPeople,
             photos: photos.map((p) => ({
+              id: p.id,
               documentation_date: p.tanggal_foto || startDate,
+              tanggal_foto: p.tanggal_foto || startDate,
               original_filename: p.name,
+              file_name: p.name,
+              name: p.name,
               mime_type: 'image/jpeg',
+              previewUrl: p.previewUrl || p.drive_file_url || (p as any).web_view_url || '',
+              web_view_url: p.drive_file_url || (p as any).web_view_url || p.previewUrl || '',
               drive_file_id: p.drive_file_id || '',
-              web_view_url: p.drive_file_url || '',
             })),
           }),
         }
