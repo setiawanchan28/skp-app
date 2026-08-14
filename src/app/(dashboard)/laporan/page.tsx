@@ -120,7 +120,10 @@ export default function RiwayatLaporanPage() {
       const res = await fetch(`/api/activities/${act.id}/generate-pdf`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idempotency_key: `gen_${act.id}_${Date.now()}` }),
+        body: JSON.stringify({
+          idempotency_key: `gen_${act.id}_${Date.now()}`,
+          activityData: act,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {

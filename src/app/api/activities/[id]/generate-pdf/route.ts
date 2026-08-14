@@ -11,9 +11,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const body = await req.json().catch(() => ({}));
     const idempotencyKey = body.idempotency_key || `gen_${id}_${Date.now()}`;
 
-    const activity = await fetchLaporanById(id);
+    let activity = await fetchLaporanById(id);
+
+    if (!activity && body.activityData) {
+      activity = body.activityData;
+    }
+
+    if (body.activityData) {
+      try {
+        const saved = await saveLaporanRecord(
+          body.activityData,
+          body.activityData.people || body.activityData.petugas_ditemui,
+          body.activityData.documents || body.activityData.fotos
+        );
+        if (saved) activity = saved;
+      } catch (e) {}
+    }
+
     if (!activity) {
-      return NextResponse.json({ success: false, error: 'Kegiatan tidak ditemukan!' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Kegiatan tidak ditemukan di database maupun cache browser!' }, { status: 404 });
     }
 
     // Check required fields before generation (PRD/SRS)
