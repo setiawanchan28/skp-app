@@ -17,6 +17,7 @@ import {
   Link2,
   Printer,
   Calendar,
+  Clock,
   Lock,
   Loader2,
   Image as ImageIcon,
@@ -494,13 +495,13 @@ export default function RiwayatLaporanPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                  <th className="p-4 w-12 text-center">No</th>
-                  <th className="p-4 w-36">Tanggal</th>
-                  <th className="p-4">Nama Kegiatan & Jenis</th>
-                  <th className="p-4 w-28 text-center">Foto</th>
-                  <th className="p-4 w-32 text-center">Status</th>
-                  <th className="p-4 w-44 text-center">Aksi</th>
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-extrabold text-[11px] text-slate-600 dark:text-slate-300 uppercase tracking-wider">
+                  <th className="py-2.5 px-3 w-10 text-center">No</th>
+                  <th className="py-2.5 px-3 w-40">Tanggal & Jam</th>
+                  <th className="py-2.5 px-3">Nama Kegiatan & Jenis</th>
+                  <th className="py-2.5 px-3 w-24 text-center">Foto</th>
+                  <th className="py-2.5 px-3 w-28 text-center">Status</th>
+                  <th className="py-2.5 px-3 w-40 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -508,16 +509,22 @@ export default function RiwayatLaporanPage() {
                   const isGen = act.status === 'GENERATED';
                   return (
                     <tr key={act.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="p-4 text-center font-bold text-slate-400">{startIndex + index + 1}</td>
-                      <td className="p-4 font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                        {formatDateIndonesian(act.start_date)}
+                      <td className="py-2.5 px-3 text-center font-bold text-slate-400 text-xs">{startIndex + index + 1}</td>
+                      <td className="py-2.5 px-3 font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap text-xs">
+                        <div>{formatDateIndonesian(act.start_date)}</div>
                         {act.end_date && act.end_date !== act.start_date ? (
                           <div className="text-[10px] text-slate-400 font-normal">s.d. {formatDateIndonesian(act.end_date)}</div>
                         ) : null}
+                        {(act.start_time || (act as any).jam_mulai) && (
+                          <div className="text-[10px] text-sky-600 dark:text-sky-400 font-mono font-bold mt-0.5 flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-sky-500 shrink-0" />
+                            <span>{act.start_time || (act as any).jam_mulai} - {act.end_time || (act as any).jam_selesai || '16:00'} WIB</span>
+                          </div>
+                        )}
                       </td>
-                      <td className="p-4">
-                        <div className="font-extrabold text-slate-900 dark:text-white text-sm">{act.name}</div>
-                        <div className="flex items-center gap-2 mt-1">
+                      <td className="py-2.5 px-3">
+                        <div className="font-extrabold text-slate-900 dark:text-white text-xs leading-snug">{act.name}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
                           <span
                             className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
                               act.activity_type === 'PERJALANAN_DINAS'
@@ -532,29 +539,29 @@ export default function RiwayatLaporanPage() {
                           )}
                         </div>
                       </td>
-                      <td className="p-4 text-center">
-                        <span className="inline-flex items-center gap-1 font-bold text-sky-600 dark:text-sky-400">
+                      <td className="py-2.5 px-3 text-center">
+                        <span className="inline-flex items-center gap-1 font-bold text-sky-600 dark:text-sky-400 text-xs">
                           <ImageIcon className="w-3.5 h-3.5" />
                           {act.documents?.length || act.fotos?.length || 0}
                         </span>
                       </td>
-                      <td className="p-4 text-center">
+                      <td className="py-2.5 px-3 text-center">
                         <span
-                          className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1 ${
+                          className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider inline-flex items-center gap-1 ${
                             isGen
                               ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-300 dark:border-emerald-800'
                               : 'bg-amber-500/10 text-amber-600 border border-amber-300 dark:border-amber-800'
                           }`}
                         >
-                          {isGen && <Lock className="w-3 h-3 text-emerald-600" />}
+                          {isGen && <Lock className="w-2.5 h-2.5 text-emerald-600" />}
                           {act.status}
                         </span>
                       </td>
-                      <td className="p-4">
+                      <td className="py-2.5 px-3">
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={() => setPreviewActivity(act)}
-                            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-sky-600 rounded-lg"
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-sky-600 rounded-lg"
                             title="Pratinjau PDF"
                           >
                             <Eye className="w-4 h-4" />
@@ -562,7 +569,7 @@ export default function RiwayatLaporanPage() {
 
                           <Link
                             href={`/laporan/edit/${act.id}`}
-                            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-amber-500 rounded-lg"
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-amber-500 rounded-lg"
                             title="Edit Kegiatan"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -570,7 +577,7 @@ export default function RiwayatLaporanPage() {
 
                           <button
                             onClick={() => handleCopyActivity(act.id)}
-                            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-indigo-500 rounded-lg"
+                            className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-indigo-500 rounded-lg"
                             title="Copy Kegiatan"
                           >
                             <Copy className="w-4 h-4" />
@@ -579,7 +586,7 @@ export default function RiwayatLaporanPage() {
                           <button
                             onClick={() => handleGeneratePdf(act)}
                             disabled={generatingPdfId === act.id}
-                            className="p-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs"
+                            className="p-1 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-lg text-xs"
                             title="Generate / Cetak PDF Drive"
                           >
                             {generatingPdfId === act.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 text-amber-300" />}
@@ -588,7 +595,7 @@ export default function RiwayatLaporanPage() {
                           {act.drive_pdf_url && (
                             <button
                               onClick={() => handleCopyPdfUrl(act.drive_pdf_url, act.id)}
-                              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-emerald-500 rounded-lg"
+                              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 text-emerald-500 rounded-lg"
                               title="Copy Link Drive PDF"
                             >
                               <Link2 className="w-4 h-4" />
@@ -597,7 +604,7 @@ export default function RiwayatLaporanPage() {
 
                           <button
                             onClick={() => setDeletingId(act.id)}
-                            className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-500 rounded-lg"
+                            className="p-1 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-500 rounded-lg"
                             title="Hapus"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -651,12 +658,20 @@ export default function RiwayatLaporanPage() {
                     <h3 className="text-sm font-extrabold text-slate-900 dark:text-white line-clamp-2">
                       {act.name}
                     </h3>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                      <span>
-                        {formatDateIndonesian(act.start_date)}
-                        {act.end_date && act.end_date !== act.start_date ? ` – ${formatDateIndonesian(act.end_date)}` : ''}
-                      </span>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                        <span>
+                          {formatDateIndonesian(act.start_date)}
+                          {act.end_date && act.end_date !== act.start_date ? ` – ${formatDateIndonesian(act.end_date)}` : ''}
+                        </span>
+                      </div>
+                      {(act.start_time || (act as any).jam_mulai) && (
+                        <div className="flex items-center gap-1 text-sky-600 dark:text-sky-400 font-mono font-bold text-[11px]">
+                          <Clock className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                          <span>{act.start_time || (act as any).jam_mulai} - {act.end_time || (act as any).jam_selesai || '16:00'} WIB</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

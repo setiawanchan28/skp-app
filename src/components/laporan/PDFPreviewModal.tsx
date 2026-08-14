@@ -339,7 +339,14 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">5.</td>
                         <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">TANGGAL</td>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                        <td className="p-1.5 sm:p-2 font-medium">{formatDateIndonesian(startDate, endDate)}</td>
+                        <td className="p-1.5 sm:p-2 font-medium">
+                          {formatDateIndonesian(startDate, endDate)}
+                          {(activeLaporan.start_time || activeLaporan.startTime || activeLaporan.jam_mulai) && (
+                            <span>
+                              {` (${activeLaporan.start_time || activeLaporan.startTime || activeLaporan.jam_mulai || '08:00'} - ${activeLaporan.end_time || activeLaporan.endTime || activeLaporan.jam_selesai || '16:00'} WIB)`}
+                            </span>
+                          )}
+                        </td>
                       </tr>
                       <tr>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">6.</td>
