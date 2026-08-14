@@ -502,10 +502,12 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
       const photoInnerY = y - photoBoxHeight;
 
       page.drawRectangle({ x: margin, y: photoInnerY, width: contentWidth, height: photoBoxHeight, borderColor: black, borderWidth: 1 });
-      const captionAreaHeight = 45;
+      const captionAreaHeight = isPenugasan ? 0 : 45;
       const imageAreaHeight = photoBoxHeight - captionAreaHeight;
 
-      page.drawLine({ start: { x: margin, y: photoInnerY + captionAreaHeight }, end: { x: margin + contentWidth, y: photoInnerY + captionAreaHeight }, thickness: 1, color: black });
+      if (!isPenugasan) {
+        page.drawLine({ start: { x: margin, y: photoInnerY + captionAreaHeight }, end: { x: margin + contentWidth, y: photoInnerY + captionAreaHeight }, thickness: 1, color: black });
+      }
 
       try {
         const base64Clean = datePhotos[0].base64.replace(/^data:image\/\w+;base64,/, '');
@@ -535,10 +537,12 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
         page.drawImage(embeddedImg, { x: offsetX, y: offsetY, width: renderWidth, height: renderHeight });
       } catch (e) {}
 
-      const cap1 = cleanNamaKegiatan;
-      page.drawText(cap1, { x: (pageWidth - fontRegular.widthOfTextAtSize(cap1, 10)) / 2, y: photoInnerY + 26, size: 10, font: fontRegular, color: black });
-      const cap2 = dItem.label;
-      page.drawText(cap2, { x: (pageWidth - fontRegular.widthOfTextAtSize(cap2, 10)) / 2, y: photoInnerY + 10, size: 10, font: fontRegular, color: black });
+      if (!isPenugasan) {
+        const cap1 = cleanNamaKegiatan;
+        page.drawText(cap1, { x: (pageWidth - fontRegular.widthOfTextAtSize(cap1, 10)) / 2, y: photoInnerY + 26, size: 10, font: fontRegular, color: black });
+        const cap2 = dItem.label;
+        page.drawText(cap2, { x: (pageWidth - fontRegular.widthOfTextAtSize(cap2, 10)) / 2, y: photoInnerY + 10, size: 10, font: fontRegular, color: black });
+      }
 
       y -= photoBoxHeight + 15;
     } else {
@@ -555,11 +559,13 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
         const photoInnerY = y - rowHeight;
 
         page.drawRectangle({ x: margin, y: photoInnerY, width: contentWidth, height: rowHeight, borderColor: black, borderWidth: 1 });
-        const captionAreaHeight = 45;
+        const captionAreaHeight = isPenugasan ? 0 : 45;
         const imageAreaHeight = rowHeight - captionAreaHeight;
 
-        page.drawLine({ start: { x: margin, y: photoInnerY + captionAreaHeight }, end: { x: margin + contentWidth, y: photoInnerY + captionAreaHeight }, thickness: 1, color: black });
-        page.drawLine({ start: { x: pageWidth / 2, y: y }, end: { x: pageWidth / 2, y: photoInnerY + captionAreaHeight }, thickness: 1, color: black });
+        if (!isPenugasan) {
+          page.drawLine({ start: { x: margin, y: photoInnerY + captionAreaHeight }, end: { x: margin + contentWidth, y: photoInnerY + captionAreaHeight }, thickness: 1, color: black });
+        }
+        page.drawLine({ start: { x: pageWidth / 2, y: y }, end: { x: pageWidth / 2, y: photoInnerY }, thickness: 1, color: black });
 
         for (let c = 0; c < 2; c++) {
           const photoIdx = r * 2 + c;
@@ -596,10 +602,12 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
           } catch (e) {}
         }
 
-        const cap1 = cleanNamaKegiatan;
-        page.drawText(cap1, { x: (pageWidth - fontRegular.widthOfTextAtSize(cap1, 10)) / 2, y: photoInnerY + 26, size: 10, font: fontRegular, color: black });
-        const cap2 = dItem.label;
-        page.drawText(cap2, { x: (pageWidth - fontRegular.widthOfTextAtSize(cap2, 10)) / 2, y: photoInnerY + 10, size: 10, font: fontRegular, color: black });
+        if (!isPenugasan) {
+          const cap1 = cleanNamaKegiatan;
+          page.drawText(cap1, { x: (pageWidth - fontRegular.widthOfTextAtSize(cap1, 10)) / 2, y: photoInnerY + 26, size: 10, font: fontRegular, color: black });
+          const cap2 = dItem.label;
+          page.drawText(cap2, { x: (pageWidth - fontRegular.widthOfTextAtSize(cap2, 10)) / 2, y: photoInnerY + 10, size: 10, font: fontRegular, color: black });
+        }
 
         y -= rowHeight + 15;
       }
