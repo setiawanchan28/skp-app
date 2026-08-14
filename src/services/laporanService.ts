@@ -75,7 +75,32 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         if (!includeTrashed) {
-          localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(json.data));
+          const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+          let localItems: Activity[] = [];
+          if (local) {
+            try {
+              localItems = JSON.parse(local);
+            } catch (e) {}
+          }
+          const map = new Map<string, Activity>();
+          localItems.forEach((item) => {
+            if (item && item.id) map.set(item.id, item);
+          });
+          json.data.forEach((item: Activity) => {
+            if (item && item.id) {
+              const existing = map.get(item.id);
+              map.set(item.id, { ...existing, ...item });
+            }
+          });
+          const merged = Array.from(map.values())
+            .filter((a) => a.status !== 'TRASHED' && !a.deleted_at)
+            .sort(
+              (a, b) =>
+                new Date(b.start_date || b.created_at || Date.now()).getTime() -
+                new Date(a.start_date || a.created_at || Date.now()).getTime()
+            );
+          localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(merged));
+          return merged;
         }
         return json.data;
       }
@@ -273,7 +298,11 @@ export async function saveLaporanRecord(
   peopleData?: { person_name: string; position: string }[],
   photosData?: any[]
 ): Promise<Activity> {
-  const newId = activityData.id || `act_${Date.now()}`;
+  const newId =
+    activityData.id ||
+    (typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
   const userId = activityData.user_id || '00000000-0000-0000-0000-000000000000';
   const name = activityData.name || activityData.nama_kegiatan || 'Kegiatan Tanpa Nama';
   const normalized = normalizeActivityName(name);
