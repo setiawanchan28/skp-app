@@ -27,7 +27,6 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/laporan/tambah', label: 'Buat Laporan', icon: FilePlus },
   { href: '/laporan', label: 'Riwayat Laporan', icon: FileText },
-  { href: '/penugasan', label: 'Perjadin & Penugasan', icon: FileCheck },
   { href: '/kalender', label: 'Kalender Kerja', icon: Calendar },
   { href: '/pengaturan', label: 'Pengaturan Akun', icon: Settings },
 ];

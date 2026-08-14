@@ -27,6 +27,15 @@ interface PhotoUploaderProps {
   onChange: (photos: PhotoItem[]) => void;
 }
 
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });
+};
+
 export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
   startDate,
   endDate,
@@ -64,13 +73,14 @@ export const PhotoUploader: React.FC<PhotoUploaderProps> = ({
       }
 
       try {
-        const compressed = await compressImage(file, 1600, 0.8);
-        const previewUrl = URL.createObjectURL(compressed);
+        const compressed = await compressImage(file, 1200, 0.7);
+        const base64DataUrl = await fileToBase64(compressed);
 
         updatedPhotos.push({
           id: Math.random().toString(36).substring(2, 9),
           file: compressed,
-          previewUrl,
+          previewUrl: base64DataUrl,
+          existingUrl: base64DataUrl,
           name: compressed.name,
           tanggal_foto: targetDate,
         });
