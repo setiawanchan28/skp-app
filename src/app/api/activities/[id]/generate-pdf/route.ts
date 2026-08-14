@@ -106,9 +106,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       body.google_token ||
       body.activityData?.provider_token;
 
-    // 3. Create or get activity folder on Google Drive
-    const driveFolder = await getOrCreateActivityDriveFolder(activity.start_date, activity.name, userGoogleToken);
-    const pdfFileName = formatDrivePdfName(activity.start_date, activity.name);
+    // 3. Create or get activity folder on Google Drive (with time range suffix to isolate identical daily activities)
+    const startTimeVal = activity.start_time || (activity as any).startTime || (activity as any).jam_mulai;
+    const endTimeVal = activity.end_time || (activity as any).endTime || (activity as any).jam_selesai;
+
+    const driveFolder = await getOrCreateActivityDriveFolder(
+      activity.start_date,
+      activity.name,
+      userGoogleToken,
+      startTimeVal,
+      endTimeVal
+    );
+    const pdfFileName = formatDrivePdfName(
+      activity.start_date,
+      activity.name,
+      startTimeVal,
+      endTimeVal
+    );
 
     // 4. Upload / Update PDF to Google Drive idempotently
     const driveResult = await uploadFileToDrive(
@@ -132,7 +146,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             const ext = photoMime.includes('png') ? 'png' : 'jpg';
             const photoBuffer = Buffer.from(matches[2], 'base64');
             const photoDate = photoItem.tanggal_foto || activity.start_date;
-            const photoFileName = `${formatDrivePdfName(photoDate, `${activity.name} - Foto ${pIdx + 1}`)}.${ext}`;
+            const photoFileName = `${formatDrivePdfName(
+              photoDate,
+              `${activity.name} - Foto ${pIdx + 1}`,
+              startTimeVal,
+              endTimeVal
+            ).replace(/\.pdf$/, '')}.${ext}`;
             const existingPhotoId = (photoItem as any).drive_file_id || (photoItem as any).id;
             await uploadFileToDrive(
               photoBuffer,

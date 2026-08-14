@@ -41,31 +41,60 @@ export function getYYMMDDPrefix(dateString: string): string {
 }
 
 /**
- * Generate Drive folder name: YYYYMMDD - Nama Kegiatan
+ * Format time range for file naming: e.g. " (08.00-16.00)"
  */
-export function formatDriveFolderName(startDate: string, activityName: string): string {
-  const prefix = getYYYYMMDDPrefix(startDate);
-  const safeName = sanitizeFilename(activityName);
-  return `${prefix} - ${safeName}`;
+export function formatTimeRangeForFilename(startTime?: string, endTime?: string): string {
+  if (!startTime) return '';
+  const cleanStart = startTime.replace(':', '.');
+  const cleanEnd = endTime ? endTime.replace(':', '.') : '';
+  return cleanEnd ? ` (${cleanStart}-${cleanEnd})` : ` (${cleanStart})`;
 }
 
 /**
- * Generate Drive PDF filename: YYYYMMDD - Nama Kegiatan.pdf
+ * Generate Drive folder name: YYYYMMDD - Nama Kegiatan (08.00-16.00)
  */
-export function formatDrivePdfName(startDate: string, activityName: string): string {
+export function formatDriveFolderName(
+  startDate: string,
+  activityName: string,
+  startTime?: string,
+  endTime?: string
+): string {
   const prefix = getYYYYMMDDPrefix(startDate);
   const safeName = sanitizeFilename(activityName);
-  return `${prefix} - ${safeName}.pdf`;
+  const timeSuffix = formatTimeRangeForFilename(startTime, endTime);
+  return `${prefix} - ${safeName}${timeSuffix}`;
 }
 
 /**
- * Generate Drive documentation filename: YYYYMMDD - Nama Kegiatan - OriginalFilename
+ * Generate Drive PDF filename: YYYYMMDD - Nama Kegiatan (08.00-16.00).pdf
  */
-export function formatDriveDocName(docDate: string, activityName: string, originalFilename: string): string {
+export function formatDrivePdfName(
+  startDate: string,
+  activityName: string,
+  startTime?: string,
+  endTime?: string
+): string {
+  const prefix = getYYYYMMDDPrefix(startDate);
+  const safeName = sanitizeFilename(activityName);
+  const timeSuffix = formatTimeRangeForFilename(startTime, endTime);
+  return `${prefix} - ${safeName}${timeSuffix}.pdf`;
+}
+
+/**
+ * Generate Drive documentation filename: YYYYMMDD - Nama Kegiatan (08.00-16.00) - OriginalFilename
+ */
+export function formatDriveDocName(
+  docDate: string,
+  activityName: string,
+  originalFilename: string,
+  startTime?: string,
+  endTime?: string
+): string {
   const prefix = getYYYYMMDDPrefix(docDate);
   const safeName = sanitizeFilename(activityName);
   const safeOriginal = sanitizeFilename(originalFilename);
-  return `${prefix} - ${safeName} - ${safeOriginal}`;
+  const timeSuffix = formatTimeRangeForFilename(startTime, endTime);
+  return `${prefix} - ${safeName}${timeSuffix} - ${safeOriginal}`;
 }
 
 /**

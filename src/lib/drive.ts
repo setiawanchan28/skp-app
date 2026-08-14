@@ -73,13 +73,15 @@ function getDriveClient(userAccessToken?: string) {
 export async function getOrCreateActivityDriveFolder(
   startDateString: string,
   activityName: string,
-  userAccessToken?: string
+  userAccessToken?: string,
+  startTime?: string,
+  endTime?: string
 ): Promise<{ rootFolderId: string; yearFolderId: string; monthFolderId: string; activityFolderId: string; dokumentasiFolderId: string }> {
   const drive = getDriveClient(userAccessToken);
   const date = new Date(startDateString || Date.now());
   const yearStr = isNaN(date.getFullYear()) ? String(new Date().getFullYear()) : String(date.getFullYear());
   const monthStr = isNaN(date.getMonth()) ? '01' : String(date.getMonth() + 1).padStart(2, '0');
-  const activityFolderName = formatDriveFolderName(startDateString, activityName);
+  const activityFolderName = formatDriveFolderName(startDateString, activityName, startTime, endTime);
 
   const rootParentId = extractRawDriveFolderId(process.env.GOOGLE_DRIVE_FOLDER_ID);
 
