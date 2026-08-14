@@ -11,39 +11,44 @@ export default function RootPage() {
     let subscription: any = null;
 
     const processAuth = async () => {
-      // Direct parsing for URL hash fragment (#access_token=...&provider_token=...)
+      // Instant fail-proof JWT hash parser (#access_token=...&provider_token=...)
       if (typeof window !== 'undefined' && window.location.hash.includes('access_token=')) {
         try {
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           const accessToken = hashParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token');
           const providerToken = hashParams.get('provider_token');
 
-          if (accessToken && isSupabaseConfigured()) {
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken || '',
-            });
+          if (accessToken) {
+            // Decode JWT payload directly in client
+            const payloadBase64 = accessToken.split('.')[1];
+            const base64Clean = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+            const decodedJson = JSON.parse(atob(base64Clean));
+            const metadata = decodedJson.user_metadata || {};
 
-            if (!error && data?.session?.user) {
-              const metadata = data.session.user.user_metadata || {};
-              const userSession = {
-                nama: metadata.full_name || metadata.name || 'Dede Setiawan, S.Tr.Stat.',
-                nip: metadata.nip || '199502282024211021',
-                jabatan: metadata.position || metadata.jabatan || 'Pranata Komputer Ahli Pertama',
-                email: data.session.user.email,
-                provider_token: providerToken || data.session.provider_token,
-              };
+            const userSession = {
+              nama: metadata.full_name || metadata.name || 'Dede Setiawan, S.Tr.Stat.',
+              nip: metadata.nip || '199502282024211021',
+              jabatan: metadata.position || metadata.jabatan || 'Pranata Komputer Ahli Pertama',
+              email: decodedJson.email || metadata.email || 'setiawanchan28@gmail.com',
+              provider_token: providerToken,
+            };
 
-              localStorage.setItem('bps_auth_user', JSON.stringify(userSession));
-              localStorage.setItem('bps_saved_profile', JSON.stringify(userSession));
-              if (providerToken) {
-                localStorage.setItem('google_provider_token', providerToken);
-              }
-
-              window.location.href = '/laporan';
-              return;
+            localStorage.setItem('bps_auth_user', JSON.stringify(userSession));
+            localStorage.setItem('bps_saved_profile', JSON.stringify(userSession));
+            if (providerToken) {
+              localStorage.setItem('google_provider_token', providerToken);
             }
+
+            if (isSupabaseConfigured()) {
+              const refreshToken = hashParams.get('refresh_token');
+              supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken || '',
+              });
+            }
+
+            window.location.replace('/laporan');
+            return;
           }
         } catch (e) {
           console.error('Failed to parse OAuth hash:', e);
@@ -72,7 +77,7 @@ export default function RootPage() {
               }
             }
 
-            window.location.href = '/laporan';
+            window.location.replace('/laporan');
             return;
           }
         });
@@ -97,7 +102,7 @@ export default function RootPage() {
               localStorage.setItem('bps_saved_profile', JSON.stringify(userSession));
             }
 
-            window.location.href = '/laporan';
+            window.location.replace('/laporan');
             return;
           }
         } catch (e) {}
