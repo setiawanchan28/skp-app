@@ -12,47 +12,7 @@ export async function checkActivityNameCollision(
   name: string,
   excludeId?: string
 ): Promise<boolean> {
-  const normalized = normalizeActivityName(name);
-
-  if (isSupabaseConfigured()) {
-    try {
-      let query = supabaseAdmin
-        .from('activities')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('normalized_name', normalized)
-        .is('deleted_at', null);
-
-      if (excludeId) {
-        query = query.neq('id', excludeId);
-      }
-
-      const { data, error } = await query;
-      if (!error && data && data.length > 0) {
-        return true; // Collision detected
-      }
-    } catch (err) {
-      console.warn('Supabase name collision check exception:', err);
-    }
-  }
-
-  // Local storage check
-  if (typeof window !== 'undefined') {
-    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
-    if (local) {
-      try {
-        const list: Activity[] = JSON.parse(local);
-        const match = list.find(
-          (a) =>
-            a.id !== excludeId &&
-            a.deleted_at == null &&
-            normalizeActivityName(a.name) === normalized
-        );
-        if (match) return true;
-      } catch (e) {}
-    }
-  }
-
+  // Allow duplicate activity names for reports on different dates / contexts
   return false;
 }
 

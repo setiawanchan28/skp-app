@@ -123,11 +123,20 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
                     I. KETERANGAN PELAKSANA PERJALANAN DINAS
                   </div>
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs border-collapse">
                     <tbody>
-                      <tr className="border-b border-slate-200"><td className="w-1/3 p-2 font-medium">Nama</td><td className="p-2 font-bold">{activeLaporan.nama_pegawai}</td></tr>
-                      <tr className="border-b border-slate-200"><td className="p-2 font-medium">Jabatan</td><td className="p-2 font-semibold">{activeLaporan.jabatan}</td></tr>
-                      <tr><td className="p-2 font-medium">NIP</td><td className="p-2 font-mono">{activeLaporan.nip}</td></tr>
+                      <tr className="border-b border-slate-200">
+                        <td className="w-1/3 p-2 font-medium border-r border-slate-300">Nama</td>
+                        <td className="p-2 font-bold">{activeLaporan.nama_pegawai}</td>
+                      </tr>
+                      <tr className="border-b border-slate-200">
+                        <td className="p-2 font-medium border-r border-slate-300">Jabatan</td>
+                        <td className="p-2 font-semibold">{activeLaporan.jabatan}</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 font-medium border-r border-slate-300">NIP</td>
+                        <td className="p-2 font-mono">{activeLaporan.nip}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -137,26 +146,26 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
                     II. KETERANGAN PERJALANAN DINAS
                   </div>
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs border-collapse">
                     <tbody>
                       <tr className="border-b border-slate-200">
-                        <td className="w-1/3 p-2 font-medium">Nama Kegiatan</td>
+                        <td className="w-1/3 p-2 font-medium border-r border-slate-300">Nama Kegiatan</td>
                         <td className="p-2 font-semibold">{activeLaporan.name || activeLaporan.nama_kegiatan}</td>
                       </tr>
                       <tr className="border-b border-slate-200">
-                        <td className="p-2 font-medium">Tanggal Perjadin</td>
+                        <td className="p-2 font-medium border-r border-slate-300">Tanggal Perjadin</td>
                         <td className="p-2 font-medium">{formatDateIndonesian(startDate, endDate)}</td>
                       </tr>
                       <tr className="border-b border-slate-200">
-                        <td className="w-1/3 p-2 font-medium">Tempat Tujuan</td>
+                        <td className="w-1/3 p-2 font-medium border-r border-slate-300">Tempat Tujuan</td>
                         <td className="p-2 font-semibold">{activeLaporan.destination || activeLaporan.tempat_tujuan || '-'}</td>
                       </tr>
                       <tr className="border-b border-slate-200">
-                        <td className="p-2 font-medium">Nomor Surat</td>
+                        <td className="p-2 font-medium border-r border-slate-300">Nomor Surat</td>
                         <td className="p-2 font-mono">{activeLaporan.letter_number || activeLaporan.nomor_surat || '-'}</td>
                       </tr>
                       <tr>
-                        <td className="p-2 font-medium">Nomor SPD</td>
+                        <td className="p-2 font-medium border-r border-slate-300">Nomor SPD</td>
                         <td className="p-2 font-mono">{activeLaporan.spd_number || activeLaporan.nomor_spd || '-'}</td>
                       </tr>
                     </tbody>
@@ -206,7 +215,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   </div>
                 </div>
 
-                {/* V. DOKUMENTASI PERJALANAN DINAS (Clean layout matching Non-PD) */}
+                {/* V. DOKUMENTASI PERJALANAN DINAS (With clean vertical borders) */}
                 {allPhotos.length > 0 && (
                   <div className="border border-slate-300 overflow-hidden">
                     <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
@@ -218,19 +227,19 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                         {dateKeys.map((dateKey) => {
                           const datePhotosList = photoGroups[dateKey] || [];
                           return (
-                            <div key={dateKey} className="border border-slate-200 rounded overflow-hidden">
-                              <div className="bg-slate-100 border-b border-slate-200 py-1 px-3 font-bold text-[11px] text-slate-700 uppercase tracking-wide">
+                            <div key={dateKey} className="border border-slate-300 rounded overflow-hidden">
+                              <div className="bg-slate-100 border-b border-slate-300 py-1 px-3 font-bold text-[11px] text-slate-700 uppercase tracking-wide text-center">
                                 Dokumentasi Tanggal: {formatDateIndonesian(dateKey)}
                               </div>
-                              <div className="grid grid-cols-2 gap-3 p-2 bg-white">
+                              <div className="grid grid-cols-2 gap-0 bg-white divide-x divide-slate-300 border-t border-slate-300">
                                 {datePhotosList.map((foto: any, idx: number) => {
                                   const isLastOdd = (datePhotosList.length % 2 !== 0) && (idx === datePhotosList.length - 1);
                                   const imgSrc = getDirectImageUrl(foto);
                                   return (
                                     <div
                                       key={idx}
-                                      className={`border border-slate-200 p-2 text-center bg-white ${
-                                        isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
+                                      className={`p-3 text-center bg-white border-b border-slate-300 ${
+                                        isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto border-r-0' : ''
                                       }`}
                                     >
                                       {imgSrc ? (
@@ -249,15 +258,15 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                         })}
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-3 p-3 bg-white">
+                      <div className="grid grid-cols-2 gap-0 bg-white border-t border-slate-300 divide-x divide-slate-300">
                         {allPhotos.map((foto: any, idx: number) => {
                           const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
                           const imgSrc = getDirectImageUrl(foto);
                           return (
                             <div
                               key={idx}
-                              className={`border border-slate-200 p-2 text-center rounded bg-white ${
-                                isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
+                              className={`p-3 text-center rounded-none bg-white border-b border-slate-300 ${
+                                isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto border-r-0' : ''
                               }`}
                             >
                               {imgSrc ? (
@@ -339,15 +348,15 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                                 <div className="bg-[#F8C48C] border-b border-black py-1 px-3 text-center font-bold text-[11px] sm:text-xs text-black uppercase tracking-wide">
                                   Dokumentasi Tanggal: {formatDateIndonesian(dateKey)}
                                 </div>
-                                <div className="grid grid-cols-2 gap-3 p-3 bg-white">
+                                <div className="grid grid-cols-2 gap-0 bg-white border-t border-black divide-x divide-black">
                                   {datePhotosList.map((foto: any, idx: number) => {
                                     const isLastOdd = (datePhotosList.length % 2 !== 0) && (idx === datePhotosList.length - 1);
                                     const imgSrc = getDirectImageUrl(foto);
                                     return (
                                       <div
                                         key={idx}
-                                        className={`border border-slate-300 p-2 text-center bg-white ${
-                                          isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
+                                        className={`p-2 text-center bg-white border-b border-black ${
+                                          isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto border-r-0' : ''
                                         }`}
                                       >
                                         {imgSrc ? (
@@ -366,15 +375,15 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                           })}
                         </div>
                       ) : (
-                        <div className="grid grid-cols-2 gap-3 p-3 bg-white border border-black">
+                        <div className="grid grid-cols-2 gap-0 bg-white border border-black divide-x divide-black">
                           {allPhotos.map((foto: any, idx: number) => {
                             const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
                             const imgSrc = getDirectImageUrl(foto);
                             return (
                               <div
                                 key={idx}
-                                className={`border border-slate-300 p-2 text-center bg-white ${
-                                  isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
+                                className={`p-2 text-center bg-white border-b border-black ${
+                                  isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto border-r-0' : ''
                                 }`}
                               >
                                 {imgSrc ? (
