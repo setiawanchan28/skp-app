@@ -203,28 +203,53 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
   }
 
   // Header Title
-  const title1 = isPenugasan ? 'LAPORAN HASIL PERJALANAN DINAS' : 'BUKTI DUKUNG KEGIATAN HARIAN';
-  const title1Width = fontBold.widthOfTextAtSize(title1, 13);
-  page.drawText(title1, {
-    x: (pageWidth - title1Width) / 2,
-    y: y,
-    size: 13,
-    font: fontBold,
-    color: black,
-  });
-  y -= 16;
-
   const dateYear = new Date(data.tanggal || Date.now()).getFullYear();
-  const title2 = `BADAN PUSAT STATISTIK KABUPATEN LEBAK TAHUN ${dateYear}`;
-  const title2Width = fontBold.widthOfTextAtSize(title2, 12);
-  page.drawText(title2, {
-    x: (pageWidth - title2Width) / 2,
-    y: y,
-    size: 12,
-    font: fontBold,
-    color: black,
-  });
-  y -= 25;
+
+  if (isPenugasan) {
+    const title1 = 'LAPORAN PENUGASAN BADAN PUSAT STATISTIK KABUPATEN LEBAK';
+    const title1Width = fontBold.widthOfTextAtSize(title1, 11);
+    page.drawText(title1, {
+      x: (pageWidth - title1Width) / 2,
+      y: y,
+      size: 11,
+      font: fontBold,
+      color: black,
+    });
+    y -= 16;
+
+    const title2 = `TAHUN ${dateYear}`;
+    const title2Width = fontBold.widthOfTextAtSize(title2, 11);
+    page.drawText(title2, {
+      x: (pageWidth - title2Width) / 2,
+      y: y,
+      size: 11,
+      font: fontBold,
+      color: black,
+    });
+    y -= 25;
+  } else {
+    const title1 = 'BUKTI DUKUNG KEGIATAN';
+    const title1Width = fontBold.widthOfTextAtSize(title1, 13);
+    page.drawText(title1, {
+      x: (pageWidth - title1Width) / 2,
+      y: y,
+      size: 13,
+      font: fontBold,
+      color: black,
+    });
+    y -= 16;
+
+    const title2 = `BADAN PUSAT STATISTIK KABUPATEN LEBAK TAHUN ${dateYear}`;
+    const title2Width = fontBold.widthOfTextAtSize(title2, 12);
+    page.drawText(title2, {
+      x: (pageWidth - title2Width) / 2,
+      y: y,
+      size: 12,
+      font: fontBold,
+      color: black,
+    });
+    y -= 25;
+  }
 
   const cleanNamaPegawai = sanitizeWinAnsiText(data.namaPegawai);
   const cleanJabatan = sanitizeWinAnsiText(data.jabatan);
@@ -382,7 +407,10 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     });
     y -= resumeBoxH + 15;
 
-    // V. DOKUMENTASI
+    // V. DOKUMENTASI (FORCE NEW PAGE / LEMBAR BARU FOR PERJALANAN DINAS)
+    page = pdfDoc.addPage([pageWidth, pageHeight]);
+    y = pageHeight - 40;
+
     page.drawRectangle({ x: margin, y: y - headerHeight, width: contentWidth, height: headerHeight, color: lightGrayBg, borderColor: black, borderWidth: 1 });
     page.drawText('V. DOKUMENTASI', { x: margin + 10, y: y - 15, size: 10, font: fontBold, color: black });
     y -= headerHeight;

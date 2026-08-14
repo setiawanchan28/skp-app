@@ -105,12 +105,25 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                 )}
               </div>
               <div>
-                <h2 className="font-extrabold text-sm sm:text-lg tracking-wide uppercase">
-                  {isPenugasan ? 'LAPORAN HASIL PERJALANAN DINAS' : 'BUKTI DUKUNG KEGIATAN HARIAN'}
-                </h2>
-                <p className="font-bold text-xs sm:text-sm tracking-normal uppercase text-slate-800">
-                  BADAN PUSAT STATISTIK KABUPATEN LEBAK TAHUN {dateYear}
-                </p>
+                {isPenugasan ? (
+                  <>
+                    <h2 className="font-extrabold text-xs sm:text-base tracking-wide uppercase">
+                      LAPORAN PENUGASAN BADAN PUSAT STATISTIK KABUPATEN LEBAK
+                    </h2>
+                    <p className="font-bold text-xs sm:text-sm tracking-normal uppercase text-slate-800 mt-0.5">
+                      TAHUN {dateYear}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="font-extrabold text-sm sm:text-lg tracking-wide uppercase">
+                      BUKTI DUKUNG KEGIATAN
+                    </h2>
+                    <p className="font-bold text-xs sm:text-sm tracking-normal uppercase text-slate-800 mt-0.5">
+                      BADAN PUSAT STATISTIK KABUPATEN LEBAK TAHUN {dateYear}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 
@@ -215,72 +228,77 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   </div>
                 </div>
 
-                {/* V. DOKUMENTASI PERJALANAN DINAS (With clean vertical borders) */}
+                {/* V. DOKUMENTASI PERJALANAN DINAS (Lembar Baru / New Page) */}
                 {allPhotos.length > 0 && (
-                  <div className="border border-slate-300 overflow-hidden">
-                    <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
-                      V. DOKUMENTASI
+                  <div className="pt-6 border-t-2 border-dashed border-slate-300 space-y-3">
+                    <div className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      --- LEMBAR BARU (HALAMAN DOKUMENTASI) ---
                     </div>
+                    <div className="border border-slate-300 overflow-hidden">
+                      <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
+                        V. DOKUMENTASI
+                      </div>
 
-                    {isDateRange && dateKeys.length > 1 ? (
-                      <div className="space-y-3 p-3 bg-white">
-                        {dateKeys.map((dateKey) => {
-                          const datePhotosList = photoGroups[dateKey] || [];
-                          return (
-                            <div key={dateKey} className="border border-slate-300 rounded overflow-hidden">
-                              <div className="bg-slate-100 border-b border-slate-300 py-1 px-3 font-bold text-[11px] text-slate-700 uppercase tracking-wide text-center">
-                                Dokumentasi Tanggal: {formatDateIndonesian(dateKey)}
-                              </div>
-                              <div className="grid grid-cols-2 gap-0 bg-white divide-x divide-slate-300 border-t border-slate-300">
-                                {datePhotosList.map((foto: any, idx: number) => {
-                                  const isLastOdd = (datePhotosList.length % 2 !== 0) && (idx === datePhotosList.length - 1);
-                                  const imgSrc = getDirectImageUrl(foto);
-                                  return (
-                                    <div
-                                      key={idx}
-                                      className={`p-3 text-center bg-white border-b border-slate-300 ${
-                                        isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto border-r-0' : ''
-                                      }`}
-                                    >
-                                      {imgSrc ? (
-                                        <img src={imgSrc} alt="Foto Dokumentasi" className="h-40 w-full object-contain mx-auto rounded" />
-                                      ) : (
-                                        <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
-                                          [ Pratinjau Foto ]
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-2 gap-0 bg-white border-t border-slate-300 divide-x divide-slate-300">
-                        {allPhotos.map((foto: any, idx: number) => {
-                          const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
-                          const imgSrc = getDirectImageUrl(foto);
-                          return (
-                            <div
-                              key={idx}
-                              className={`p-3 text-center rounded-none bg-white border-b border-slate-300 ${
-                                isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto border-r-0' : ''
-                              }`}
-                            >
-                              {imgSrc ? (
-                                <img src={imgSrc} alt="Foto Dokumentasi" className="h-40 w-full object-contain mx-auto rounded" />
-                              ) : (
-                                <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
-                                  [ Pratinjau Foto ]
+                      {isDateRange && dateKeys.length > 1 ? (
+                        <div className="space-y-3 p-3 bg-white">
+                          {dateKeys.map((dateKey) => {
+                            const datePhotosList = photoGroups[dateKey] || [];
+                            return (
+                              <div key={dateKey} className="border border-slate-300 rounded overflow-hidden">
+                                <div className="bg-slate-100 border-b border-slate-300 py-1 px-3 font-bold text-[11px] text-slate-700 uppercase tracking-wide text-center">
+                                  Dokumentasi Tanggal: {formatDateIndonesian(dateKey)}
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                                <div className="grid grid-cols-2 gap-0 bg-white divide-x divide-slate-300 border-t border-slate-300">
+                                  {datePhotosList.map((foto: any, idx: number) => {
+                                    const isLastOdd = (datePhotosList.length % 2 !== 0) && (idx === datePhotosList.length - 1);
+                                    const imgSrc = getDirectImageUrl(foto);
+                                    return (
+                                      <div
+                                        key={idx}
+                                        className={`p-3 text-center bg-white border-b border-slate-300 ${
+                                          isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto border-r-0' : ''
+                                        }`}
+                                      >
+                                        {imgSrc ? (
+                                          <img src={imgSrc} alt="Foto Dokumentasi" className="h-40 w-full object-contain mx-auto rounded" />
+                                        ) : (
+                                          <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
+                                            [ Pratinjau Foto ]
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-0 bg-white border-t border-slate-300 divide-x divide-slate-300">
+                          {allPhotos.map((foto: any, idx: number) => {
+                            const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
+                            const imgSrc = getDirectImageUrl(foto);
+                            return (
+                              <div
+                                key={idx}
+                                className={`p-3 text-center rounded-none bg-white border-b border-slate-300 ${
+                                  isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto border-r-0' : ''
+                                }`}
+                              >
+                                {imgSrc ? (
+                                  <img src={imgSrc} alt="Foto Dokumentasi" className="h-40 w-full object-contain mx-auto rounded" />
+                                ) : (
+                                  <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
+                                    [ Pratinjau Foto ]
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
