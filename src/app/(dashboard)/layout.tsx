@@ -1,15 +1,62 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Navbar } from '@/components/layout/Navbar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Authentication Guard Check for Dashboard
+  useEffect(() => {
+    const verifySession = async () => {
+      if (typeof window !== 'undefined') {
+        const savedUser = localStorage.getItem('bps_auth_user');
+        if (savedUser) {
+          try {
+            const parsed = JSON.parse(savedUser);
+            if (parsed && parsed.nama) {
+              setIsCheckingAuth(false);
+              return;
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (isSupabaseConfigured()) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data?.session) {
+            setIsCheckingAuth(false);
+            return;
+          }
+        } catch (e) {}
+      }
+
+      // Not authenticated -> Redirect to Login Page
+      router.replace('/login');
+    };
+
+    verifySession();
+  }, [router]);
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="text-xs font-bold text-sky-400 animate-pulse">
+          Memverifikasi sesi pengguna...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ThemeProvider>
