@@ -20,7 +20,7 @@ import { formatDateIndonesian } from '@/utils/formatters';
 import { PDFPreviewModal } from '@/components/laporan/PDFPreviewModal';
 import { BULAN_INDONESIA } from '@/constants/bpsConfig';
 
-export default function DashboardPage() {
+export default function DashboardOverviewPage() {
   const [laporanList, setLaporanList] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLaporan, setSelectedLaporan] = useState<Activity | null>(null);
