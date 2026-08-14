@@ -10,9 +10,6 @@ import {
   Clock,
   MapPin,
   FileText,
-  Lock,
-  Unlock,
-  AlertTriangle,
   UserPlus,
   Trash2,
   Mic,
@@ -72,11 +69,9 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState<string>('');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isForceChangeModalOpen, setIsForceChangeModalOpen] = useState(false);
 
-  // Status & Locking State
+  // Status State
   const isGenerated = initialData?.status === 'GENERATED';
-  const [isForceChangeActive, setIsForceChangeActive] = useState(false);
 
   // Load User Profile & Initial Data
   useEffect(() => {
@@ -194,15 +189,6 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       }
     }
 
-    // Check collision case-insensitively
-    try {
-      const isCollision = await checkActivityNameCollision('user_curr', namaKegiatan, initialData?.id);
-      if (isCollision && !isForceChangeActive) {
-        showToast('Kegiatan dengan nama tersebut sudah ada. Silakan gunakan nama kegiatan yang berbeda.', 'error');
-        return;
-      }
-    } catch (e) {}
-
     setIsSubmitting(true);
     setSubmitProgress('Menyimpan data kegiatan...');
 
@@ -227,13 +213,9 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       const validPeople = people.filter((p) => p.person_name.trim().length > 0);
 
       const res = await fetch(
-        isForceChangeActive && initialData?.id
-          ? `/api/activities/${initialData.id}/force-change`
-          : initialData?.id
-          ? `/api/activities/${initialData.id}`
-          : '/api/activities',
+        initialData?.id ? `/api/activities/${initialData.id}` : '/api/activities',
         {
-          method: isForceChangeActive ? 'POST' : initialData?.id ? 'PUT' : 'POST',
+          method: initialData?.id ? 'PUT' : 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             activity: activityPayload,
@@ -280,12 +262,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         } catch (e) {}
       }
 
-      showToast(
-        isForceChangeActive
-          ? 'Identitas kegiatan berhasil diperbarui melalui Ganti Paksa!'
-          : 'Kegiatan berhasil disimpan!',
-        'success'
-      );
+      showToast('Kegiatan berhasil disimpan!', 'success');
       router.push('/laporan');
     } catch (err: any) {
       showToast(err.message || 'Terjadi kesalahan saat menyimpan data', 'error');
@@ -294,8 +271,6 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       setSubmitProgress('');
     }
   };
-
-  const isFieldsLocked = isGenerated && !isForceChangeActive;
 
   // Preview Object
   const previewActivity: Activity = {
@@ -351,36 +326,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             BPS Kabupaten Lebak — Isi detail kegiatan, atur dokumentasi, dan rapikan narasi dengan AI sebelum mencetak PDF.
           </p>
         </div>
-
-        {isGenerated && (
-          <div className="flex items-center gap-3">
-            {isFieldsLocked ? (
-              <button
-                type="button"
-                onClick={() => setIsForceChangeModalOpen(true)}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-md transition-colors"
-              >
-                <Unlock className="w-4 h-4" />
-                <span>Ganti Paksa Identitas</span>
-              </button>
-            ) : (
-              <span className="px-3 py-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/50 rounded-xl text-xs font-bold flex items-center gap-1.5">
-                <AlertTriangle className="w-4 h-4" /> Mode Ganti Paksa Aktif
-              </span>
-            )}
-          </div>
-        )}
       </div>
-
-      {/* Locked Fields Warning Banner */}
-      {isFieldsLocked && (
-        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-start gap-3 text-amber-800 dark:text-amber-200">
-          <Lock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <div className="text-xs leading-relaxed">
-            <strong>Identitas Kegiatan Terkunci:</strong> Kegiatan ini telah berhasil di-generate menjadi PDF. Nama kegiatan, tanggal, waktu, dan nomor SPD dikunci untuk menjaga konsistensi file Google Drive. Anda tetap dapat mengedit narasi deskripsi.
-          </div>
-        </div>
-      )}
 
       {/* Section 0: Pelaksana Kegiatan (Nama, NIP, Jabatan) */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
@@ -442,7 +388,6 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
             type="button"
-            disabled={isFieldsLocked}
             onClick={() => setActivityType('NON_PERJALANAN_DINAS')}
             className={`p-4 rounded-2xl border text-left flex items-start justify-between transition-all ${
               activityType === 'NON_PERJALANAN_DINAS'
@@ -461,7 +406,6 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
 
           <button
             type="button"
-            disabled={isFieldsLocked}
             onClick={() => setActivityType('PERJALANAN_DINAS')}
             className={`p-4 rounded-2xl border text-left flex items-start justify-between transition-all ${
               activityType === 'PERJALANAN_DINAS'
@@ -489,72 +433,67 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="md:col-span-2">
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-              Nama Kegiatan * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
+              Nama Kegiatan *
             </label>
             <input
               type="text"
               required
-              disabled={isFieldsLocked}
               value={namaKegiatan}
               onChange={(e) => setNamaKegiatan(e.target.value)}
               placeholder="Contoh: Pendampingan lapangan pencacahan Survei Ekonomi Pertanian"
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-              Tanggal Mulai * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
+              Tanggal Mulai *
             </label>
             <input
               type="date"
               required
-              disabled={isFieldsLocked}
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-              Tanggal Selesai * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
+              Tanggal Selesai *
             </label>
             <input
               type="date"
               required
-              disabled={isFieldsLocked}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-              Jam Mulai * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
+              Jam Mulai *
             </label>
             <input
               type="time"
               required
-              disabled={isFieldsLocked}
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-              Jam Selesai * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
+              Jam Selesai *
             </label>
             <input
               type="time"
               required
-              disabled={isFieldsLocked}
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
             />
           </div>
         </div>
@@ -598,16 +537,15 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
 
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
-                Nomor SPD * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
+                Nomor SPD *
               </label>
               <input
                 type="text"
                 required
-                disabled={isFieldsLocked}
                 value={spdNumber}
                 onChange={(e) => setSpdNumber(e.target.value)}
                 placeholder="Contoh: 098/SPD/BPS/2026"
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
               />
             </div>
           </div>
