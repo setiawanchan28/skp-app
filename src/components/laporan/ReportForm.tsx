@@ -254,7 +254,17 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         }
       );
 
-      const result = await res.json();
+      const resText = await res.text();
+      let result: any = {};
+      try {
+        result = JSON.parse(resText);
+      } catch (err) {
+        if (res.status === 413) {
+          throw new Error('Ukuran foto / payload melebihi batas server (413 Payload Too Large). Harap gunakan foto beresolusi lebih kecil.');
+        }
+        throw new Error(`Server Error (${res.status}): ${resText.slice(0, 100)}`);
+      }
+
       if (!res.ok || !result.success) {
         throw new Error(result.error || 'Gagal menyimpan kegiatan');
       }

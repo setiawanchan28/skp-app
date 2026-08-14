@@ -122,6 +122,21 @@ export default function RiwayatLaporanPage() {
         (savedProfile as any)?.provider_token ||
         '';
 
+      const cleanDocs = (act.documents || (act as any).fotos || []).map((doc: any) => ({
+        id: doc.id,
+        name: doc.name || doc.file_name,
+        previewUrl: doc.previewUrl || doc.existingUrl || doc.base64 || doc.url || '',
+        existingUrl: doc.existingUrl || doc.previewUrl || doc.base64 || doc.url || '',
+        tanggal_foto: doc.tanggal_foto || doc.documentation_date || act.start_date,
+      }));
+
+      const payloadActivityData = {
+        ...act,
+        documents: cleanDocs,
+        fotos: cleanDocs,
+        provider_token: googleToken,
+      };
+
       const res = await fetch(`/api/activities/${act.id}/generate-pdf`, {
         method: 'POST',
         headers: {
@@ -131,10 +146,21 @@ export default function RiwayatLaporanPage() {
         body: JSON.stringify({
           idempotency_key: `gen_${act.id}_${Date.now()}`,
           user_drive_token: googleToken,
-          activityData: { ...act, provider_token: googleToken },
+          activityData: payloadActivityData,
         }),
       });
-      const data = await res.json();
+
+      const responseText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(responseText);
+      } catch (err) {
+        if (res.status === 413) {
+          throw new Error('Ukuran data / foto dokumentasi terlalu besar (413 Payload Too Large). Harap kompres foto atau gunakan foto beresolusi lebih kecil.');
+        }
+        throw new Error(`Gagal Generate PDF (Server Error ${res.status}): ${responseText.slice(0, 100)}`);
+      }
+
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Gagal generate PDF');
       }
