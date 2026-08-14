@@ -15,16 +15,20 @@ export async function generateBpsSummary(
   } else if (jumlahParagraf === '2') {
     paragraphInstruction = 'Wajib bagi ringkasan naratif menjadi TEPAT 2 PARAGRAF RAPI yang terpisah oleh dua kali perpindahan baris (line break).';
   } else if (jumlahParagraf === '3') {
-    paragraphInstruction = 'Wajib bagi ringkasan naratif menjadi TEPAT 3 PARAGRAF RAPI yang terpisah oleh dua kali perpindahan baris (line break).';
+    paragraphInstruction = `WAJIB SUSUN DALAM TEPAT 3 PARAGRAF COMPREHENSIVE, DETAIL, DAN PANJANG (minimal 4-6 kalimat kaya per paragraf). 
+Pembagian isi 3 paragraf:
+- PARAGRAF 1: Penjelasan rinci latar belakang, maksud & tujuan kegiatan, lokasi pendataan (Desa/Kecamatan/Blok Sensus), koordinasi awal, serta komposisi tim/petugas yang terlibat.
+- PARAGRAF 2: Uraian mendalam alur teknis verifikasi kuesioner digital/fisik, pengawasan pencacahan, pendampingan sampel, evaluasi anomali data di lapangan, dan pencapaian target harian.
+- PARAGRAF 3: Tindakan korektif yang diambil, rekomendasi perbaikan kualitas data, dampaknya terhadap keakuratan statistik BPS Kabupaten Lebak, serta penyelesaian kegiatan secara tuntas.`;
   }
 
-  let lengthInstruction = 'Tuliskan deskripsi narasi yang SANGAT DETAIL, TERDOKUMENTASI DENGAN BAIK, DAN COMPREHENSIVE (uraikan setiap poin kegiatan secara mendalam mulai dari persiapan, proses verifikasi, koordinasi lapangan, hingga jaminan mutu statistik).';
+  let lengthInstruction = 'Tuliskan deskripsi narasi yang SANGAT DETAIL, LENGKAP, TERDOKUMENTASI DENGAN BAIK, DAN PANJANG (uraikan setiap poin kegiatan secara mendalam mulai dari persiapan, proses verifikasi, koordinasi lapangan, hingga jaminan mutu statistik).';
   if (modePanjang === 'pendek') {
     lengthInstruction = 'Tuliskan deskripsi narasi yang RINGKAS, PADAT, DAN STRUKTURAL (1-2 kalimat fokus pada inti hasil kegiatan).';
   }
 
   const prompt = `Anda adalah asisten penyusunan ringkasan Bukti Dukung Kegiatan Harian Pegawai BPS.
-Tugas Anda adalah merangkai poin-poin kegiatan mentah menjadi **NARASI RESMI BPS YANG MENGALIR DAN PROFESIONAL**.
+Tugas Anda adalah merangkai poin-poin kegiatan mentah menjadi **NARASI RESMI BPS YANG MENGALIR, PANJANG, PROFESIONAL, DAN SANGAT DETAIL**.
 
 Informasi Input:
 - Nama Kegiatan: ${namaKegiatan}
@@ -143,23 +147,23 @@ function composeCustomParagraphNarrative(
 
   if (actions.length > 0) {
     const formatted = actions.map((a) => a.charAt(0).toLowerCase() + a.slice(1));
-    p1 += `Rangkaian pelaksanaan tugas meliputi ${formatted.join(', ')}.`;
+    p1 += `Rangkaian pelaksanaan tugas berfokus pada ${formatted.join(', ')}.`;
   } else {
     p1 += `Pelaksanaan tugas berfokus pada verifikasi isian kuesioner dan pemantauan kualitas data di lapangan.`;
   }
 
-  if (modePanjang === 'panjang') {
-    p1 += ` Setiap tahapan diawasi secara cermat untuk memastikan kesesuaian dengan standar metodologi pendataan BPS.`;
+  if (modePanjang === 'panjang' || jumlahParagraf === '3') {
+    p1 += ` Kegiatan diawali dengan pengarahan teknis bersama tim kerja guna menyamakan persepsi operasional dan memastikan kelengkapan seluruh instrumen pendataan sesuai standar operasional BPS.`;
   }
 
   if (jumlahParagraf === '2' || (jumlahParagraf === 'auto' && modePanjang === 'panjang')) {
-    const p2 = `Melalui kegiatan ini, koordinasi teknis serta pemeriksaan konsistensi data statistik terus ditingkatkan. Hal ini dilakukan guna mengidentifikasi dan meminimalkan error pendataan sejak dini, sehingga menjamin keakuratan serta kualitas data statistik yang dihasilkan secara berkelanjutan.`;
+    const p2 = `Melalui kegiatan ini, koordinasi teknis serta pemeriksaan konsistensi data statistik terus ditingkatkan secara intensif. Hal ini dilakukan guna mengidentifikasi dan meminimalkan error pendataan sejak dini, sehingga menjamin keakuratan serta mutu data statistik yang dihasilkan secara berkelanjutan di Kabupaten Lebak.`;
     return `${p1}\n\n${p2}`;
   }
 
   if (jumlahParagraf === '3') {
-    const p2 = `Selama pelaksanaan di lapangan, pemeriksaan dilakukan secara mendalam pada setiap dokumen kuesioner untuk memverifikasi keabsahan isian dan mendeteksi anomali data secara langsung bersama petugas pencacah.`;
-    const p3 = `Langkah konkrit ini diambil guna menjaga tingkat integritas data statistik serta memastikan seluruh alur operasional di wilayah BPS Kabupaten Lebak memenuhi indikator kinerja yang telah ditetapkan.`;
+    const p2 = `Selama pelaksanaan di lapangan, pemeriksaan dilakukan secara mendalam dan sistematis pada setiap dokumen kuesioner untuk memverifikasi keabsahan isian serta mendeteksi anomali data secara langsung bersama petugas pencacah. Rangkaian validasi ini mencakup pengecekan kelengkapan variabel utama, konsistensi antar-blok pertanyaan, hingga kepatuhan terhadap SOP pendataan yang berlaku di wilayah sampel.`;
+    const p3 = `Langkah konkrit tersebut diambil guna meminimalkan nonsampling error, menjaga tingkat integritas data statistik, serta memastikan seluruh alur operasional kegiatan harian di wilayah BPS Kabupaten Lebak memenuhi indikator kinerja utama yang telah ditetapkan secara tuntas dan proporsional.`;
     return `${p1}\n\n${p2}\n\n${p3}`;
   }
 

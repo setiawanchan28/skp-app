@@ -14,31 +14,6 @@ interface PDFPreviewModalProps {
   laporanData?: any;
 }
 
-function generateDateList(startDateStr: string, endDateStr?: string): { dateStr: string; label: string }[] {
-  if (!endDateStr || startDateStr === endDateStr) {
-    return [{ dateStr: startDateStr, label: formatDateIndonesian(startDateStr) }];
-  }
-
-  const start = new Date(startDateStr);
-  const end = new Date(endDateStr);
-  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
-    return [{ dateStr: startDateStr, label: formatDateIndonesian(startDateStr) }];
-  }
-
-  const list: { dateStr: string; label: string }[] = [];
-  const curr = new Date(start);
-  while (curr <= end) {
-    const yyyy = curr.getFullYear();
-    const mm = String(curr.getMonth() + 1).padStart(2, '0');
-    const dd = String(curr.getDate()).padStart(2, '0');
-    const iso = `${yyyy}-${mm}-${dd}`;
-    const label = `${curr.getDate()} ${BULAN_INDONESIA[curr.getMonth()]} ${yyyy}`;
-    list.push({ dateStr: iso, label });
-    curr.setDate(curr.getDate() + 1);
-  }
-  return list;
-}
-
 function extractDriveFileId(url?: string): string | null {
   if (!url) return null;
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -62,6 +37,19 @@ function getDirectImageUrl(foto: any): string {
   return src;
 }
 
+function groupPhotosByDate(photos: any[], startDate: string): Record<string, any[]> {
+  const groups: Record<string, any[]> = {};
+  if (!photos || photos.length === 0) return groups;
+
+  photos.forEach((foto) => {
+    const dateKey = foto.tanggal_foto || foto.documentation_date || startDate;
+    if (!groups[dateKey]) groups[dateKey] = [];
+    groups[dateKey].push(foto);
+  });
+
+  return groups;
+}
+
 export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
   isOpen,
   onClose,
@@ -81,10 +69,17 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
 
   if (!activeLaporan) return null;
 
-  const dateYear = new Date(activeLaporan.tanggal || activeLaporan.start_date || Date.now()).getFullYear();
+  const startDate = activeLaporan.tanggal || activeLaporan.start_date || new Date().toISOString().split('T')[0];
+  const endDate = activeLaporan.tanggal_selesai || activeLaporan.end_date || startDate;
+  const isDateRange = startDate !== endDate;
+
+  const dateYear = new Date(startDate).getFullYear();
   const isPenugasan = activeLaporan.jenis_laporan === 'penugasan' || activeLaporan.activity_type === 'PERJALANAN_DINAS';
   const allPhotos = activeLaporan.fotos || activeLaporan.documents || [];
   const petugasList = activeLaporan.petugas_ditemui || activeLaporan.people?.map((p: any) => ({ nama: p.person_name, jabatan: p.position })) || [];
+
+  const photoGroups = groupPhotosByDate(allPhotos, startDate);
+  const dateKeys = Object.keys(photoGroups).sort();
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={isPenugasan ? 'Preview Laporan Penugasan BPS' : 'Preview Bukti Dukung BPS'} maxWidth="4xl">
@@ -150,7 +145,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                       </tr>
                       <tr className="border-b border-slate-200">
                         <td className="p-2 font-medium">Tanggal Perjadin</td>
-                        <td className="p-2 font-medium">{formatDateIndonesian(activeLaporan.start_date || activeLaporan.tanggal, activeLaporan.end_date || activeLaporan.tanggal_selesai)}</td>
+                        <td className="p-2 font-medium">{formatDateIndonesian(startDate, endDate)}</td>
                       </tr>
                       <tr className="border-b border-slate-200">
                         <td className="w-1/3 p-2 font-medium">Tempat Tujuan</td>
@@ -211,37 +206,72 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   </div>
                 </div>
 
-                {/* V. DOKUMENTASI (Centered for Single or Last Odd Photo) */}
+                {/* V. DOKUMENTASI PERJALANAN DINAS (Clean layout matching Non-PD) */}
                 {allPhotos.length > 0 && (
                   <div className="border border-slate-300 overflow-hidden">
                     <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
                       V. DOKUMENTASI
                     </div>
-                    <div className="grid grid-cols-2 gap-3 p-3 bg-white">
-                      {allPhotos.map((foto: any, idx: number) => {
-                        const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
-                        const imgSrc = getDirectImageUrl(foto);
-                        return (
-                          <div
-                            key={idx}
-                            className={`border border-slate-200 p-2 text-center rounded bg-white ${
-                              isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
-                            }`}
-                          >
-                            {imgSrc ? (
-                              <img src={imgSrc} alt={foto.file_name || foto.name || `Foto ${idx + 1}`} className="h-40 w-full object-contain mx-auto rounded" />
-                            ) : (
-                              <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
-                                [ Pratinjau Foto ]
+
+                    {isDateRange && dateKeys.length > 1 ? (
+                      <div className="space-y-3 p-3 bg-white">
+                        {dateKeys.map((dateKey) => {
+                          const datePhotosList = photoGroups[dateKey] || [];
+                          return (
+                            <div key={dateKey} className="border border-slate-200 rounded overflow-hidden">
+                              <div className="bg-slate-100 border-b border-slate-200 py-1 px-3 font-bold text-[11px] text-slate-700 uppercase tracking-wide">
+                                Dokumentasi Tanggal: {formatDateIndonesian(dateKey)}
                               </div>
-                            )}
-                            <div className="text-[10px] text-slate-500 mt-1 font-medium truncate">
-                              {foto.file_name || foto.name || `Foto_${idx + 1}`}
+                              <div className="grid grid-cols-2 gap-3 p-2 bg-white">
+                                {datePhotosList.map((foto: any, idx: number) => {
+                                  const isLastOdd = (datePhotosList.length % 2 !== 0) && (idx === datePhotosList.length - 1);
+                                  const imgSrc = getDirectImageUrl(foto);
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className={`border border-slate-200 p-2 text-center bg-white ${
+                                        isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
+                                      }`}
+                                    >
+                                      {imgSrc ? (
+                                        <img src={imgSrc} alt="Foto Dokumentasi" className="h-40 w-full object-contain mx-auto rounded" />
+                                      ) : (
+                                        <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
+                                          [ Pratinjau Foto ]
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-3 p-3 bg-white">
+                        {allPhotos.map((foto: any, idx: number) => {
+                          const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
+                          const imgSrc = getDirectImageUrl(foto);
+                          return (
+                            <div
+                              key={idx}
+                              className={`border border-slate-200 p-2 text-center rounded bg-white ${
+                                isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
+                              }`}
+                            >
+                              {imgSrc ? (
+                                <img src={imgSrc} alt="Foto Dokumentasi" className="h-40 w-full object-contain mx-auto rounded" />
+                              ) : (
+                                <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
+                                  [ Pratinjau Foto ]
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -282,7 +312,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">5.</td>
                         <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">TANGGAL</td>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                        <td className="p-1.5 sm:p-2 font-medium">{formatDateIndonesian(activeLaporan.start_date || activeLaporan.tanggal, activeLaporan.end_date || activeLaporan.tanggal_selesai)}</td>
+                        <td className="p-1.5 sm:p-2 font-medium">{formatDateIndonesian(startDate, endDate)}</td>
                       </tr>
                       <tr>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">6.</td>
@@ -300,28 +330,65 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   </div>
                   <div className="p-2 sm:p-4">
                     {allPhotos.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-3 p-3 bg-white border border-black">
-                        {allPhotos.map((foto: any, idx: number) => {
-                          const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
-                          const imgSrc = getDirectImageUrl(foto);
-                          return (
-                            <div
-                              key={idx}
-                              className={`border border-slate-300 p-2 text-center bg-white ${
-                                isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
-                              }`}
-                            >
-                              {imgSrc ? (
-                                <img src={imgSrc} alt={foto.file_name || foto.name || `Foto ${idx + 1}`} className="h-40 w-full object-contain mx-auto" />
-                              ) : (
-                                <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
-                                  [ Pratinjau Foto ]
+                      isDateRange && dateKeys.length > 1 ? (
+                        <div className="space-y-4">
+                          {dateKeys.map((dateKey) => {
+                            const datePhotosList = photoGroups[dateKey] || [];
+                            return (
+                              <div key={dateKey} className="border border-black overflow-hidden">
+                                <div className="bg-[#F8C48C] border-b border-black py-1 px-3 text-center font-bold text-[11px] sm:text-xs text-black uppercase tracking-wide">
+                                  Dokumentasi Tanggal: {formatDateIndonesian(dateKey)}
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                                <div className="grid grid-cols-2 gap-3 p-3 bg-white">
+                                  {datePhotosList.map((foto: any, idx: number) => {
+                                    const isLastOdd = (datePhotosList.length % 2 !== 0) && (idx === datePhotosList.length - 1);
+                                    const imgSrc = getDirectImageUrl(foto);
+                                    return (
+                                      <div
+                                        key={idx}
+                                        className={`border border-slate-300 p-2 text-center bg-white ${
+                                          isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
+                                        }`}
+                                      >
+                                        {imgSrc ? (
+                                          <img src={imgSrc} alt="Foto Dokumentasi" className="h-40 w-full object-contain mx-auto" />
+                                        ) : (
+                                          <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
+                                            [ Pratinjau Foto ]
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3 p-3 bg-white border border-black">
+                          {allPhotos.map((foto: any, idx: number) => {
+                            const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
+                            const imgSrc = getDirectImageUrl(foto);
+                            return (
+                              <div
+                                key={idx}
+                                className={`border border-slate-300 p-2 text-center bg-white ${
+                                  isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
+                                }`}
+                              >
+                                {imgSrc ? (
+                                  <img src={imgSrc} alt="Foto Dokumentasi" className="h-40 w-full object-contain mx-auto" />
+                                ) : (
+                                  <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
+                                    [ Pratinjau Foto ]
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )
                     ) : (
                       <div className="p-4 text-center text-xs text-slate-500 italic">
                         [ Tidak Ada Foto Dokumentasi Terlampir ]
