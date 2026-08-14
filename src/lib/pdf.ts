@@ -593,7 +593,8 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
         if (!isPenugasan) {
           page.drawLine({ start: { x: margin, y: photoInnerY + captionAreaHeight }, end: { x: margin + contentWidth, y: photoInnerY + captionAreaHeight }, thickness: 1, color: black });
         }
-        page.drawLine({ start: { x: pageWidth / 2, y: y }, end: { x: pageWidth / 2, y: photoInnerY }, thickness: 1, color: black });
+        const verticalLineEndY = isPenugasan ? photoInnerY : photoInnerY + captionAreaHeight;
+        page.drawLine({ start: { x: pageWidth / 2, y: y }, end: { x: pageWidth / 2, y: verticalLineEndY }, thickness: 1, color: black });
 
         for (let c = 0; c < 2; c++) {
           const photoIdx = r * 2 + c;

@@ -393,27 +393,35 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                           })}
                         </div>
                       ) : (
-                        <div className="grid grid-cols-2 gap-0 bg-white border border-black divide-x divide-black">
-                          {allPhotos.map((foto: any, idx: number) => {
-                            const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
-                            const imgSrc = getDirectImageUrl(foto);
-                            return (
-                              <div
-                                key={idx}
-                                className={`p-2 text-center bg-white border-b border-black ${
-                                  isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto border-r-0' : ''
-                                }`}
-                              >
-                                {imgSrc ? (
-                                  <img src={imgSrc} alt="Foto Dokumentasi" className="h-40 w-full object-contain mx-auto" />
-                                ) : (
-                                  <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
-                                    [ Pratinjau Foto ]
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                        <div className="border border-black bg-white overflow-hidden">
+                          <div className="grid grid-cols-2 gap-0 divide-x divide-black">
+                            {allPhotos.map((foto: any, idx: number) => {
+                              const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
+                              const imgSrc = getDirectImageUrl(foto);
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`p-2 text-center bg-white ${
+                                    isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto border-r-0' : ''
+                                  }`}
+                                >
+                                  {imgSrc ? (
+                                    <img src={imgSrc} alt="Foto Dokumentasi" className="h-40 w-full object-contain mx-auto" />
+                                  ) : (
+                                    <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
+                                      [ Pratinjau Foto ]
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {!isPenugasan && (
+                            <div className="border-t border-black p-2 text-center text-xs font-normal text-black bg-white">
+                              <div>{activeLaporan.name || activeLaporan.nama_kegiatan}</div>
+                              <div>{formatDateIndonesian(startDate, endDate)}</div>
+                            </div>
+                          )}
                         </div>
                       )
                     ) : (
