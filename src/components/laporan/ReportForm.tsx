@@ -21,6 +21,8 @@ import {
   CheckCircle2,
   Copy,
   Eye,
+  User,
+  ShieldCheck,
 } from 'lucide-react';
 import { PhotoUploader, PhotoItem } from './PhotoUploader';
 import { PDFPreviewModal } from './PDFPreviewModal';
@@ -46,6 +48,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('16:00');
   const [description, setDescription] = useState('');
+  const [jumlahParagraf, setJumlahParagraf] = useState<'1' | '2' | '3' | 'auto'>('auto');
 
   // PD Specific Form State
   const [destination, setDestination] = useState('');
@@ -55,10 +58,10 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
     { person_name: '', position: '' },
   ]);
 
-  // Profile Snapshot State
-  const [namaPegawai, setNamaPegawai] = useState('Dede Setiawan, S.Tr.Stat.');
-  const [nip, setNip] = useState('199502282024211021');
-  const [jabatan, setJabatan] = useState('Pranata Komputer Ahli Pertama');
+  // Profile Snapshot State (Editable per report)
+  const [namaPegawai, setNamaPegawai] = useState('');
+  const [nip, setNip] = useState('');
+  const [jabatan, setJabatan] = useState('');
 
   // Documentation Photos State
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
@@ -96,6 +99,10 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       setStartTime(initialData.start_time || '08:00');
       setEndTime(initialData.end_time || '16:00');
       setDescription(initialData.description || initialData.deskripsi_kegiatan || initialData.ringkasan_kegiatan || '');
+
+      if (initialData.nama_pegawai) setNamaPegawai(initialData.nama_pegawai);
+      if (initialData.nip) setNip(initialData.nip);
+      if (initialData.jabatan) setJabatan(initialData.jabatan);
 
       setDestination(initialData.destination || initialData.tempat_tujuan || '');
       setLetterNumber(initialData.letter_number || initialData.nomor_surat || '');
@@ -146,12 +153,14 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
           namaKegiatan,
           deskripsiKegiatan: description,
           namaPegawai,
+          jumlahParagraf,
         }),
       });
 
       const data = await res.json();
-      if (res.ok && data.summary) {
-        setDescription(data.summary);
+      const summaryText = data.summary || data.ringkasan;
+      if (res.ok && summaryText) {
+        setDescription(summaryText);
         showToast('Narasi berhasil dirapikan dengan AI! Anda dapat memeriksa dan mengeditnya.', 'success');
       } else {
         throw new Error(data.error || 'Gagal memproses dengan Gemini AI');
@@ -163,7 +172,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
     }
   };
 
-  // Submit Handler (Draft/Save)
+  // Submit Activity Form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -171,10 +180,14 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       showToast('Nama Kegiatan wajib diisi!', 'error');
       return;
     }
+    if (!namaPegawai.trim() || !nip.trim() || !jabatan.trim()) {
+      showToast('Nama Pegawai, NIP, dan Jabatan wajib diisi!', 'error');
+      return;
+    }
 
     if (activityType === 'PERJALANAN_DINAS') {
       if (!destination.trim() || !letterNumber.trim() || !spdNumber.trim()) {
-        showToast('Tujuan, Nomor Surat Tugas, dan Nomor SPD wajib diisi untuk Perjalanan Dinas!', 'error');
+        showToast('Untuk Perjalanan Dinas, Tempat Tujuan, No Surat, dan No SPD wajib diisi!', 'error');
         return;
       }
     }
@@ -256,13 +269,48 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
 
   const isFieldsLocked = isGenerated && !isForceChangeActive;
 
+  // Preview Object
+  const previewActivity: Activity = {
+    id: initialData?.id || 'preview_id',
+    user_id: '00000000-0000-0000-0000-000000000000',
+    activity_type: activityType,
+    name: namaKegiatan || 'Nama Kegiatan Harian',
+    start_date: startDate,
+    end_date: endDate,
+    start_time: startTime,
+    end_time: endTime,
+    status: initialData?.status || 'DRAFT',
+    nama_pegawai: namaPegawai,
+    nip: nip,
+    jabatan: jabatan,
+    destination,
+    letter_number: letterNumber,
+    spd_number: spdNumber,
+    description,
+    tanggal: startDate,
+    tanggal_selesai: endDate !== startDate ? endDate : undefined,
+    nama_kegiatan: namaKegiatan,
+    ringkasan_kegiatan: description,
+    tempat_tujuan: destination,
+    nomor_surat: letterNumber,
+    nomor_spd: spdNumber,
+    petugas_ditemui: people.filter((p) => p.person_name.trim().length > 0).map((p) => ({ nama: p.person_name, jabatan: p.position })),
+    documents: photos.map((p, idx) => ({
+      id: p.id,
+      drive_file_id: p.drive_file_id || `prev_${idx}`,
+      web_view_url: p.previewUrl || p.drive_file_url || '',
+      file_name: p.name,
+      tanggal_foto: p.tanggal_foto || startDate,
+    })),
+  };
+
   return (
     <form onSubmit={handleSubmit} className="max-w-5xl mx-auto space-y-8 pb-12">
       {/* Header Banner & Status */}
       <div className="bg-slate-800 text-white p-6 rounded-3xl shadow-xl flex flex-wrap items-center justify-between gap-4 border border-slate-700">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold tracking-tight">Form Kegiatan Pegawai BPS</h1>
+            <h1 className="text-xl font-extrabold tracking-tight">Form Laporan Harian BPS</h1>
             <span
               className={`px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wider ${
                 isGenerated ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
@@ -272,7 +320,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             </span>
           </div>
           <p className="text-xs text-slate-300 mt-1">
-            Isi detail kegiatan, atur dokumentasi, dan rapihkan narasi dengan AI sebelum mencetak PDF.
+            BPS Kabupaten Lebak — Isi detail kegiatan, atur dokumentasi, dan rapikan narasi dengan AI sebelum mencetak PDF.
           </p>
         </div>
 
@@ -305,6 +353,57 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
           </div>
         </div>
       )}
+
+      {/* Section 0: Pelaksana Kegiatan (Nama, NIP, Jabatan) */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
+        <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+          <User className="w-4 h-4 text-sky-500" /> Pelaksana Kegiatan (Profil Pegawai BPS)
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+              Nama Pegawai *
+            </label>
+            <input
+              type="text"
+              required
+              value={namaPegawai}
+              onChange={(e) => setNamaPegawai(e.target.value)}
+              placeholder="Nama Lengkap & Gelar"
+              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+              NIP Pegawai (18 Digit) *
+            </label>
+            <input
+              type="text"
+              required
+              value={nip}
+              onChange={(e) => setNip(e.target.value)}
+              placeholder="1995xxxxxxxxxxxxxx"
+              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+              Jabatan *
+            </label>
+            <input
+              type="text"
+              required
+              value={jabatan}
+              onChange={(e) => setJabatan(e.target.value)}
+              placeholder="Jabatan Pegawai BPS"
+              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+            />
+          </div>
+        </div>
+      </div>
 
       {/* Section 1: Type Selection */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
@@ -370,8 +469,8 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
               disabled={isFieldsLocked}
               value={namaKegiatan}
               onChange={(e) => setNamaKegiatan(e.target.value)}
-              placeholder="Contoh: Pelatihan Petugas Sensus Ekonomi 2026"
-              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
+              placeholder="Contoh: Pendampingan lapangan pencacahan Survei Ekonomi Pertanian"
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
             />
           </div>
 
@@ -399,7 +498,6 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
               disabled={isFieldsLocked}
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              min={startDate}
               className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
             />
           </div>
@@ -534,24 +632,45 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
 
       {/* Section 4: Narrative & AI Refiner */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
-        <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-sky-500" /> Deskripsi & Narasi Kegiatan
           </h2>
 
-          <button
-            type="button"
-            onClick={handleGenerateAiDescription}
-            disabled={isGeneratingAi}
-            className="px-4 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 flex items-center gap-2 transition-all"
-          >
-            {isGeneratingAi ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Sparkles className="w-4 h-4 text-amber-300" />
-            )}
-            <span>{isGeneratingAi ? 'Merapikan Narasi...' : 'Rapikan dengan AI (Gemini)'}</span>
-          </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Paragraph Count Selector */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 px-2">Format Paragraf:</span>
+              {(['auto', '1', '2', '3'] as const).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setJumlahParagraf(p)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                    jumlahParagraf === p
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  {p === 'auto' ? 'Otomatis' : `${p} Paragraf`}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGenerateAiDescription}
+              disabled={isGeneratingAi}
+              className="px-4 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 flex items-center gap-2 transition-all"
+            >
+              {isGeneratingAi ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4 text-amber-300" />
+              )}
+              <span>{isGeneratingAi ? 'Merapikan Narasi...' : 'Rapikan dengan AI (Gemini)'}</span>
+            </button>
+          </div>
         </div>
 
         <div>
@@ -559,7 +678,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             rows={6}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Ketik catatan kegiatan atau ucapkan secara lisan. Contoh: Melaksanakan pendampingan pendataan di Desa Aweh bersama PML Sundari..."
+            placeholder="Ketik catatan kegiatan atau poin-poin kegiatan mentah. Contoh: Melaksanakan pendampingan pendataan di Desa Aweh bersama PML Sundari..."
             className="w-full p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-medium leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
           />
         </div>
@@ -578,87 +697,35 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         <button
           type="button"
           onClick={() => setIsPreviewOpen(true)}
-          className="px-5 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center gap-2 transition-colors"
+          className="px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center gap-2 transition-colors"
         >
-          <Eye className="w-4 h-4 text-sky-500" /> Pratinjau PDF
+          <Eye className="w-4 h-4 text-sky-600" />
+          <span>Pratinjau PDF (Preview)</span>
         </button>
 
         <div className="flex items-center gap-3">
+          {submitProgress && (
+            <span className="text-xs font-bold text-sky-600 dark:text-sky-400 animate-pulse hidden sm:inline">
+              {submitProgress}
+            </span>
+          )}
           <button
             type="submit"
             disabled={isSubmitting}
             className="px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 flex items-center gap-2 transition-all"
           >
             {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            <span>{isSubmitting ? submitProgress || 'Menyimpan...' : 'Simpan Kegiatan'}</span>
+            <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Kegiatan'}</span>
           </button>
         </div>
       </div>
 
-      {/* Force Change Modal */}
-      {isForceChangeModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 max-w-md w-full p-6 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-rose-500/10 text-rose-500 rounded-2xl shrink-0">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Peringatan Ganti Paksa</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                  Mengubah identitas kegiatan yang sudah dibuatkan PDF dapat menyebabkan perubahan nama folder dan file di Google Drive. Sebaiknya hapus kegiatan ini lalu buat baru.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setIsForceChangeModalOpen(false)}
-                className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsForceChangeActive(true);
-                  setIsForceChangeModalOpen(false);
-                  showToast('Mode Ganti Paksa diaktifkan! Silakan edit identitas.', 'info');
-                }}
-                className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-600/20"
-              >
-                Tetap Ganti Paksa
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* PDF Preview Modal */}
+      {/* Preview PDF Modal */}
       {isPreviewOpen && (
         <PDFPreviewModal
           isOpen={isPreviewOpen}
           onClose={() => setIsPreviewOpen(false)}
-          laporanData={{
-            id: initialData?.id || 'preview_id',
-            namaKegiatan,
-            tanggal: startDate,
-            tanggalSelesai: endDate,
-            jamMulai: startTime,
-            jamSelesai: endTime,
-            deskripsiKegiatan: description,
-            ringkasanKegiatan: description,
-            jenisLaporan: activityType === 'PERJALANAN_DINAS' ? 'penugasan' : 'harian',
-            tempatTujuan: destination,
-            nomorSurat: letterNumber,
-            nomorSpd: spdNumber,
-            petugasDitemui: people.map((p) => ({ nama: p.person_name, jabatan: p.position })),
-            namaPegawai,
-            nip,
-            jabatan,
-            fotos: photos,
-          }}
+          laporan={previewActivity}
         />
       )}
     </form>

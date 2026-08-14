@@ -276,10 +276,10 @@ export default function LoginPage() {
               />
             </div>
             <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Mamang Racing
+              Laporan Harian BPS
             </h1>
             <p className="text-xs font-bold text-sky-600 tracking-wider uppercase">
-              Pikiran Ngebut, Laporan Tetap Rapi
+              Badan Pusat Statistik Kabupaten Lebak
             </p>
           </div>
 

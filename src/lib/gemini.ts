@@ -12,9 +12,9 @@ export async function generateBpsSummary(
   if (jumlahParagraf === '1') {
     paragraphInstruction = 'Wajib tuliskan ringkasan naratif dalam TEPAT 1 PARAGRAF UTUH.';
   } else if (jumlahParagraf === '2') {
-    paragraphInstruction = 'Wajib bagi ringkasan naratif menjadi TEPAT 2 PARAGRAF RAPI yang terpisah.';
+    paragraphInstruction = 'Wajib bagi ringkasan naratif menjadi TEPAT 2 PARAGRAF RAPI yang terpisah oleh dua kali perpindahan baris (line break).';
   } else if (jumlahParagraf === '3') {
-    paragraphInstruction = 'Wajib bagi ringkasan naratif menjadi TEPAT 3 PARAGRAF RAPI yang terpisah.';
+    paragraphInstruction = 'Wajib bagi ringkasan naratif menjadi TEPAT 3 PARAGRAF RAPI yang terpisah oleh dua kali perpindahan baris (line break).';
   }
 
   const prompt = `Anda adalah asisten penyusunan ringkasan Bukti Dukung Kegiatan Harian Pegawai BPS.
@@ -38,8 +38,9 @@ Instruksi Penulisan Penting:
       return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf);
     }
 
+    // 1. Try Official SDK with Updated Gemini Models
     const genAI = new GoogleGenerativeAI(apiKey);
-    const modelCandidates = ['gemini-flash-latest', 'gemini-2.0-flash-lite', 'gemini-2.0-flash'];
+    const modelCandidates = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
 
     for (const modelName of modelCandidates) {
       try {
@@ -57,6 +58,30 @@ Instruksi Penulisan Penting:
         console.warn(`Model ${modelName} call failed, trying next...`);
       }
     }
+
+    // 2. Direct REST API Call Fallback
+    try {
+      const restRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+          }),
+        }
+      );
+
+      if (restRes.ok) {
+        const json = await restRes.json();
+        const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (rawText && rawText.trim().length > 20) {
+          let clean = rawText.replace(/^(berikut adalah|berikut ringkasan|berikut narasi)[^:\n]*[:\n]\s*/i, '').trim();
+          clean = clean.replace(/^"|"$/g, '').trim();
+          return clean;
+        }
+      }
+    } catch (e) {}
 
     return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf);
   } catch (error) {

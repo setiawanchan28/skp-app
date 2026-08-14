@@ -97,10 +97,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {!isCollapsed && (
               <div className="min-w-0">
                 <h1 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
-                  Mamang Racing
+                  Laporan Harian BPS
                 </h1>
                 <p className="text-[10px] font-bold text-sky-600 dark:text-sky-400 truncate">
-                  Bukti Dukung BPS
+                  BPS Kabupaten Lebak
                 </p>
               </div>
             )}
