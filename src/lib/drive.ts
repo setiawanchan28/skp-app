@@ -189,6 +189,22 @@ export async function uploadFileToDrive(
 
   let fileId = existingFileId;
 
+  // Search if a file with the exact name already exists in target folderId to overwrite in-place
+  if (!fileId && folderId) {
+    try {
+      const searchRes = await drive.files.list({
+        q: `name = '${fileName.replace(/'/g, "\\'")}' and '${folderId}' in parents and trashed = false`,
+        fields: 'files(id, name)',
+        spaces: 'drive',
+      });
+      if (searchRes.data.files && searchRes.data.files.length > 0) {
+        fileId = searchRes.data.files[0].id || undefined;
+      }
+    } catch (searchErr) {
+      console.warn('Existing file search failed:', searchErr);
+    }
+  }
+
   if (fileId && !fileId.startsWith('mock_') && !fileId.startsWith('file_')) {
     try {
       const res = await drive.files.update({

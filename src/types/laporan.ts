@@ -39,6 +39,12 @@ export interface Activity {
   end_date: string; // YYYY-MM-DD
   start_time: string; // HH:mm
   end_time: string; // HH:mm
+  startTime?: string;
+  endTime?: string;
+  jam_mulai?: string;
+  jam_selesai?: string;
+  jamMulai?: string;
+  jamSelesai?: string;
   destination?: string;
   letter_number?: string;
   spd_number?: string;

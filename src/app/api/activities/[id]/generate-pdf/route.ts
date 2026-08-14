@@ -76,8 +76,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       namaKegiatan: activity.name,
       tanggal: activity.start_date,
       tanggalSelesai: activity.end_date,
-      jamMulai: activity.start_time,
-      jamSelesai: activity.end_time,
+      startTime: activity.start_time || (activity as any).startTime || (activity as any).jam_mulai || '08:00',
+      endTime: activity.end_time || (activity as any).endTime || (activity as any).jam_selesai || '16:00',
+      start_time: activity.start_time || (activity as any).startTime || (activity as any).jam_mulai || '08:00',
+      end_time: activity.end_time || (activity as any).endTime || (activity as any).jam_selesai || '16:00',
+      jamMulai: activity.start_time || (activity as any).startTime || (activity as any).jam_mulai || '08:00',
+      jamSelesai: activity.end_time || (activity as any).endTime || (activity as any).jam_selesai || '16:00',
+      jam_mulai: activity.start_time || (activity as any).startTime || (activity as any).jam_mulai || '08:00',
+      jam_selesai: activity.end_time || (activity as any).endTime || (activity as any).jam_selesai || '16:00',
       deskripsiKegiatan: activity.description || '',
       ringkasanKegiatan: activity.description || '',
       jenisLaporan: (activity.activity_type === 'PERJALANAN_DINAS' ? 'penugasan' : 'harian') as 'harian' | 'penugasan',
@@ -127,12 +133,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             const photoBuffer = Buffer.from(matches[2], 'base64');
             const photoDate = photoItem.tanggal_foto || activity.start_date;
             const photoFileName = `${formatDrivePdfName(photoDate, `${activity.name} - Foto ${pIdx + 1}`)}.${ext}`;
+            const existingPhotoId = (photoItem as any).drive_file_id || (photoItem as any).id;
             await uploadFileToDrive(
               photoBuffer,
               photoFileName,
               photoMime,
               targetFolderId,
-              undefined,
+              existingPhotoId,
               userGoogleToken
             );
           }
