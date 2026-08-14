@@ -61,6 +61,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // 2. Render PDF Buffer
+    const rawPhotos = activity.documents || (activity as any).fotos || [];
+    const mappedPhotos = rawPhotos
+      .map((doc: any) => {
+        const srcUrl = typeof doc === 'string' ? doc : doc.base64 || doc.previewUrl || doc.web_view_url || doc.preview_url || doc.existingUrl || doc.url || '';
+        return {
+          base64: srcUrl,
+          tanggal_foto: typeof doc === 'object' ? doc.tanggal_foto || doc.documentation_date || activity.start_date : activity.start_date,
+        };
+      })
+      .filter((p: any) => Boolean(p.base64));
+
     const pdfData = {
       namaKegiatan: activity.name,
       tanggal: activity.start_date,
@@ -69,7 +80,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       jamSelesai: activity.end_time,
       deskripsiKegiatan: activity.description || '',
       ringkasanKegiatan: activity.description || '',
-      jenisLaporan: activity.activity_type === 'PERJALANAN_DINAS' ? 'penugasan' : 'harian',
+      jenisLaporan: (activity.activity_type === 'PERJALANAN_DINAS' ? 'penugasan' : 'harian') as 'harian' | 'penugasan',
       tempatTujuan: activity.destination,
       nomorSurat: activity.letter_number,
       nomorSpd: activity.spd_number,
@@ -77,7 +88,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       namaPegawai: activity.nama_pegawai || 'Dede Setiawan, S.Tr.Stat.',
       nip: activity.nip || '199502282024211021',
       jabatan: activity.jabatan || 'Pranata Komputer Ahli Pertama',
-      fotos: activity.documents || [],
+      photos: mappedPhotos,
+      fotos: mappedPhotos,
     };
 
     const pdfBuffer = await generateBpsPdfBuffer(pdfData);
