@@ -254,6 +254,17 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         throw new Error(result.error || 'Gagal menyimpan kegiatan');
       }
 
+      if (typeof window !== 'undefined' && result.data) {
+        try {
+          const local = localStorage.getItem('bps_laporan_data');
+          let list = local ? JSON.parse(local) : [];
+          const idx = list.findIndex((l: any) => l.id === result.data.id);
+          if (idx >= 0) list[idx] = result.data;
+          else list.unshift(result.data);
+          localStorage.setItem('bps_laporan_data', JSON.stringify(list));
+        } catch (e) {}
+      }
+
       showToast(
         isForceChangeActive
           ? 'Identitas kegiatan berhasil diperbarui melalui Ganti Paksa!'

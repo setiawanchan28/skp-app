@@ -41,35 +41,19 @@ Instruksi Penulisan Penting:
 3. LANGSUNG KE INTI KEGIATAN: DILARANG menyebut nama instansi ("BPS Kabupaten Lebak...") dan DILARANG menyebut nama pegawai di awal kalimat. LANGSUNG awali dengan KATA KERJA AKTIF (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...").
 4. CONTOH GAYA BAHASA RESMI BPS:
    "Melaksanakan kegiatan ${namaKegiatan} di wilayah sampel Desa Aweh bersama PML Sundari dan PPL Fahmi. Rangkaian kegiatan berfokus pada pendampingan langsung di lapangan, validasi kelengkapan serta konsistensi isian kuesioner digital maupun fisik, sekaligus menyampaikan arahan teknis mengenai perbaikan anomali data demi menjaga mutu dan akurasi data hasil pencacahan."
-5. DILARANG menggunakan frasa seremonial kaku seperti "berjalan tertib dan lancar".
-6. DILARANG menambahkan kata pembuka seperti "Berikut ringkasan:". LANGSUNG ke isi paragraf narasi.`;
+5. DILARANG MENGGUNAKAN SIMBOL BINTANG (*) ATAU CETAK TEBAL/MIRING DENGAN BINTANG PADA KATA BAHASA INGGRIS. Tuliskan kata asing secara polos tanpa tanda bintang. (Contoh: tulis Coverage, BUKAN *Coverage*).
+6. DILARANG menggunakan frasa seremonial kaku seperti "berjalan tertib dan lancar".
+7. DILARANG menambahkan kata pembuka seperti "Berikut ringkasan:". LANGSUNG ke isi paragraf narasi.`;
 
   try {
     if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy')) {
       return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf, modePanjang);
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const modelCandidates = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
+    // Fast Direct REST API with 3.5s Timeout to guarantee instant response
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-    for (const modelName of modelCandidates) {
-      try {
-        const model = genAI.getGenerativeModel({ model: modelName });
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        let text = response.text();
-
-        if (text && text.trim().length > 20) {
-          text = text.replace(/^(berikut adalah|berikut ringkasan|berikut narasi)[^:\n]*[:\n]\s*/i, '').trim();
-          text = text.replace(/^"|"$/g, '').trim();
-          return text;
-        }
-      } catch (modelErr) {
-        console.warn(`Model ${modelName} call failed, trying next...`);
-      }
-    }
-
-    // Direct REST API Call Fallback
     try {
       const restRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
@@ -79,8 +63,10 @@ Instruksi Penulisan Penting:
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
           }),
+          signal: controller.signal,
         }
       );
+      clearTimeout(timeoutId);
 
       if (restRes.ok) {
         const json = await restRes.json();
@@ -88,8 +74,28 @@ Instruksi Penulisan Penting:
         if (rawText && rawText.trim().length > 20) {
           let clean = rawText.replace(/^(berikut adalah|berikut ringkasan|berikut narasi)[^:\n]*[:\n]\s*/i, '').trim();
           clean = clean.replace(/^"|"$/g, '').trim();
+          // Remove Markdown asterisks around foreign/English words (*word* -> word)
+          clean = clean.replace(/\*/g, '').trim();
           return clean;
         }
+      }
+    } catch (restErr) {
+      clearTimeout(timeoutId);
+    }
+
+    // SDK Fallback with fast single call
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let text = response.text();
+
+      if (text && text.trim().length > 20) {
+        text = text.replace(/^(berikut adalah|berikut ringkasan|berikut narasi)[^:\n]*[:\n]\s*/i, '').trim();
+        text = text.replace(/^"|"$/g, '').trim();
+        text = text.replace(/\*/g, '').trim();
+        return text;
       }
     } catch (e) {}
 
@@ -101,7 +107,7 @@ Instruksi Penulisan Penting:
 }
 
 /**
- * Custom Paragraph Offline Narrative Composer
+ * Custom Paragraph Offline Narrative Composer (Fast & Star-free)
  */
 function composeCustomParagraphNarrative(
   namaKegiatan: string,
@@ -156,16 +162,17 @@ function composeCustomParagraphNarrative(
     p1 += ` Kegiatan diawali dengan pengarahan teknis bersama tim kerja guna menyamakan persepsi operasional dan memastikan kelengkapan seluruh instrumen pendataan sesuai standar operasional BPS.`;
   }
 
+  let resultText = p1;
+
   if (jumlahParagraf === '2' || (jumlahParagraf === 'auto' && modePanjang === 'panjang')) {
     const p2 = `Melalui kegiatan ini, koordinasi teknis serta pemeriksaan konsistensi data statistik terus ditingkatkan secara intensif. Hal ini dilakukan guna mengidentifikasi dan meminimalkan error pendataan sejak dini, sehingga menjamin keakuratan serta mutu data statistik yang dihasilkan secara berkelanjutan di Kabupaten Lebak.`;
-    return `${p1}\n\n${p2}`;
-  }
-
-  if (jumlahParagraf === '3') {
+    resultText = `${p1}\n\n${p2}`;
+  } else if (jumlahParagraf === '3') {
     const p2 = `Selama pelaksanaan di lapangan, pemeriksaan dilakukan secara mendalam dan sistematis pada setiap dokumen kuesioner untuk memverifikasi keabsahan isian serta mendeteksi anomali data secara langsung bersama petugas pencacah. Rangkaian validasi ini mencakup pengecekan kelengkapan variabel utama, konsistensi antar-blok pertanyaan, hingga kepatuhan terhadap SOP pendataan yang berlaku di wilayah sampel.`;
     const p3 = `Langkah konkrit tersebut diambil guna meminimalkan nonsampling error, menjaga tingkat integritas data statistik, serta memastikan seluruh alur operasional kegiatan harian di wilayah BPS Kabupaten Lebak memenuhi indikator kinerja utama yang telah ditetapkan secara tuntas dan proporsional.`;
-    return `${p1}\n\n${p2}\n\n${p3}`;
+    resultText = `${p1}\n\n${p2}\n\n${p3}`;
   }
 
-  return p1;
+  // Strip any accidental markdown asterisks
+  return resultText.replace(/\*/g, '');
 }
