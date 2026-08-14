@@ -20,6 +20,7 @@ export interface PdfReportData {
   ringkasanKegiatan: string;
   photos?: PdfReportPhoto[];
   photosBase64?: string[];
+  fotos?: any[];
 }
 
 /**
@@ -31,6 +32,42 @@ function sanitizeWinAnsiText(text: string): string {
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
     .replace(/[^\x00-\x7F\xA0-\xFF]/g, '');
+}
+
+/**
+ * Draw justified text line (rata kanan-kiri rapi)
+ */
+function drawJustifiedLine(
+  page: any,
+  lineText: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  font: any,
+  fontSize: number,
+  color: any,
+  isLastLineOfParagraph: boolean
+) {
+  const words = lineText.trim().split(/\s+/);
+  if (words.length <= 1 || isLastLineOfParagraph) {
+    page.drawText(lineText, { x, y, size: fontSize, font, color });
+    return;
+  }
+
+  const totalWordsWidth = words.reduce((acc, word) => acc + font.widthOfTextAtSize(word, fontSize), 0);
+  const totalSpaceNeeded = maxWidth - totalWordsWidth;
+  const wordSpacing = totalSpaceNeeded / (words.length - 1);
+
+  if (wordSpacing > 20 || wordSpacing < 0) {
+    page.drawText(lineText, { x, y, size: fontSize, font, color });
+    return;
+  }
+
+  let currentX = x;
+  words.forEach((word) => {
+    page.drawText(word, { x: currentX, y, size: fontSize, font, color });
+    currentX += font.widthOfTextAtSize(word, fontSize) + wordSpacing;
+  });
 }
 
 /**
@@ -201,23 +238,26 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
 
   for (const row of rows) {
     const paragraphBlocks = row.val.split('\n');
-    const lines: string[] = [];
+    const lines: { text: string; isLastInBlock: boolean }[] = [];
 
     for (const block of paragraphBlocks) {
       const words = block.split(' ');
       let currentLine = '';
 
-      for (const word of words) {
+      for (let wIdx = 0; wIdx < words.length; wIdx++) {
+        const word = words[wIdx];
         const testLine = currentLine ? `${currentLine} ${word}` : word;
         const testWidth = fontRegular.widthOfTextAtSize(testLine, fontSize);
-        if (testWidth <= col4Width - 10) {
+        if (testWidth <= col4Width - 12) {
           currentLine = testLine;
         } else {
-          lines.push(currentLine);
+          lines.push({ text: currentLine, isLastInBlock: false });
           currentLine = word;
         }
       }
-      if (currentLine) lines.push(currentLine);
+      if (currentLine) {
+        lines.push({ text: currentLine, isLastInBlock: true });
+      }
     }
 
     const rowHeight = Math.max(lines.length * lineHeight + 10, 24);
@@ -254,14 +294,18 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     page.drawText(row.label, { x: margin + col1Width + 8, y: y - 16, size: fontSize, font: fontRegular, color: black });
     page.drawText(':', { x: margin + col1Width + col2Width + 4, y: y - 16, size: fontSize, font: fontRegular, color: black });
 
-    lines.forEach((line, idx) => {
-      page.drawText(line, {
-        x: margin + col1Width + col2Width + col3Width + 6,
-        y: y - 16 - idx * lineHeight,
-        size: fontSize,
-        font: fontRegular,
-        color: black,
-      });
+    lines.forEach((lineObj, idx) => {
+      drawJustifiedLine(
+        page,
+        lineObj.text,
+        margin + col1Width + col2Width + col3Width + 6,
+        y - 16 - idx * lineHeight,
+        col4Width - 12,
+        fontRegular,
+        fontSize,
+        black,
+        lineObj.isLastInBlock
+      );
     });
 
     y -= rowHeight;
@@ -269,9 +313,21 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
 
   y -= 15;
 
+  // Extract all photos completely
   let allPhotos: PdfReportPhoto[] = [];
-  if (data.photos && data.photos.length > 0) {
-    allPhotos = data.photos;
+
+  const rawPhotosInput = data.photos || data.fotos || (data as any).documents || [];
+  if (Array.isArray(rawPhotosInput) && rawPhotosInput.length > 0) {
+    allPhotos = rawPhotosInput
+      .map((item: any) => {
+        if (typeof item === 'string') return { base64: item };
+        const b64 = item.base64 || item.previewUrl || item.web_view_url || item.preview_url || item.existingUrl || item.url || '';
+        return {
+          base64: b64,
+          tanggal_foto: item.tanggal_foto || item.documentation_date,
+        };
+      })
+      .filter((p) => Boolean(p.base64));
   } else if (data.photosBase64 && data.photosBase64.length > 0) {
     allPhotos = data.photosBase64.map((b) => ({ base64: b }));
   }
@@ -396,7 +452,9 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
           width: renderWidth,
           height: renderHeight,
         });
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Failed to embed single photo in PDF:', e);
+      }
 
       const cap1 = cleanNamaKegiatan;
       const cap1Width = fontRegular.widthOfTextAtSize(cap1, 10);
@@ -497,7 +555,9 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
               width: renderWidth,
               height: renderHeight,
             });
-          } catch (e) {}
+          } catch (e) {
+            console.warn(`Failed to embed photo index ${photoIdx} in PDF:`, e);
+          }
         }
 
         const cap1 = cleanNamaKegiatan;
