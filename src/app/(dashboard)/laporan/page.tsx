@@ -67,12 +67,15 @@ export default function RiwayatLaporanPage() {
 
   const loadData = async () => {
     setLoading(true);
+    let currentList: Activity[] = [];
+
     if (typeof window !== 'undefined') {
       const local = localStorage.getItem('bps_laporan_data');
       if (local) {
         try {
           const parsed = JSON.parse(local);
           if (Array.isArray(parsed) && parsed.length > 0) {
+            currentList = parsed;
             setActivities(parsed);
           }
         } catch (e) {}
@@ -80,8 +83,26 @@ export default function RiwayatLaporanPage() {
     }
 
     const data = await fetchLaporanList();
-    if (data) {
-      setActivities(data);
+    if (data && data.length > 0) {
+      const map = new Map<string, Activity>();
+      currentList.forEach((item) => {
+        if (item && item.id) map.set(item.id, item);
+      });
+      data.forEach((item) => {
+        if (item && item.id) {
+          const existing = map.get(item.id);
+          map.set(item.id, { ...existing, ...item });
+        }
+      });
+      const mergedList = Array.from(map.values()).sort(
+        (a, b) =>
+          new Date(b.start_date || b.tanggal || b.created_at || Date.now()).getTime() -
+          new Date(a.start_date || a.tanggal || a.created_at || Date.now()).getTime()
+      );
+      setActivities(mergedList);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('bps_laporan_data', JSON.stringify(mergedList));
+      }
     }
     setLoading(false);
   };
@@ -113,11 +134,17 @@ export default function RiwayatLaporanPage() {
         if (filterBulan !== 'ALL' && m !== filterBulan) return false;
       }
 
+      const actName = act.name || act.nama_kegiatan || '';
+      const actDesc = act.description || act.deskripsi_kegiatan || act.ringkasan_kegiatan || '';
+      const actDest = act.destination || act.tempat_tujuan || '';
+      const actPeg = act.nama_pegawai || '';
+
       const matchesSearch =
-        act.name.toLowerCase().includes(search.toLowerCase()) ||
-        (act.description && act.description.toLowerCase().includes(search.toLowerCase())) ||
-        (act.destination && act.destination.toLowerCase().includes(search.toLowerCase())) ||
-        (act.nama_pegawai && act.nama_pegawai.toLowerCase().includes(search.toLowerCase()));
+        !search ||
+        actName.toLowerCase().includes(search.toLowerCase()) ||
+        actDesc.toLowerCase().includes(search.toLowerCase()) ||
+        actDest.toLowerCase().includes(search.toLowerCase()) ||
+        actPeg.toLowerCase().includes(search.toLowerCase());
 
       if (!matchesSearch) return false;
 
