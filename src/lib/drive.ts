@@ -88,7 +88,7 @@ export async function getOrCreateActivityDriveFolder(
   }
 
   try {
-    let mainRootId = rootParentId || '';
+    let mainRootId = userAccessToken ? '' : (rootParentId || '');
     if (!mainRootId) {
       mainRootId = await findOrCreateFolder(drive, 'Laporan Kegiatan', 'root');
     }

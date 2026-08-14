@@ -124,8 +124,12 @@ export default function LoginPage() {
         const { error: oauthError } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: `${window.location.origin}/`,
-            scopes: 'https://www.googleapis.com/auth/drive.file',
+            redirectTo: `${window.location.origin}/login`,
+            scopes: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+            queryParams: {
+              access_type: 'offline',
+              prompt: 'consent',
+            },
           },
         });
         if (oauthError) throw oauthError;
