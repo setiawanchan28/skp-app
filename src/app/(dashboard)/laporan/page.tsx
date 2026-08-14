@@ -322,12 +322,11 @@ export default function RiwayatLaporanPage() {
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                   <th className="p-4 w-12 text-center">No</th>
-                  <th className="p-4 w-32">Tanggal</th>
+                  <th className="p-4 w-36">Tanggal</th>
                   <th className="p-4">Nama Kegiatan & Jenis</th>
-                  <th className="p-4">Pelaksana (NIP & Jabatan)</th>
                   <th className="p-4 w-28 text-center">Foto</th>
                   <th className="p-4 w-32 text-center">Status</th>
-                  <th className="p-4 w-40 text-center">Aksi</th>
+                  <th className="p-4 w-44 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -358,10 +357,6 @@ export default function RiwayatLaporanPage() {
                             <span className="text-[10px] text-slate-500 truncate max-w-xs">📍 {act.destination}</span>
                           )}
                         </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="font-bold text-slate-800 dark:text-slate-200">{act.nama_pegawai || savedProfile.nama || 'Pegawai BPS'}</div>
-                        <div className="text-[10px] text-slate-400">{act.jabatan || savedProfile.jabatan || '-'}</div>
                       </td>
                       <td className="p-4 text-center">
                         <span className="inline-flex items-center gap-1 font-bold text-sky-600 dark:text-sky-400">

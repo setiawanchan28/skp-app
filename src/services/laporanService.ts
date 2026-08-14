@@ -109,11 +109,53 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
  */
 export async function fetchLaporanById(id: string): Promise<Activity | null> {
   const list = await fetchLaporanList(true);
-  return list.find((item) => item.id === id) || null;
+  const found = list.find((a) => a.id === id);
+  if (found) return found;
+
+  if (isSupabaseConfigured()) {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('activities')
+        .select(`
+          *,
+          people:activity_people(*),
+          documents:activity_documents(*)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (!error && data) {
+        const docs = (data.documents || []).map((d: any) => ({
+          id: d.id,
+          name: d.original_filename || d.file_name || d.name || 'Foto.jpg',
+          file_name: d.original_filename || d.file_name || d.name || 'Foto.jpg',
+          previewUrl: d.web_view_url || d.preview_url || d.previewUrl || (d.drive_file_id ? `https://drive.google.com/thumbnail?id=${d.drive_file_id}&sz=w1000` : ''),
+          web_view_url: d.web_view_url || d.preview_url || d.previewUrl || '',
+          drive_file_id: d.drive_file_id || '',
+          tanggal_foto: d.documentation_date || d.tanggal_foto || data.start_date,
+        }));
+
+        return {
+          ...data,
+          nama_kegiatan: data.name,
+          deskripsi_kegiatan: data.description || '',
+          ringkasan_kegiatan: data.description || '',
+          tanggal: data.start_date,
+          tanggal_selesai: data.end_date,
+          documents: docs,
+          fotos: docs,
+          people: data.people || [],
+          petugas_ditemui: data.people?.map((p: any) => ({ nama: p.person_name, jabatan: p.position })) || [],
+        };
+      }
+    } catch (e) {}
+  }
+
+  return null;
 }
 
 /**
- * Save / Create Activity Record with photo limit check and identity locking check
+ * Create or update an activity record
  */
 export async function saveLaporanRecord(
   activityData: Partial<Activity>,
