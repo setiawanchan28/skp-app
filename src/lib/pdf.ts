@@ -388,24 +388,37 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
       }
     }
 
-    const resumeBoxH = Math.max(resumeLines.length * lineHeight + 16, 50);
+    let lineIdx = 0;
+    while (lineIdx < resumeLines.length) {
+      const availH = y - 60;
+      const maxLinesOnThisPage = Math.max(1, Math.floor((availH - 16) / lineHeight));
+      const linesChunk = resumeLines.slice(lineIdx, lineIdx + maxLinesOnThisPage);
+      const chunkH = Math.max(linesChunk.length * lineHeight + 16, 40);
 
-    page.drawRectangle({ x: margin, y: y - resumeBoxH, width: contentWidth, height: resumeBoxH, borderColor: black, borderWidth: 1 });
+      page.drawRectangle({ x: margin, y: y - chunkH, width: contentWidth, height: chunkH, borderColor: black, borderWidth: 1 });
 
-    resumeLines.forEach((lineObj, idx) => {
-      drawJustifiedLine(
-        page,
-        lineObj.text,
-        margin + 10,
-        y - 16 - idx * lineHeight,
-        contentWidth - 20,
-        fontRegular,
-        fontSize,
-        black,
-        lineObj.isLastInBlock
-      );
-    });
-    y -= resumeBoxH + 15;
+      linesChunk.forEach((lineObj, idx) => {
+        drawJustifiedLine(
+          page,
+          lineObj.text,
+          margin + 10,
+          y - 16 - idx * lineHeight,
+          contentWidth - 20,
+          fontRegular,
+          fontSize,
+          black,
+          lineObj.isLastInBlock
+        );
+      });
+
+      y -= chunkH + 15;
+      lineIdx += maxLinesOnThisPage;
+
+      if (lineIdx < resumeLines.length) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        y = pageHeight - 50;
+      }
+    }
 
     // V. DOKUMENTASI (FORCE NEW PAGE / LEMBAR BARU FOR PERJALANAN DINAS)
     page = pdfDoc.addPage([pageWidth, pageHeight]);
@@ -460,32 +473,84 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
         }
       }
 
-      const rowHeight = Math.max(lines.length * lineHeight + 10, 24);
+      // Check if current y is too low to fit at least 2 lines of row. If so, move row to new page.
+      const minNeededH = Math.min(lines.length * lineHeight + 10, 60);
+      if (y - minNeededH < 60) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        y = pageHeight - 50;
+      }
 
-      page.drawRectangle({ x: margin, y: y - rowHeight, width: contentWidth, height: rowHeight, borderColor: black, borderWidth: 1 });
-      page.drawLine({ start: { x: margin + col1Width, y }, end: { x: margin + col1Width, y: y - rowHeight }, thickness: 1, color: black });
-      page.drawLine({ start: { x: margin + col1Width + col2Width, y }, end: { x: margin + col1Width + col2Width, y: y - rowHeight }, thickness: 1, color: black });
-      page.drawLine({ start: { x: margin + col1Width + col2Width + col3Width, y }, end: { x: margin + col1Width + col2Width + col3Width, y: y - rowHeight }, thickness: 1, color: black });
+      const totalRowHeight = Math.max(lines.length * lineHeight + 10, 24);
+      if (y - totalRowHeight >= 60) {
+        page.drawRectangle({ x: margin, y: y - totalRowHeight, width: contentWidth, height: totalRowHeight, borderColor: black, borderWidth: 1 });
+        page.drawLine({ start: { x: margin + col1Width, y }, end: { x: margin + col1Width, y: y - totalRowHeight }, thickness: 1, color: black });
+        page.drawLine({ start: { x: margin + col1Width + col2Width, y }, end: { x: margin + col1Width + col2Width, y: y - totalRowHeight }, thickness: 1, color: black });
+        page.drawLine({ start: { x: margin + col1Width + col2Width + col3Width, y }, end: { x: margin + col1Width + col2Width + col3Width, y: y - totalRowHeight }, thickness: 1, color: black });
 
-      page.drawText(row.no, { x: margin + 8, y: y - 16, size: fontSize, font: fontRegular, color: black });
-      page.drawText(row.label, { x: margin + col1Width + 8, y: y - 16, size: fontSize, font: fontRegular, color: black });
-      page.drawText(':', { x: margin + col1Width + col2Width + 4, y: y - 16, size: fontSize, font: fontRegular, color: black });
+        page.drawText(row.no, { x: margin + 8, y: y - 16, size: fontSize, font: fontRegular, color: black });
+        page.drawText(row.label, { x: margin + col1Width + 8, y: y - 16, size: fontSize, font: fontRegular, color: black });
+        page.drawText(':', { x: margin + col1Width + col2Width + 4, y: y - 16, size: fontSize, font: fontRegular, color: black });
 
-      lines.forEach((lineObj, idx) => {
-        drawJustifiedLine(
-          page,
-          lineObj.text,
-          margin + col1Width + col2Width + col3Width + 6,
-          y - 16 - idx * lineHeight,
-          col4Width - 12,
-          fontRegular,
-          fontSize,
-          black,
-          lineObj.isLastInBlock
-        );
-      });
+        lines.forEach((lineObj, idx) => {
+          drawJustifiedLine(
+            page,
+            lineObj.text,
+            margin + col1Width + col2Width + col3Width + 6,
+            y - 16 - idx * lineHeight,
+            col4Width - 12,
+            fontRegular,
+            fontSize,
+            black,
+            lineObj.isLastInBlock
+          );
+        });
 
-      y -= rowHeight;
+        y -= totalRowHeight;
+      } else {
+        let rLineIdx = 0;
+        let isFirstPageOfRow = true;
+
+        while (rLineIdx < lines.length) {
+          const availH = y - 60;
+          const maxLinesOnThisPage = Math.max(1, Math.floor((availH - 10) / lineHeight));
+          const linesChunk = lines.slice(rLineIdx, rLineIdx + maxLinesOnThisPage);
+          const chunkH = Math.max(linesChunk.length * lineHeight + 10, 24);
+
+          page.drawRectangle({ x: margin, y: y - chunkH, width: contentWidth, height: chunkH, borderColor: black, borderWidth: 1 });
+          page.drawLine({ start: { x: margin + col1Width, y }, end: { x: margin + col1Width, y: y - chunkH }, thickness: 1, color: black });
+          page.drawLine({ start: { x: margin + col1Width + col2Width, y }, end: { x: margin + col1Width + col2Width, y: y - chunkH }, thickness: 1, color: black });
+          page.drawLine({ start: { x: margin + col1Width + col2Width + col3Width, y }, end: { x: margin + col1Width + col2Width + col3Width, y: y - chunkH }, thickness: 1, color: black });
+
+          if (isFirstPageOfRow) {
+            page.drawText(row.no, { x: margin + 8, y: y - 16, size: fontSize, font: fontRegular, color: black });
+            page.drawText(row.label, { x: margin + col1Width + 8, y: y - 16, size: fontSize, font: fontRegular, color: black });
+            page.drawText(':', { x: margin + col1Width + col2Width + 4, y: y - 16, size: fontSize, font: fontRegular, color: black });
+            isFirstPageOfRow = false;
+          }
+
+          linesChunk.forEach((lineObj, idx) => {
+            drawJustifiedLine(
+              page,
+              lineObj.text,
+              margin + col1Width + col2Width + col3Width + 6,
+              y - 16 - idx * lineHeight,
+              col4Width - 12,
+              fontRegular,
+              fontSize,
+              black,
+              lineObj.isLastInBlock
+            );
+          });
+
+          y -= chunkH;
+          rLineIdx += maxLinesOnThisPage;
+
+          if (rLineIdx < lines.length) {
+            page = pdfDoc.addPage([pageWidth, pageHeight]);
+            y = pageHeight - 50;
+          }
+        }
+      }
     }
 
     y -= 15;

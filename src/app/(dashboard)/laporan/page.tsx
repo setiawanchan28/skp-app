@@ -46,14 +46,21 @@ export default function RiwayatLaporanPage() {
   const [filterBulan, setFilterBulan] = useState<string>('ALL');
   const [filterTahun, setFilterTahun] = useState<string>('ALL');
   const [sortOrder, setSortOrder] = useState<'NEWEST' | 'OLDEST' | 'NAME_ASC'>('NEWEST');
+  // Pagination State (Opsi: 10, 20, 30, 50, Semua)
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'ALL'>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
-  // Modals & Action Loading States
   const [previewActivity, setPreviewActivity] = useState<Activity | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const [savedProfile, setSavedProfile] = useState<{ nama?: string; nip?: string; jabatan?: string }>({});
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, typeFilter, filterBulan, filterTahun, sortOrder, itemsPerPage]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -170,6 +177,20 @@ export default function RiwayatLaporanPage() {
       if (sortOrder === 'OLDEST') return timeA - timeB;
       return timeB - timeA; // NEWEST
     });
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, typeFilter, filterBulan, filterTahun, sortOrder, itemsPerPage]);
+
+  const totalItems = filteredList.length;
+  const totalPages = itemsPerPage === 'ALL' ? 1 : Math.max(1, Math.ceil(totalItems / (itemsPerPage as number)));
+  const validPage = Math.min(currentPage, totalPages);
+
+  const startIndex = itemsPerPage === 'ALL' ? 0 : (validPage - 1) * (itemsPerPage as number);
+  const endIndex = itemsPerPage === 'ALL' ? totalItems : Math.min(startIndex + (itemsPerPage as number), totalItems);
+
+  const paginatedList = filteredList.slice(startIndex, endIndex);
 
   const handleGeneratePdf = async (act: Activity) => {
     setGeneratingPdfId(act.id);
@@ -469,11 +490,11 @@ export default function RiwayatLaporanPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredList.map((act, index) => {
+                {paginatedList.map((act, index) => {
                   const isGen = act.status === 'GENERATED';
                   return (
                     <tr key={act.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="p-4 text-center font-bold text-slate-400">{index + 1}</td>
+                      <td className="p-4 text-center font-bold text-slate-400">{startIndex + index + 1}</td>
                       <td className="p-4 font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         {formatDateIndonesian(act.start_date)}
                         {act.end_date && act.end_date !== act.start_date ? (
@@ -579,7 +600,7 @@ export default function RiwayatLaporanPage() {
       ) : (
         /* GRID CARD VIEW FORMAT */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredList.map((act) => {
+          {paginatedList.map((act) => {
             const isGen = act.status === 'GENERATED';
             return (
               <div
@@ -709,6 +730,65 @@ export default function RiwayatLaporanPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Bar */}
+      {totalItems > 0 && (
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-600 dark:text-slate-400 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span>Menampilkan</span>
+            <span className="font-bold text-slate-900 dark:text-white">
+              {totalItems === 0 ? 0 : startIndex + 1} – {endIndex}
+            </span>
+            <span>dari</span>
+            <span className="font-bold text-slate-900 dark:text-white">{totalItems}</span>
+            <span>kegiatan</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span>Per Halaman:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setItemsPerPage(val === 'ALL' ? 'ALL' : Number(val));
+                }}
+                className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={30}>30</option>
+                <option value={50}>50</option>
+                <option value="ALL">Semua</option>
+              </select>
+            </div>
+
+            {itemsPerPage !== 'ALL' && totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={validPage === 1}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-bold text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  Sebelumnya
+                </button>
+
+                <div className="px-3 py-1.5 bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-800 rounded-xl font-bold text-sky-700 dark:text-sky-300">
+                  Halaman {validPage} dari {totalPages}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={validPage === totalPages}
+                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-bold text-slate-700 dark:text-slate-300 transition-colors"
+                >
+                  Selanjutnya
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

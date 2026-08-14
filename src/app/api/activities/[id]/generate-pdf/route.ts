@@ -114,7 +114,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       userGoogleToken
     );
 
-    // 4b. Upload separate documentation photo files to Google Drive folder
+    // 4b. Upload separate documentation photo files to "Dokumentasi Foto" subfolder in Google Drive
+    const targetFolderId = driveFolder.dokumentasiFolderId || driveFolder.activityFolderId;
     for (let pIdx = 0; pIdx < mappedPhotos.length; pIdx++) {
       const photoItem = mappedPhotos[pIdx];
       if (photoItem.base64 && photoItem.base64.startsWith('data:image/')) {
@@ -124,12 +125,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             const photoMime = matches[1];
             const ext = photoMime.includes('png') ? 'png' : 'jpg';
             const photoBuffer = Buffer.from(matches[2], 'base64');
-            const photoFileName = `Dokumentasi_${pIdx + 1}.${ext}`;
+            const photoDate = photoItem.tanggal_foto || activity.start_date;
+            const photoFileName = `${formatDrivePdfName(photoDate, `${activity.name} - Foto ${pIdx + 1}`)}.${ext}`;
             await uploadFileToDrive(
               photoBuffer,
               photoFileName,
               photoMime,
-              driveFolder.activityFolderId,
+              targetFolderId,
               undefined,
               userGoogleToken
             );

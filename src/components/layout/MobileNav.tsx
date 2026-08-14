@@ -3,14 +3,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, FileText, FilePlus, FileCheck, Users, Settings } from 'lucide-react';
+import { LayoutDashboard, FileText, FilePlus, Calendar, Settings } from 'lucide-react';
 
 const MOBILE_NAV_ITEMS = [
-  { href: '/', label: 'Beranda', icon: LayoutDashboard },
-  { href: '/laporan/tambah', label: 'Tambah', icon: FilePlus },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/laporan/tambah', label: 'Buat Baru', icon: FilePlus },
   { href: '/laporan', label: 'Riwayat', icon: FileText },
-  { href: '/penugasan', label: 'Penugasan', icon: FileCheck },
-  { href: '/pegawai', label: 'Pegawai', icon: Users },
+  { href: '/kalender', label: 'Kalender', icon: Calendar },
   { href: '/pengaturan', label: 'Akun', icon: Settings },
 ];
 
@@ -21,7 +20,7 @@ export const MobileNav: React.FC = () => {
     <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 px-2 py-2 flex items-center justify-around shadow-lg transition-colors">
       {MOBILE_NAV_ITEMS.map((item) => {
         const Icon = item.icon;
-        const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+        const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
 
         return (
           <Link

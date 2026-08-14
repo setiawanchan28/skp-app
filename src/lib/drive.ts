@@ -74,7 +74,7 @@ export async function getOrCreateActivityDriveFolder(
   startDateString: string,
   activityName: string,
   userAccessToken?: string
-): Promise<{ rootFolderId: string; yearFolderId: string; monthFolderId: string; activityFolderId: string }> {
+): Promise<{ rootFolderId: string; yearFolderId: string; monthFolderId: string; activityFolderId: string; dokumentasiFolderId: string }> {
   const drive = getDriveClient(userAccessToken);
   const date = new Date(startDateString || Date.now());
   const yearStr = isNaN(date.getFullYear()) ? String(new Date().getFullYear()) : String(date.getFullYear());
@@ -96,12 +96,14 @@ export async function getOrCreateActivityDriveFolder(
     const yearFolderId = await findOrCreateFolder(drive, yearStr, mainRootId);
     const monthFolderId = await findOrCreateFolder(drive, monthStr, yearFolderId);
     const activityFolderId = await findOrCreateFolder(drive, activityFolderName, monthFolderId);
+    const dokumentasiFolderId = await findOrCreateFolder(drive, 'Dokumentasi Foto', activityFolderId);
 
     return {
       rootFolderId: mainRootId,
       yearFolderId,
       monthFolderId,
       activityFolderId,
+      dokumentasiFolderId,
     };
   } catch (err: any) {
     console.error('Google Drive folder hierarchy creation error:', err);
