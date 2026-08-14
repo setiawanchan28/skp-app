@@ -525,9 +525,68 @@ export async function copyActivityRecord(sourceId: string): Promise<Activity> {
 /**
  * Soft delete an activity (Move to TRASHED)
  */
+/**
+ * Soft delete an activity (Move to TRASHED)
+ */
 export async function trashLaporanRecord(id: string): Promise<boolean> {
-  const item = await fetchLaporanById(id);
-  if (!item) return false;
+  const nowIso = new Date().toISOString();
+
+  if (typeof window !== 'undefined') {
+    try {
+      const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+      if (local) {
+        let list: Activity[] = JSON.parse(local);
+        list = list.map((l) =>
+          l.id === id
+            ? {
+                ...l,
+                status: 'TRASHED',
+                previous_status: l.status || 'DRAFT',
+                deleted_at: nowIso,
+              }
+            : l
+        );
+        localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(list));
+      }
+    } catch (e) {}
+
+    try {
+      await fetch(`/api/activities/${id}/trash`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'trash' }),
+      });
+    } catch (e) {}
+
+    return true;
+  }
+
+  // Server-side
+  try {
+    const serverList = getStoredLaporanListServer();
+    const idx = serverList.findIndex((l: any) => l.id === id);
+    if (idx >= 0) {
+      serverList[idx] = {
+        ...serverList[idx],
+        status: 'TRASHED' as any,
+        previous_status: serverList[idx].status || 'DRAFT',
+        deleted_at: nowIso,
+      } as any;
+      saveStoredLaporanListServer(serverList);
+    }
+  } catch (e) {}
+
+  try {
+    const penugasanList = getStoredPenugasanList();
+    const idx = penugasanList.findIndex((p: any) => p.id === id);
+    if (idx >= 0) {
+      penugasanList[idx] = {
+        ...penugasanList[idx],
+        deleted_at: nowIso,
+      } as any;
+      saveStoredPenugasanList(penugasanList);
+    }
+  } catch (e) {}
 
   if (isSupabaseConfigured()) {
     try {
@@ -535,31 +594,17 @@ export async function trashLaporanRecord(id: string): Promise<boolean> {
         .from('activities')
         .update({
           status: 'TRASHED',
-          previous_status: item.status,
-          deleted_at: new Date().toISOString(),
+          deleted_at: nowIso,
+        })
+        .eq('id', id);
+
+      await supabaseAdmin
+        .from('laporan_penugasan')
+        .update({
+          deleted_at: nowIso,
         })
         .eq('id', id);
     } catch (e) {}
-  }
-
-  if (typeof window !== 'undefined') {
-    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
-    if (local) {
-      try {
-        let list: Activity[] = JSON.parse(local);
-        list = list.map((l) =>
-          l.id === id
-            ? {
-                ...l,
-                status: 'TRASHED',
-                previous_status: l.status,
-                deleted_at: new Date().toISOString(),
-              }
-            : l
-        );
-        localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(list));
-      } catch (e) {}
-    }
   }
 
   return true;
@@ -569,42 +614,81 @@ export async function trashLaporanRecord(id: string): Promise<boolean> {
  * Restore an activity from TRASHED
  */
 export async function restoreLaporanRecord(id: string): Promise<boolean> {
-  const item = await fetchLaporanById(id);
-  if (!item) return false;
-
-  const restoreStatus = item.previous_status || 'DRAFT';
-
-  if (isSupabaseConfigured()) {
-    try {
-      await supabaseAdmin
-        .from('activities')
-        .update({
-          status: restoreStatus,
-          previous_status: null,
-          deleted_at: null,
-        })
-        .eq('id', id);
-    } catch (e) {}
-  }
-
   if (typeof window !== 'undefined') {
-    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
-    if (local) {
-      try {
+    try {
+      const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+      if (local) {
         let list: Activity[] = JSON.parse(local);
         list = list.map((l) =>
           l.id === id
             ? {
                 ...l,
-                status: restoreStatus,
+                status: (l.previous_status as ActivityStatus) || 'DRAFT',
                 previous_status: undefined,
                 deleted_at: undefined,
               }
             : l
         );
         localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(list));
-      } catch (e) {}
+      }
+    } catch (e) {}
+
+    try {
+      await fetch(`/api/activities/${id}/trash`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restore' }),
+      });
+    } catch (e) {}
+
+    return true;
+  }
+
+  // Server-side
+  try {
+    const serverList = getStoredLaporanListServer();
+    const idx = serverList.findIndex((l: any) => l.id === id);
+    if (idx >= 0) {
+      serverList[idx] = {
+        ...serverList[idx],
+        status: (serverList[idx].previous_status as any) || 'DRAFT',
+        previous_status: undefined,
+        deleted_at: undefined,
+      } as any;
+      saveStoredLaporanListServer(serverList);
     }
+  } catch (e) {}
+
+  try {
+    const penugasanList = getStoredPenugasanList();
+    const idx = penugasanList.findIndex((p: any) => p.id === id);
+    if (idx >= 0) {
+      penugasanList[idx] = {
+        ...penugasanList[idx],
+        deleted_at: undefined,
+      } as any;
+      saveStoredPenugasanList(penugasanList);
+    }
+  } catch (e) {}
+
+  if (isSupabaseConfigured()) {
+    try {
+      await supabaseAdmin
+        .from('activities')
+        .update({
+          status: 'DRAFT',
+          previous_status: null,
+          deleted_at: null,
+        })
+        .eq('id', id);
+
+      await supabaseAdmin
+        .from('laporan_penugasan')
+        .update({
+          deleted_at: null,
+        })
+        .eq('id', id);
+    } catch (e) {}
   }
 
   return true;
@@ -614,21 +698,50 @@ export async function restoreLaporanRecord(id: string): Promise<boolean> {
  * Permanent delete activity
  */
 export async function permanentDeleteLaporanRecord(id: string): Promise<boolean> {
-  if (isSupabaseConfigured()) {
-    try {
-      await supabaseAdmin.from('activities').delete().eq('id', id);
-    } catch (e) {}
-  }
-
   if (typeof window !== 'undefined') {
-    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
-    if (local) {
-      try {
+    try {
+      const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+      if (local) {
         let list: Activity[] = JSON.parse(local);
         list = list.filter((l) => l.id !== id);
         localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(list));
-      } catch (e) {}
-    }
+      }
+    } catch (e) {}
+
+    try {
+      await fetch(`/api/activities/${id}/trash`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'permanent' }),
+      });
+    } catch (e) {}
+
+    return true;
+  }
+
+  // Server-side
+  try {
+    const serverList = getStoredLaporanListServer();
+    const filtered = serverList.filter((l: any) => l.id !== id);
+    saveStoredLaporanListServer(filtered);
+  } catch (e) {}
+
+  try {
+    const penugasanList = getStoredPenugasanList();
+    const filtered = penugasanList.filter((p: any) => p.id !== id);
+    saveStoredPenugasanList(filtered);
+  } catch (e) {}
+
+  if (isSupabaseConfigured()) {
+    try {
+      await supabaseAdmin.from('activity_documents').delete().eq('activity_id', id);
+      await supabaseAdmin.from('activity_people').delete().eq('activity_id', id);
+      await supabaseAdmin.from('activities').delete().eq('id', id);
+
+      await supabaseAdmin.from('penugasan_foto').delete().eq('penugasan_id', id);
+      await supabaseAdmin.from('penugasan_petugas_ditemui').delete().eq('penugasan_id', id);
+      await supabaseAdmin.from('laporan_penugasan').delete().eq('id', id);
+    } catch (e) {}
   }
 
   return true;
