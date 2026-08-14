@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { PhotoUploader, PhotoItem } from './PhotoUploader';
 import { PDFPreviewModal } from './PDFPreviewModal';
+import { ReauthModal } from '@/components/ui/ReauthModal';
 import { useToast } from '@/components/ui/Toast';
 import { Activity, ActivityType } from '@/types/laporan';
 import { checkActivityNameCollision } from '@/services/laporanService';
@@ -36,6 +37,10 @@ interface ReportFormProps {
 export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   const router = useRouter();
   const { showToast } = useToast();
+
+  // Reauth Modal State
+  const [isReauthOpen, setIsReauthOpen] = useState(false);
+  const [reauthMessage, setReauthMessage] = useState('');
 
   // Activity Core Form State
   const [activityType, setActivityType] = useState<ActivityType>('NON_PERJALANAN_DINAS');
@@ -265,7 +270,14 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       showToast('Kegiatan berhasil disimpan!', 'success');
       router.push('/laporan');
     } catch (err: any) {
-      showToast(err.message || 'Terjadi kesalahan saat menyimpan data', 'error');
+      const errMsg = err.message || 'Terjadi kesalahan saat menyimpan data';
+      showToast(errMsg, 'error');
+
+      const isAuthError = /token|kredensial|login|logout|401|403|google|oauth|permission|unauthorized|drive/i.test(errMsg);
+      if (isAuthError) {
+        setReauthMessage(errMsg);
+        setIsReauthOpen(true);
+      }
     } finally {
       setIsSubmitting(false);
       setSubmitProgress('');
@@ -703,6 +715,13 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
           laporan={previewActivity}
         />
       )}
+
+      {/* Re-Login Required Modal */}
+      <ReauthModal
+        isOpen={isReauthOpen}
+        onClose={() => setIsReauthOpen(false)}
+        message={reauthMessage}
+      />
     </form>
   );
 };

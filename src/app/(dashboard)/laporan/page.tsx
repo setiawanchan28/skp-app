@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   FileText,
   Search,
@@ -33,8 +34,10 @@ import { useToast } from '@/components/ui/Toast';
 import { BULAN_INDONESIA } from '@/constants/bpsConfig';
 import { compressBase64Image } from '@/lib/image';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { ReauthModal } from '@/components/ui/ReauthModal';
 
 export default function RiwayatLaporanPage() {
+  const router = useRouter();
   const { showToast } = useToast();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +57,10 @@ export default function RiwayatLaporanPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [generatingPdfId, setGeneratingPdfId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Re-Authentication Required Modal State
+  const [isReauthOpen, setIsReauthOpen] = useState(false);
+  const [reauthMessage, setReauthMessage] = useState<string>('');
 
   const [savedProfile, setSavedProfile] = useState<{ nama?: string; nip?: string; jabatan?: string }>({});
 
@@ -289,7 +296,14 @@ export default function RiwayatLaporanPage() {
       showToast('PDF berhasil dibuat dan status berubah menjadi GENERATED!', 'success');
       loadData();
     } catch (err: any) {
-      showToast(`Generate PDF Gagal: ${err.message}`, 'error');
+      const errMsg = err.message || '';
+      showToast(`Generate PDF Gagal: ${errMsg}`, 'error');
+
+      const isAuthError = /token|kredensial|login|logout|401|403|google|oauth|permission|unauthorized|drive/i.test(errMsg);
+      if (isAuthError) {
+        setReauthMessage(errMsg);
+        setIsReauthOpen(true);
+      }
     } finally {
       setGeneratingPdfId(null);
     }
@@ -845,6 +859,13 @@ export default function RiwayatLaporanPage() {
           }}
         />
       )}
+
+      {/* Re-Login Required Modal */}
+      <ReauthModal
+        isOpen={isReauthOpen}
+        onClose={() => setIsReauthOpen(false)}
+        message={reauthMessage}
+      />
     </div>
   );
 }
