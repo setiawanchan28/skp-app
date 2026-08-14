@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, LogIn, UserCheck } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -14,6 +14,39 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Parse OAuth Callback Hash (#access_token=...) on mount
+  useEffect(() => {
+    if (isSupabaseConfigured()) {
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) {
+          const metadata = session.user.user_metadata || {};
+          const userSession = {
+            nama: metadata.full_name || metadata.name || 'Dede Setiawan, S.Tr.Stat.',
+            nip: metadata.nip || '199502282024211021',
+            jabatan: metadata.position || metadata.jabatan || 'Pranata Komputer Ahli Pertama',
+            email: session.user.email,
+            provider_token: session.provider_token,
+            provider_refresh_token: session.provider_refresh_token,
+          };
+
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('bps_auth_user', JSON.stringify(userSession));
+            localStorage.setItem('bps_saved_profile', JSON.stringify(userSession));
+            if (session.provider_token) {
+              localStorage.setItem('google_provider_token', session.provider_token);
+            }
+          }
+
+          router.replace('/laporan');
+        }
+      });
+
+      return () => {
+        authListener?.subscription.unsubscribe();
+      };
+    }
+  }, [router]);
+
   // AUTH-001: Google Account Login via Supabase OAuth
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -23,7 +56,7 @@ export default function LoginPage() {
         const { error: oauthError } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: {
-            redirectTo: `${window.location.origin}/laporan`,
+            redirectTo: `${window.location.origin}/`,
             scopes: 'https://www.googleapis.com/auth/drive.file',
           },
         });
