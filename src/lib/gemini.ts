@@ -27,23 +27,22 @@ Pembagian isi 3 paragraf:
     lengthInstruction = 'Tuliskan deskripsi narasi yang RINGKAS, PADAT, DAN STRUKTURAL (1-2 kalimat fokus pada inti hasil kegiatan).';
   }
 
-  const prompt = `Anda adalah asisten penyusunan ringkasan Bukti Dukung Kegiatan Harian Pegawai BPS.
-Tugas Anda adalah merangkai poin-poin kegiatan mentah menjadi **NARASI RESMI BPS YANG MENGALIR, PANJANG, PROFESIONAL, DAN SANGAT DETAIL**.
+  const prompt = `Anda adalah pakar penyusunan laporan resmi dan penulisan narasi Bukti Dukung Kegiatan Pegawai Badan Pusat Statistik (BPS).
+Tugas Anda adalah **MEMPARAFRASEKAN DAN MERANGKAI** poin-poin kegiatan mentah pengguna menjadi **NARASI RESMI BERBAHASA INDONESIA BAKU, FORMAL, SANGAT PROFESIONAL, DAN ELEGAN**.
 
 Informasi Input:
 - Nama Kegiatan: ${namaKegiatan}
-- Catatan Poin Kegiatan:
+- Catatan Poin Kegiatan Mentah:
 ${deskripsiKegiatan}
 
-Instruksi Penulisan Penting:
-1. INSTRUKSI PANJANG KALIMAT: ${lengthInstruction}
-2. INSTRUKSI JUMLAH PARAGRAF: ${paragraphInstruction}
-3. LANGSUNG KE INTI KEGIATAN: DILARANG menyebut nama instansi ("BPS Kabupaten Lebak...") dan DILARANG menyebut nama pegawai di awal kalimat. LANGSUNG awali dengan KATA KERJA AKTIF (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...").
-4. CONTOH GAYA BAHASA RESMI BPS:
-   "Melaksanakan kegiatan ${namaKegiatan} di wilayah sampel Desa Aweh bersama PML Sundari dan PPL Fahmi. Rangkaian kegiatan berfokus pada pendampingan langsung di lapangan, validasi kelengkapan serta konsistensi isian kuesioner digital maupun fisik, sekaligus menyampaikan arahan teknis mengenai perbaikan anomali data demi menjaga mutu dan akurasi data hasil pencacahan."
-5. DILARANG MENGGUNAKAN SIMBOL BINTANG (*) ATAU CETAK TEBAL/MIRING DENGAN BINTANG PADA KATA BAHASA INGGRIS. Tuliskan kata asing secara polos tanpa tanda bintang. (Contoh: tulis Coverage, BUKAN *Coverage*).
-6. DILARANG menggunakan frasa seremonial kaku seperti "berjalan tertib dan lancar".
-7. DILARANG menambahkan kata pembuka seperti "Berikut ringkasan:". LANGSUNG ke isi paragraf narasi.`;
+Instruksi Penulisan Utama:
+1. GAYA BAHASA FORMAL & PARAFRASE BAKU: Gunakan tata bahasa Indonesia baku, pilihan kata (diksi) resmi kedinasan instansi pemerintah, dan susunlah parafrase yang halus, sistematis, dan mengalir dari poin-poin catatan mentah pengguna.
+2. INSTRUKSI PANJANG KALIMAT: ${lengthInstruction}
+3. INSTRUKSI JUMLAH PARAGRAF: ${paragraphInstruction}
+4. KATA KERJA AKTIF FORMAL: DILARANG menyebut nama instansi ("BPS Kabupaten Lebak...") dan DILARANG menyebut nama pegawai di awal kalimat. LANGSUNG awali paragraf dengan KATA KERJA AKTIF FORMAL (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...", "Menyusun...").
+5. DILARANG MENGGUNAKAN SIMBOL BINTANG (*) ATAU MARKDOWN BOLD/ITALIC. Tuliskan kata asing secara polos tanpa tanda bintang (Contoh: tulis Coverage, BUKAN *Coverage*).
+6. DILARANG menggunakan kata-kata informal atau kalimat seremonial kaku seperti "berjalan lancar".
+7. DILARANG menambahkan kata pembuka/penutup seperti "Berikut adalah...". Langsung hasilkan teks narasi paragrafnya saja.`;
 
   try {
     if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy')) {

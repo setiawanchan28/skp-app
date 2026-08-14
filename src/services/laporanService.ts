@@ -244,6 +244,19 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
  * Fetch activity by ID
  */
 export async function fetchLaporanById(id: string): Promise<Activity | null> {
+  if (typeof window !== 'undefined') {
+    try {
+      const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) {
+          const foundLocal = parsed.find((a: any) => a.id === id);
+          if (foundLocal) return foundLocal;
+        }
+      }
+    } catch (e) {}
+  }
+
   const list = await fetchLaporanList(true);
   const found = list.find((a) => a.id === id);
   if (found) return found;

@@ -32,6 +32,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/components/ui/Toast';
 import { BULAN_INDONESIA } from '@/constants/bpsConfig';
 import { compressBase64Image } from '@/lib/image';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
 export default function RiwayatLaporanPage() {
   const { showToast } = useToast();
@@ -173,10 +174,22 @@ export default function RiwayatLaporanPage() {
   const handleGeneratePdf = async (act: Activity) => {
     setGeneratingPdfId(act.id);
     try {
-      const googleToken =
+      let googleToken =
         (typeof window !== 'undefined' && localStorage.getItem('google_provider_token')) ||
         (savedProfile as any)?.provider_token ||
         '';
+
+      if (!googleToken && isSupabaseConfigured()) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data?.session?.provider_token) {
+            googleToken = data.session.provider_token;
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('google_provider_token', googleToken);
+            }
+          }
+        } catch (e) {}
+      }
 
       const cleanDocs = await Promise.all(
         (act.documents || (act as any).fotos || []).map(async (doc: any) => {

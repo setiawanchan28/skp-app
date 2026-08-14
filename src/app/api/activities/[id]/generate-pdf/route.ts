@@ -114,6 +114,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       userGoogleToken
     );
 
+    // 4b. Upload separate documentation photo files to Google Drive folder
+    for (let pIdx = 0; pIdx < mappedPhotos.length; pIdx++) {
+      const photoItem = mappedPhotos[pIdx];
+      if (photoItem.base64 && photoItem.base64.startsWith('data:image/')) {
+        try {
+          const matches = photoItem.base64.match(/^data:(image\/\w+);base64,(.+)$/);
+          if (matches) {
+            const photoMime = matches[1];
+            const ext = photoMime.includes('png') ? 'png' : 'jpg';
+            const photoBuffer = Buffer.from(matches[2], 'base64');
+            const photoFileName = `Dokumentasi_${pIdx + 1}.${ext}`;
+            await uploadFileToDrive(
+              photoBuffer,
+              photoFileName,
+              photoMime,
+              driveFolder.activityFolderId,
+              undefined,
+              userGoogleToken
+            );
+          }
+        } catch (photoErr) {
+          console.warn(`Failed to upload separate photo ${pIdx + 1} to Drive:`, photoErr);
+        }
+      }
+    }
+
     // 5. Update Activity status to GENERATED and lock identity fields
     const nowIso = new Date().toISOString();
     const updatedActivity = await saveLaporanRecord(
