@@ -129,7 +129,29 @@ export default function RiwayatLaporanPage() {
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Gagal generate PDF');
       }
-      showToast('PDF berhasil dibuat dan tersimpan di Google Drive!', 'success');
+
+      const updatedAct = data.data?.activity || {
+        ...act,
+        status: 'GENERATED',
+        drive_pdf_url: data.data?.pdf_url || act.drive_pdf_url,
+      };
+
+      if (typeof window !== 'undefined') {
+        try {
+          const local = localStorage.getItem('bps_laporan_data');
+          let list = local ? JSON.parse(local) : [];
+          const idx = list.findIndex((l: any) => l.id === act.id);
+          if (idx >= 0) list[idx] = updatedAct;
+          else list.unshift(updatedAct);
+          localStorage.setItem('bps_laporan_data', JSON.stringify(list));
+        } catch (e) {}
+      }
+
+      setActivities((prev) =>
+        prev.map((item) => (item.id === act.id ? updatedAct : item))
+      );
+
+      showToast('PDF berhasil dibuat dan status berubah menjadi GENERATED!', 'success');
       loadData();
     } catch (err: any) {
       showToast(`Generate PDF Gagal: ${err.message}`, 'error');
