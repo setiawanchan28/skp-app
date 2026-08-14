@@ -299,74 +299,11 @@ export default function LoginPage() {
             <span>Masuk dengan Akun Google</span>
           </button>
 
-          <div className="relative flex items-center justify-center">
-            <div className="border-t border-slate-200 w-full" />
-            <span className="bg-white px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider relative">Atau NIP / Email</span>
-          </div>
-
-          {/* Form Login NIP/Email */}
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                NIP atau Email Pegawai *
-              </label>
-              <div className="relative">
-                <Mail className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  required
-                  value={nipOrEmail}
-                  onChange={(e) => setNipOrEmail(e.target.value)}
-                  placeholder="Masukkan NIP (18 Digit) atau Email BPS"
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
-                />
-              </div>
+          {error && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-600 font-medium leading-relaxed text-center">
+              {error}
             </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Kata Sandi *
-              </label>
-              <div className="relative">
-                <Lock className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-600 font-medium leading-relaxed">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-sm shadow-md shadow-sky-600/20 transition-all flex items-center justify-center gap-2"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>{loading ? 'Memverifikasi...' : 'Masuk Aplikasi'}</span>
-            </button>
-          </form>
-
-          {/* Quick Demo Access Button */}
-          <div className="pt-2 border-t border-slate-200/60 text-center">
-            <button
-              type="button"
-              onClick={handleQuickDemoAccess}
-              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-2"
-            >
-              <UserCheck className="w-4 h-4 text-sky-600" />
-              <span>Masuk Langsung (Mode Pegawai BPS)</span>
-            </button>
-          </div>
+          )}
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Laporan, LaporanFoto } from '@/types/laporan';
 import { formatDateIndonesian } from '@/utils/formatters';
-import { BPS_CONFIG, BULAN_INDONESIA } from '@/constants/bpsConfig';
+import { BPS_CONFIG, BULAN_INDONESIA, BPS_LOGO_SVG } from '@/constants/bpsConfig';
 import { ExternalLink, FileText } from 'lucide-react';
 
 interface PDFPreviewModalProps {
@@ -48,18 +48,18 @@ function extractDriveFileId(url?: string): string | null {
   return null;
 }
 
-function getDirectImageUrl(foto: LaporanFoto): string {
-  if (foto.previewUrl && foto.previewUrl.startsWith('data:image')) {
-    return foto.previewUrl;
+function getDirectImageUrl(foto: any): string {
+  if (!foto) return '';
+  if (typeof foto === 'string') return foto;
+  const src = foto.previewUrl || foto.drive_file_url || foto.web_view_url || foto.url || foto.existingUrl || '';
+  if (src && (src.startsWith('data:image') || src.startsWith('blob:') || src.startsWith('http'))) {
+    return src;
   }
-  if (foto.previewUrl && foto.previewUrl.startsWith('http')) {
-    return foto.previewUrl;
-  }
-  const fileId = foto.drive_file_id || extractDriveFileId(foto.drive_file_url);
-  if (fileId && !fileId.startsWith('preview_')) {
+  const fileId = foto.drive_file_id || extractDriveFileId(src);
+  if (fileId && !fileId.startsWith('preview_') && !fileId.startsWith('prev_')) {
     return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
   }
-  return foto.drive_file_url || foto.previewUrl || '';
+  return src;
 }
 
 export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
@@ -99,34 +99,30 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   <img
                     src={BPS_CONFIG.logoPath}
                     alt="Logo BPS"
-                    className="h-12 sm:h-16 w-auto object-contain mx-auto"
+                    className="h-14 sm:h-20 w-auto object-contain mx-auto"
+                    onError={() => setHasCustomLogo(false)}
                   />
                 ) : (
-                  <div className="text-center">
-                    <div className="inline-flex flex-col items-center">
-                      <div className="flex items-center gap-1 mb-1">
-                        <span className="w-4 h-3.5 bg-sky-500 rounded-2xs inline-block" />
-                        <span className="w-4 h-3.5 bg-orange-500 rounded-2xs inline-block" />
-                      </div>
-                      <span className="w-4 h-3.5 bg-emerald-500 rounded-2xs inline-block" />
-                    </div>
-                  </div>
+                  <div
+                    className="flex justify-center"
+                    dangerouslySetInnerHTML={{ __html: BPS_LOGO_SVG }}
+                  />
                 )}
               </div>
-
-              <div className="pt-1 space-y-0.5">
-                <h1 className="text-xs sm:text-sm font-extrabold tracking-wide uppercase">
-                  {isPenugasan ? 'LAPORAN PENUGASAN BADAN PUSAT STATISTIK KABUPATEN LEBAK' : BPS_CONFIG.judulLaporan}
-                </h1>
-                <h2 className="text-[10px] sm:text-xs font-extrabold tracking-wide uppercase">
-                  TAHUN {dateYear}
+              <div>
+                <h2 className="font-extrabold text-sm sm:text-lg tracking-wide uppercase">
+                  {isPenugasan ? 'LAPORAN HASIL PERJALANAN DINAS' : 'BUKTI DUKUNG KEGIATAN HARIAN'}
                 </h2>
+                <p className="font-bold text-xs sm:text-sm tracking-normal uppercase text-slate-800">
+                  BADAN PUSAT STATISTIK KABUPATEN LEBAK TAHUN {dateYear}
+                </p>
               </div>
             </div>
 
+            {/* Document Content Sections */}
             {isPenugasan ? (
-              /* EXACT PENUGASAN DOCUMENT FORMAT MATCHING LAMPIRAN USER */
-              <div className="space-y-4 text-xs">
+              /* LAPORAN PERJALANAN DINAS FORMAT */
+              <div className="space-y-5 text-xs">
                 {/* I. KETERANGAN PELAKSANA PERJALANAN DINAS */}
                 <div className="border border-slate-300 overflow-hidden">
                   <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
@@ -141,7 +137,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   </table>
                 </div>
 
-                {/* II. KETERANGAN PERJALANAN DINAS (SEPARATE INDIVIDUAL ROWS) */}
+                {/* II. KETERANGAN PERJALANAN DINAS */}
                 <div className="border border-slate-300 overflow-hidden">
                   <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
                     II. KETERANGAN PERJALANAN DINAS
@@ -150,23 +146,23 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                     <tbody>
                       <tr className="border-b border-slate-200">
                         <td className="w-1/3 p-2 font-medium">Nama Kegiatan</td>
-                        <td className="p-2 font-semibold">{activeLaporan.nama_kegiatan}</td>
+                        <td className="p-2 font-semibold">{activeLaporan.name || activeLaporan.nama_kegiatan}</td>
                       </tr>
                       <tr className="border-b border-slate-200">
                         <td className="p-2 font-medium">Tanggal Perjadin</td>
-                        <td className="p-2 font-medium">{formatDateIndonesian(activeLaporan.tanggal, activeLaporan.tanggal_selesai)}</td>
+                        <td className="p-2 font-medium">{formatDateIndonesian(activeLaporan.start_date || activeLaporan.tanggal, activeLaporan.end_date || activeLaporan.tanggal_selesai)}</td>
                       </tr>
                       <tr className="border-b border-slate-200">
-                        <td className="p-2 font-medium">Tempat Tujuan</td>
-                        <td className="p-2 font-semibold">{activeLaporan.tempat_tujuan || '-'}</td>
+                        <td className="w-1/3 p-2 font-medium">Tempat Tujuan</td>
+                        <td className="p-2 font-semibold">{activeLaporan.destination || activeLaporan.tempat_tujuan || '-'}</td>
                       </tr>
                       <tr className="border-b border-slate-200">
                         <td className="p-2 font-medium">Nomor Surat</td>
-                        <td className="p-2 font-mono">{activeLaporan.nomor_surat || '-'}</td>
+                        <td className="p-2 font-mono">{activeLaporan.letter_number || activeLaporan.nomor_surat || '-'}</td>
                       </tr>
                       <tr>
                         <td className="p-2 font-medium">Nomor SPD</td>
-                        <td className="p-2 font-mono">{activeLaporan.nomor_spd || '-'}</td>
+                        <td className="p-2 font-mono">{activeLaporan.spd_number || activeLaporan.nomor_spd || '-'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -196,8 +192,8 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                         petugasList.map((p: any, idx: number) => (
                           <tr key={idx} className="border-b border-slate-200">
                             <td className="p-2 text-center border-r border-slate-200 font-semibold">{idx + 1}</td>
-                            <td className="p-2 border-r border-slate-200 font-semibold">{p.nama}</td>
-                            <td className="p-2 font-medium">{p.jabatan}</td>
+                            <td className="p-2 border-r border-slate-200 font-semibold">{p.nama || p.person_name}</td>
+                            <td className="p-2 font-medium">{p.jabatan || p.position}</td>
                           </tr>
                         ))
                       )}
@@ -211,23 +207,40 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                     IV. RESUME PERJALANAN DINAS
                   </div>
                   <div className="p-3 leading-relaxed whitespace-pre-line text-slate-800 text-justify">
-                    {activeLaporan.ringkasan_kegiatan}
+                    {activeLaporan.description || activeLaporan.ringkasan_kegiatan}
                   </div>
                 </div>
 
-                {/* V. DOKUMENTASI */}
+                {/* V. DOKUMENTASI (Centered for Single or Last Odd Photo) */}
                 {allPhotos.length > 0 && (
                   <div className="border border-slate-300 overflow-hidden">
                     <div className="bg-slate-100 p-2 font-bold uppercase border-b border-slate-300">
                       V. DOKUMENTASI
                     </div>
                     <div className="grid grid-cols-2 gap-3 p-3 bg-white">
-                      {allPhotos.map((foto: any, idx: number) => (
-                        <div key={idx} className="border border-slate-200 p-2 text-center rounded bg-white">
-                          <img src={getDirectImageUrl(foto)} alt={foto.file_name} className="h-32 w-full object-contain mx-auto rounded" />
-                          <div className="text-[10px] text-slate-500 mt-1 font-medium">{foto.file_name}</div>
-                        </div>
-                      ))}
+                      {allPhotos.map((foto: any, idx: number) => {
+                        const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
+                        const imgSrc = getDirectImageUrl(foto);
+                        return (
+                          <div
+                            key={idx}
+                            className={`border border-slate-200 p-2 text-center rounded bg-white ${
+                              isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
+                            }`}
+                          >
+                            {imgSrc ? (
+                              <img src={imgSrc} alt={foto.file_name || foto.name || `Foto ${idx + 1}`} className="h-40 w-full object-contain mx-auto rounded" />
+                            ) : (
+                              <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
+                                [ Pratinjau Foto ]
+                              </div>
+                            )}
+                            <div className="text-[10px] text-slate-500 mt-1 font-medium truncate">
+                              {foto.file_name || foto.name || `Foto_${idx + 1}`}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -263,19 +276,19 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">4.</td>
                         <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">KEGIATAN</td>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                        <td className="p-1.5 sm:p-2 font-medium">{activeLaporan.nama_kegiatan}</td>
+                        <td className="p-1.5 sm:p-2 font-medium">{activeLaporan.name || activeLaporan.nama_kegiatan}</td>
                       </tr>
                       <tr className="border-b border-black">
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">5.</td>
                         <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">TANGGAL</td>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                        <td className="p-1.5 sm:p-2 font-medium">{formatDateIndonesian(activeLaporan.tanggal, activeLaporan.tanggal_selesai)}</td>
+                        <td className="p-1.5 sm:p-2 font-medium">{formatDateIndonesian(activeLaporan.start_date || activeLaporan.tanggal, activeLaporan.end_date || activeLaporan.tanggal_selesai)}</td>
                       </tr>
                       <tr>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">6.</td>
                         <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">RINGKASAN</td>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                        <td className="p-1.5 sm:p-2 font-normal leading-relaxed whitespace-pre-line text-justify">{activeLaporan.ringkasan_kegiatan}</td>
+                        <td className="p-1.5 sm:p-2 font-normal leading-relaxed whitespace-pre-line text-justify">{activeLaporan.description || activeLaporan.ringkasan_kegiatan}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -288,11 +301,26 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   <div className="p-2 sm:p-4">
                     {allPhotos.length > 0 ? (
                       <div className="grid grid-cols-2 gap-3 p-3 bg-white border border-black">
-                        {allPhotos.map((foto: any, idx: number) => (
-                          <div key={idx} className="border border-slate-300 p-2 text-center bg-white">
-                            <img src={getDirectImageUrl(foto)} alt={foto.file_name} className="h-32 w-full object-contain mx-auto" />
-                          </div>
-                        ))}
+                        {allPhotos.map((foto: any, idx: number) => {
+                          const isLastOdd = (allPhotos.length % 2 !== 0) && (idx === allPhotos.length - 1);
+                          const imgSrc = getDirectImageUrl(foto);
+                          return (
+                            <div
+                              key={idx}
+                              className={`border border-slate-300 p-2 text-center bg-white ${
+                                isLastOdd ? 'col-span-2 w-full max-w-sm mx-auto' : ''
+                              }`}
+                            >
+                              {imgSrc ? (
+                                <img src={imgSrc} alt={foto.file_name || foto.name || `Foto ${idx + 1}`} className="h-40 w-full object-contain mx-auto" />
+                              ) : (
+                                <div className="h-32 bg-slate-100 flex items-center justify-center text-xs text-slate-400 italic">
+                                  [ Pratinjau Foto ]
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <div className="p-4 text-center text-xs text-slate-500 italic">

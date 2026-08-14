@@ -6,7 +6,8 @@ export async function generateBpsSummary(
   namaKegiatan: string,
   deskripsiKegiatan: string,
   namaPegawai?: string,
-  jumlahParagraf: string = 'auto'
+  jumlahParagraf: string = 'auto',
+  modePanjang: string = 'panjang'
 ): Promise<string> {
   let paragraphInstruction = 'Tulis ringkasan naratif secara proporsional (1-3 paragraf jika materi cukup panjang).';
   if (jumlahParagraf === '1') {
@@ -15,6 +16,11 @@ export async function generateBpsSummary(
     paragraphInstruction = 'Wajib bagi ringkasan naratif menjadi TEPAT 2 PARAGRAF RAPI yang terpisah oleh dua kali perpindahan baris (line break).';
   } else if (jumlahParagraf === '3') {
     paragraphInstruction = 'Wajib bagi ringkasan naratif menjadi TEPAT 3 PARAGRAF RAPI yang terpisah oleh dua kali perpindahan baris (line break).';
+  }
+
+  let lengthInstruction = 'Tuliskan deskripsi narasi yang SANGAT DETAIL, TERDOKUMENTASI DENGAN BAIK, DAN COMPREHENSIVE (uraikan setiap poin kegiatan secara mendalam mulai dari persiapan, proses verifikasi, koordinasi lapangan, hingga jaminan mutu statistik).';
+  if (modePanjang === 'pendek') {
+    lengthInstruction = 'Tuliskan deskripsi narasi yang RINGKAS, PADAT, DAN STRUKTURAL (1-2 kalimat fokus pada inti hasil kegiatan).';
   }
 
   const prompt = `Anda adalah asisten penyusunan ringkasan Bukti Dukung Kegiatan Harian Pegawai BPS.
@@ -26,19 +32,19 @@ Informasi Input:
 ${deskripsiKegiatan}
 
 Instruksi Penulisan Penting:
-1. INSTRUKSI PARAGRAF: ${paragraphInstruction}
-2. LANGSUNG KE INTI KEGIATAN: DILARANG menyebut nama instansi ("BPS Kabupaten Lebak...") dan DILARANG menyebut nama pegawai di awal kalimat. LANGSUNG awali dengan KATA KERJA AKTIF (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...").
-3. CONTOH GAYA BAHASA RESMI BPS:
-   "Melaksanakan kegiatan ${namaKegiatan} di Desa Aweh bersama PML Sundari dan PPL Fahmi. Rangkaian kegiatan berfokus pada pendampingan langsung di wilayah sampel, validasi kelengkapan serta konsistensi isian kuesioner digital maupun fisik, sekaligus menyampaikan arahan teknis mengenai perbaikan anomali data demi menjaga mutu dan akurasi data hasil lapangan."
-4. DILARANG menggunakan frasa seremonial kaku seperti "berjalan tertib dan lancar".
-5. DILARANG menambahkan kata pembuka seperti "Berikut ringkasan:". LANGSUNG ke isi paragraf narasi.`;
+1. INSTRUKSI PANJANG KALIMAT: ${lengthInstruction}
+2. INSTRUKSI JUMLAH PARAGRAF: ${paragraphInstruction}
+3. LANGSUNG KE INTI KEGIATAN: DILARANG menyebut nama instansi ("BPS Kabupaten Lebak...") dan DILARANG menyebut nama pegawai di awal kalimat. LANGSUNG awali dengan KATA KERJA AKTIF (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...").
+4. CONTOH GAYA BAHASA RESMI BPS:
+   "Melaksanakan kegiatan ${namaKegiatan} di wilayah sampel Desa Aweh bersama PML Sundari dan PPL Fahmi. Rangkaian kegiatan berfokus pada pendampingan langsung di lapangan, validasi kelengkapan serta konsistensi isian kuesioner digital maupun fisik, sekaligus menyampaikan arahan teknis mengenai perbaikan anomali data demi menjaga mutu dan akurasi data hasil pencacahan."
+5. DILARANG menggunakan frasa seremonial kaku seperti "berjalan tertib dan lancar".
+6. DILARANG menambahkan kata pembuka seperti "Berikut ringkasan:". LANGSUNG ke isi paragraf narasi.`;
 
   try {
     if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy')) {
-      return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf);
+      return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf, modePanjang);
     }
 
-    // 1. Try Official SDK with Updated Gemini Models
     const genAI = new GoogleGenerativeAI(apiKey);
     const modelCandidates = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-flash-latest'];
 
@@ -59,7 +65,7 @@ Instruksi Penulisan Penting:
       }
     }
 
-    // 2. Direct REST API Call Fallback
+    // Direct REST API Call Fallback
     try {
       const restRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
@@ -83,10 +89,10 @@ Instruksi Penulisan Penting:
       }
     } catch (e) {}
 
-    return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf);
+    return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf, modePanjang);
   } catch (error) {
     console.warn('Gemini API error, using custom narrative composer:', error);
-    return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf);
+    return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf, modePanjang);
   }
 }
 
@@ -96,7 +102,8 @@ Instruksi Penulisan Penting:
 function composeCustomParagraphNarrative(
   namaKegiatan: string,
   deskripsiKegiatan: string,
-  jumlahParagraf: string
+  jumlahParagraf: string,
+  modePanjang: string = 'panjang'
 ): string {
   const lines = deskripsiKegiatan
     .split('\n')
@@ -104,7 +111,7 @@ function composeCustomParagraphNarrative(
     .filter((line) => line.length > 0);
 
   if (lines.length === 0) {
-    return `Melaksanakan kegiatan ${namaKegiatan} sesuai petunjuk teknis dan standar operasional prosedur yang berlaku.`;
+    return `Melaksanakan kegiatan ${namaKegiatan} sesuai petunjuk teknis dan standar operasional prosedur yang berlaku di lingkungan BPS Kabupaten Lebak.`;
   }
 
   let locations: string[] = [];
@@ -130,23 +137,29 @@ function composeCustomParagraphNarrative(
   }
 
   let p1 = `Melaksanakan kegiatan ${namaKegiatan}`;
-  if (locations.length > 0) p1 += ` di ${locations.join(', ')}`;
+  if (locations.length > 0) p1 += ` di lokasi ${locations.join(', ')}`;
   if (personnel.length > 0) p1 += ` bersama ${personnel.join(' serta ')}`;
   p1 += `. `;
 
   if (actions.length > 0) {
     const formatted = actions.map((a) => a.charAt(0).toLowerCase() + a.slice(1));
-    p1 += `Rangkaian kegiatan meliputi ${formatted.join(', ')}.`;
+    p1 += `Rangkaian pelaksanaan tugas meliputi ${formatted.join(', ')}.`;
+  } else {
+    p1 += `Pelaksanaan tugas berfokus pada verifikasi isian kuesioner dan pemantauan kualitas data di lapangan.`;
   }
 
-  if (jumlahParagraf === '2') {
-    const p2 = `Melalui kegiatan ini, koordinasi teknis dan verifikasi data di lapangan ditingkatkan guna menjamin kelengkapan serta keakuratan informasi statistik yang dihasilkan.`;
+  if (modePanjang === 'panjang') {
+    p1 += ` Setiap tahapan diawasi secara cermat untuk memastikan kesesuaian dengan standar metodologi pendataan BPS.`;
+  }
+
+  if (jumlahParagraf === '2' || (jumlahParagraf === 'auto' && modePanjang === 'panjang')) {
+    const p2 = `Melalui kegiatan ini, koordinasi teknis serta pemeriksaan konsistensi data statistik terus ditingkatkan. Hal ini dilakukan guna mengidentifikasi dan meminimalkan error pendataan sejak dini, sehingga menjamin keakuratan serta kualitas data statistik yang dihasilkan secara berkelanjutan.`;
     return `${p1}\n\n${p2}`;
   }
 
   if (jumlahParagraf === '3') {
-    const p2 = `Selama pelaksanaan di lapangan, verifikasi dilakukan secara mendalam pada setiap dokumen kuesioner untuk mengidentifikasi serta memperbaiki anomali data secara langsung.`;
-    const p3 = `Langkah ini diambil demi menjaga integritas data dan memastikan seluruh prosedur pendataan telah memenuhi standar metodologi statistik BPS.`;
+    const p2 = `Selama pelaksanaan di lapangan, pemeriksaan dilakukan secara mendalam pada setiap dokumen kuesioner untuk memverifikasi keabsahan isian dan mendeteksi anomali data secara langsung bersama petugas pencacah.`;
+    const p3 = `Langkah konkrit ini diambil guna menjaga tingkat integritas data statistik serta memastikan seluruh alur operasional di wilayah BPS Kabupaten Lebak memenuhi indikator kinerja yang telah ditetapkan.`;
     return `${p1}\n\n${p2}\n\n${p3}`;
   }
 
