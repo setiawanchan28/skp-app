@@ -31,6 +31,7 @@ import { PDFPreviewModal } from '@/components/laporan/PDFPreviewModal';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/components/ui/Toast';
 import { BULAN_INDONESIA } from '@/constants/bpsConfig';
+import { compressBase64Image } from '@/lib/image';
 
 export default function RiwayatLaporanPage() {
   const { showToast } = useToast();
@@ -122,13 +123,19 @@ export default function RiwayatLaporanPage() {
         (savedProfile as any)?.provider_token ||
         '';
 
-      const cleanDocs = (act.documents || (act as any).fotos || []).map((doc: any) => ({
-        id: doc.id,
-        name: doc.name || doc.file_name,
-        previewUrl: doc.previewUrl || doc.existingUrl || doc.base64 || doc.url || '',
-        existingUrl: doc.existingUrl || doc.previewUrl || doc.base64 || doc.url || '',
-        tanggal_foto: doc.tanggal_foto || doc.documentation_date || act.start_date,
-      }));
+      const cleanDocs = await Promise.all(
+        (act.documents || (act as any).fotos || []).map(async (doc: any) => {
+          const rawUrl = doc.previewUrl || doc.existingUrl || doc.base64 || doc.url || '';
+          const compressedUrl = await compressBase64Image(rawUrl, 1000, 0.7);
+          return {
+            id: doc.id,
+            name: doc.name || doc.file_name,
+            previewUrl: compressedUrl,
+            existingUrl: compressedUrl,
+            tanggal_foto: doc.tanggal_foto || doc.documentation_date || act.start_date,
+          };
+        })
+      );
 
       const payloadActivityData = {
         ...act,

@@ -2,7 +2,7 @@
  * Client-side image compressor using HTML Canvas
  * Reduces resolution and quality dynamically if needed while keeping high clarity
  */
-export async function compressImage(file: File, maxWidth: number = 1600, quality: number = 0.8): Promise<File> {
+export async function compressImage(file: File, maxWidth: number = 1000, quality: number = 0.7): Promise<File> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
       return resolve(file);
@@ -33,7 +33,7 @@ export async function compressImage(file: File, maxWidth: number = 1600, quality
 
         ctx.drawImage(img, 0, 0, width, height);
 
-        const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        const mimeType = 'image/jpeg';
 
         canvas.toBlob(
           (blob) => {
@@ -53,6 +53,48 @@ export async function compressImage(file: File, maxWidth: number = 1600, quality
     };
 
     reader.onerror = (err) => reject(err);
+  });
+}
+
+/**
+ * Automatically compress Base64 Data URL images in the browser
+ */
+export async function compressBase64Image(dataUrl: string, maxWidth: number = 1000, quality: number = 0.7): Promise<string> {
+  if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+    return dataUrl;
+  }
+
+  // If already small (under 300KB), return directly
+  if (dataUrl.length < 350000) {
+    return dataUrl;
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = dataUrl;
+
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(dataUrl);
+
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve(compressedDataUrl);
+    };
+
+    img.onerror = () => resolve(dataUrl);
   });
 }
 
