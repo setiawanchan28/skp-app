@@ -77,23 +77,18 @@ export async function getOrCreateActivityDriveFolder(
 ): Promise<{ rootFolderId: string; yearFolderId: string; monthFolderId: string; activityFolderId: string }> {
   const drive = getDriveClient(userAccessToken);
   const date = new Date(startDateString || Date.now());
-  const yearStr = String(date.getFullYear());
-  const monthStr = String(date.getMonth() + 1).padStart(2, '0');
+  const yearStr = isNaN(date.getFullYear()) ? String(new Date().getFullYear()) : String(date.getFullYear());
+  const monthStr = isNaN(date.getMonth()) ? '01' : String(date.getMonth() + 1).padStart(2, '0');
   const activityFolderName = formatDriveFolderName(startDateString, activityName);
 
   const rootParentId = extractRawDriveFolderId(process.env.GOOGLE_DRIVE_FOLDER_ID);
 
   if (!drive) {
-    return {
-      rootFolderId: 'mock_root',
-      yearFolderId: `mock_year_${yearStr}`,
-      monthFolderId: `mock_month_${monthStr}`,
-      activityFolderId: `mock_act_${activityFolderName}`,
-    };
+    throw new Error('Kredensial Google Drive tidak tersedia. Silakan logout lalu login kembali menggunakan akun Google (Gmail) Anda.');
   }
 
   try {
-    let mainRootId = rootParentId;
+    let mainRootId = rootParentId || '';
     if (!mainRootId) {
       mainRootId = await findOrCreateFolder(drive, 'Laporan Kegiatan', 'root');
     }
@@ -108,14 +103,9 @@ export async function getOrCreateActivityDriveFolder(
       monthFolderId,
       activityFolderId,
     };
-  } catch (err) {
-    console.warn('Drive folder structure creation error:', err);
-    return {
-      rootFolderId: 'fallback_root',
-      yearFolderId: `fallback_year_${yearStr}`,
-      monthFolderId: `fallback_month_${monthStr}`,
-      activityFolderId: `fallback_act_${activityFolderName}`,
-    };
+  } catch (err: any) {
+    console.error('Google Drive folder hierarchy creation error:', err);
+    throw new Error(`Gagal membuat folder di Google Drive: ${err.message || 'Izin Google OAuth tidak mencukupi'}`);
   }
 }
 
@@ -132,25 +122,38 @@ export async function getOrCreateFolderHierarchy(dateString: string): Promise<Dr
   };
 }
 
-async function findOrCreateFolder(drive: any, folderName: string, parentId: string): Promise<string> {
-  const query = `name = '${folderName.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`;
-  
-  const searchRes = await drive.files.list({
-    q: query,
-    fields: 'files(id, name)',
-    spaces: 'drive',
-  });
+async function findOrCreateFolder(drive: any, folderName: string, parentId?: string): Promise<string> {
+  let query = `name = '${folderName.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  if (parentId && parentId !== 'root') {
+    query += ` and '${parentId}' in parents`;
+  } else {
+    query += ` and 'root' in parents`;
+  }
 
-  if (searchRes.data.files && searchRes.data.files.length > 0) {
-    return searchRes.data.files[0].id || '';
+  try {
+    const searchRes = await drive.files.list({
+      q: query,
+      fields: 'files(id, name)',
+      spaces: 'drive',
+    });
+
+    if (searchRes.data.files && searchRes.data.files.length > 0) {
+      return searchRes.data.files[0].id || '';
+    }
+  } catch (searchErr) {
+    console.warn('Folder search failed, attempting create directly:', searchErr);
+  }
+
+  const requestBody: any = {
+    name: folderName,
+    mimeType: 'application/vnd.google-apps.folder',
+  };
+  if (parentId && parentId !== 'root') {
+    requestBody.parents = [parentId];
   }
 
   const createRes = await drive.files.create({
-    requestBody: {
-      name: folderName,
-      mimeType: 'application/vnd.google-apps.folder',
-      parents: [parentId],
-    },
+    requestBody,
     fields: 'id',
   });
 
@@ -170,14 +173,12 @@ export async function uploadFileToDrive(
 ): Promise<DriveUploadResult> {
   const drive = getDriveClient(userAccessToken);
 
-  if (!drive || folderId.startsWith('mock_') || folderId.startsWith('fallback_')) {
-    const fakeId = existingFileId || `file_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    return {
-      id: fakeId,
-      name: fileName,
-      webViewLink: `https://drive.google.com/file/d/${fakeId}/view`,
-      webContentLink: `https://drive.google.com/uc?id=${fakeId}&export=download`,
-    };
+  if (!drive) {
+    throw new Error('Kredensial Google Drive tidak tersedia. Silakan logout lalu login kembali menggunakan akun Google (Gmail) Anda.');
+  }
+
+  if (folderId.startsWith('mock_') || folderId.startsWith('fallback_')) {
+    throw new Error('Folder tujuan Google Drive tidak valid.');
   }
 
   const bufferStream = new Readable();
@@ -187,7 +188,6 @@ export async function uploadFileToDrive(
   let fileId = existingFileId;
 
   if (fileId && !fileId.startsWith('mock_') && !fileId.startsWith('file_')) {
-    // Update existing file idempotently
     try {
       const res = await drive.files.update({
         fileId: fileId,
@@ -205,12 +205,13 @@ export async function uploadFileToDrive(
     }
   }
 
-  // Create new file
+  const requestBody: any = { name: fileName };
+  if (folderId && folderId !== 'root') {
+    requestBody.parents = [folderId];
+  }
+
   const res = await drive.files.create({
-    requestBody: {
-      name: fileName,
-      parents: [folderId],
-    },
+    requestBody,
     media: {
       mimeType: mimeType,
       body: bufferStream,
@@ -218,7 +219,10 @@ export async function uploadFileToDrive(
     fields: 'id, name, webViewLink, webContentLink',
   });
 
-  fileId = res.data.id || `file_${Date.now()}`;
+  fileId = res.data.id || undefined;
+  if (!fileId) {
+    throw new Error('Google Drive API tidak mengembalikan ID berkas setelah upload.');
+  }
 
   // Set permission "Anyone with the link - Viewer" for PDFs
   if (mimeType === 'application/pdf') {
