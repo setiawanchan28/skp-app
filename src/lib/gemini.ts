@@ -2,6 +2,54 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const apiKey = process.env.GEMINI_API_KEY || '';
 
+/**
+ * Helper to normalize informal / non-baku everyday Indonesian words to formal Baku words.
+ */
+function normalizeNonBakuToBaku(text: string): string {
+  const dict: [RegExp, string][] = [
+    [/\bbikin\b/gi, 'membuat'],
+    [/\bngelakuin\b/gi, 'melaksanakan'],
+    [/\bngelakuinnya\b/gi, 'pelaksanaannya'],
+    [/\bnemuin\b/gi, 'menemui'],
+    [/\bnemuinnya\b/gi, 'pertemuannya'],
+    [/\bmeriksa\b/gi, 'memeriksa'],
+    [/\bngerjain\b/gi, 'mengerjakan'],
+    [/\bngerjainnya\b/gi, 'pengerjaannya'],
+    [/\bngabisin\b/gi, 'menyelesaikan'],
+    [/\bngolah\b/gi, 'mengolah'],
+    [/\bngisi\b/gi, 'mengisi'],
+    [/\bngumpulin\b/gi, 'mengumpulkan'],
+    [/\bngatur\b/gi, 'mengatur'],
+    [/\bngawasin\b/gi, 'mengawasi'],
+    [/\bngarahin\b/gi, 'mengarahkan'],
+    [/\bnyusun\b/gi, 'menyusun'],
+    [/\bnyiapin\b/gi, 'menyiapkan'],
+    [/\bnyelesaiin\b/gi, 'menyelesaikan'],
+    [/\bnyampe\b/gi, 'sampai'],
+    [/\bsampe\b/gi, 'hingga'],
+    [/\bbiar\b/gi, 'agar'],
+    [/\bbuat\b/gi, 'untuk'],
+    [/\blagi\b/gi, 'sedang'],
+    [/\budah\b/gi, 'telah'],
+    [/\btiap\b/gi, 'setiap'],
+    [/\bgimana\b/gi, 'bagaimana'],
+    [/\bkenapa\b/gi, 'mengapa'],
+    [/\benggak\b|\bnggak\b|\bgak\b/gi, 'tidak'],
+    [/\bbanget\b/gi, 'sangat'],
+    [/\bcuma\b/gi, 'hanya'],
+    [/\bkalo\b|\bkalau\b/gi, 'apabila'],
+    [/\bcoba\b/gi, 'upaya'],
+    [/\bsemua\b/gi, 'seluruh'],
+    [/\borang\b/gi, 'petugas'],
+  ];
+
+  let result = text;
+  for (const [regex, replacement] of dict) {
+    result = result.replace(regex, replacement);
+  }
+  return result;
+}
+
 export async function generateBpsSummary(
   namaKegiatan: string,
   deskripsiKegiatan: string,
@@ -9,6 +57,9 @@ export async function generateBpsSummary(
   jumlahParagraf: string = 'auto',
   modePanjang: string = 'panjang'
 ): Promise<string> {
+  const cleanNamaKegiatan = normalizeNonBakuToBaku(namaKegiatan);
+  const cleanDeskripsiKegiatan = normalizeNonBakuToBaku(deskripsiKegiatan);
+
   let paragraphInstruction = 'Tulis ringkasan naratif secara proporsional (1-3 paragraf jika materi cukup panjang).';
   if (jumlahParagraf === '1') {
     paragraphInstruction = 'Wajib tuliskan ringkasan naratif dalam TEPAT 1 PARAGRAF UTUH.';
@@ -27,31 +78,32 @@ Pembagian isi 3 paragraf:
     lengthInstruction = 'Tuliskan deskripsi narasi yang RINGKAS, PADAT, DAN STRUKTURAL (1-2 kalimat fokus pada inti hasil kegiatan).';
   }
 
-  const prompt = `Anda adalah pakar penyusunan laporan resmi dan penulisan narasi Bukti Dukung Kegiatan Pegawai Badan Pusat Statistik (BPS).
-Tugas Anda adalah **MEMPARAFRASEKAN DAN MERANGKAI** poin-poin kegiatan mentah pengguna menjadi **NARASI RESMI BERBAHASA INDONESIA BAKU, FORMAL, SANGAT PROFESIONAL, DAN ELEGAN**.
+  const prompt = `Anda adalah pakar tata bahasa Indonesia resmi dan editor naskah laporan kedinasan Badan Pusat Statistik (BPS).
+Tugas utama Anda adalah **MENGUBAH / TRANSLATE BAHASA SEHARI-HARI TIDAK BAKU DAN INFORMAL MENJADI BAHASA INDONESIA RESMI, BAKU (SENSUS/SURVEI BPS), SERTA DIPARAFRASEKAN MENJADI NARASI LAPORAN KEDINASAN YANG SANGAT PROFESIONAL DAN ELEGAN**.
 
-Informasi Input:
-- Nama Kegiatan: ${namaKegiatan}
-- Catatan Poin Kegiatan Mentah:
-${deskripsiKegiatan}
+Catatan Poin Kegiatan Input Pengguna (Mungkin Berisi Bahasa Tidak Baku/Sehari-hari):
+- Nama Kegiatan: ${cleanNamaKegiatan}
+- Catatan Poin Kegiatan:
+${cleanDeskripsiKegiatan}
 
-Instruksi Penulisan Utama:
-1. GAYA BAHASA FORMAL & PARAFRASE BAKU: Gunakan tata bahasa Indonesia baku, pilihan kata (diksi) resmi kedinasan instansi pemerintah, dan susunlah parafrase yang halus, sistematis, dan mengalir dari poin-poin catatan mentah pengguna.
-2. INSTRUKSI PANJANG KALIMAT: ${lengthInstruction}
-3. INSTRUKSI JUMLAH PARAGRAF: ${paragraphInstruction}
-4. KATA KERJA AKTIF FORMAL: DILARANG menyebut nama instansi ("BPS Kabupaten Lebak...") dan DILARANG menyebut nama pegawai di awal kalimat. LANGSUNG awali paragraf dengan KATA KERJA AKTIF FORMAL (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...", "Menyusun...").
-5. DILARANG MENGGUNAKAN SIMBOL BINTANG (*) ATAU MARKDOWN BOLD/ITALIC. Tuliskan kata asing secara polos tanpa tanda bintang (Contoh: tulis Coverage, BUKAN *Coverage*).
-6. DILARANG menggunakan kata-kata informal atau kalimat seremonial kaku seperti "berjalan lancar".
+ATURAN UTAMA PENERJEMAHAN & PARAFRASE BAKU:
+1. PENERJEMAHAN KATA TIDAK BAKU WAJIB DIUBAH MENJADI KATA BAKU RESMI BPS.
+   - Contoh: "bikin" -> "menyusun/membuat", "ngelakuin" -> "melaksanakan", "nemuin" -> "menemui/mengunjungi", "meriksa" -> "memeriksa", "ngerjain" -> "mengerjakan", "ngabisin" -> "menyelesaikan", "biar" -> "agar/guna", "buat" -> "untuk", "sampe" -> "hingga", "gak/nggak" -> "tidak", "udah" -> "telah".
+2. TATA BAHASA & DIKSI RESMI KEDINASAN: Ubah seluruh susunan kalimat menjadi kalimat efektif, formal, lugas, dan sesuai Pedoman Umum Ejaan Bahasa Indonesia (PUEBI).
+3. INSTRUKSI PANJANG KALIMAT: ${lengthInstruction}
+4. INSTRUKSI JUMLAH PARAGRAF: ${paragraphInstruction}
+5. KATA KERJA AKTIF FORMAL: DILARANG menyebut nama instansi ("BPS Kabupaten Lebak...") dan DILARANG menyebut nama pegawai di awal kalimat. LANGSUNG awali paragraf dengan KATA KERJA AKTIF FORMAL (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...", "Menyusun...").
+6. DILARANG MENGGUNAKAN SIMBOL BINTANG (*) ATAU MARKDOWN BOLD/ITALIC. Tuliskan kata asing secara polos tanpa tanda bintang (Contoh: tulis Coverage, BUKAN *Coverage*).
 7. DILARANG menambahkan kata pembuka/penutup seperti "Berikut adalah...". Langsung hasilkan teks narasi paragrafnya saja.`;
 
   try {
     if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy')) {
-      return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf, modePanjang);
+      return composeCustomParagraphNarrative(cleanNamaKegiatan, cleanDeskripsiKegiatan, jumlahParagraf, modePanjang);
     }
 
-    // Fast Direct REST API with 3.5s Timeout to guarantee instant response
+    // Fast Direct REST API with 5s Timeout to guarantee instant response
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     try {
       const restRes = await fetch(
@@ -73,7 +125,6 @@ Instruksi Penulisan Utama:
         if (rawText && rawText.trim().length > 20) {
           let clean = rawText.replace(/^(berikut adalah|berikut ringkasan|berikut narasi)[^:\n]*[:\n]\s*/i, '').trim();
           clean = clean.replace(/^"|"$/g, '').trim();
-          // Remove Markdown asterisks around foreign/English words (*word* -> word)
           clean = clean.replace(/\*/g, '').trim();
           return clean;
         }
@@ -98,10 +149,10 @@ Instruksi Penulisan Utama:
       }
     } catch (e) {}
 
-    return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf, modePanjang);
+    return composeCustomParagraphNarrative(cleanNamaKegiatan, cleanDeskripsiKegiatan, jumlahParagraf, modePanjang);
   } catch (error) {
     console.warn('Gemini API error, using custom narrative composer:', error);
-    return composeCustomParagraphNarrative(namaKegiatan, deskripsiKegiatan, jumlahParagraf, modePanjang);
+    return composeCustomParagraphNarrative(cleanNamaKegiatan, cleanDeskripsiKegiatan, jumlahParagraf, modePanjang);
   }
 }
 
@@ -114,7 +165,8 @@ function composeCustomParagraphNarrative(
   jumlahParagraf: string,
   modePanjang: string = 'panjang'
 ): string {
-  const lines = deskripsiKegiatan
+  const cleanDeskripsi = normalizeNonBakuToBaku(deskripsiKegiatan);
+  const lines = cleanDeskripsi
     .split('\n')
     .map((line) => line.replace(/^[-*•\d.]+\s*/, '').trim())
     .filter((line) => line.length > 0);
@@ -167,11 +219,11 @@ function composeCustomParagraphNarrative(
     const p2 = `Melalui kegiatan ini, koordinasi teknis serta pemeriksaan konsistensi data statistik terus ditingkatkan secara intensif. Hal ini dilakukan guna mengidentifikasi dan meminimalkan error pendataan sejak dini, sehingga menjamin keakuratan serta mutu data statistik yang dihasilkan secara berkelanjutan di Kabupaten Lebak.`;
     resultText = `${p1}\n\n${p2}`;
   } else if (jumlahParagraf === '3') {
-    const p2 = `Selama pelaksanaan di lapangan, pemeriksaan dilakukan secara mendalam dan sistematis pada setiap dokumen kuesioner untuk memverifikasi keabsahan isian serta mendeteksi anomali data secara langsung bersama petugas pencacah. Rangkaian validasi ini mencakup pengecekan kelengkapan variabel utama, konsistensi antar-blok pertanyaan, hingga kepatuhan terhadap SOP pendataan yang berlaku di wilayah sampel.`;
+    const p2 = `Selama pelaksanaan di lapangan, pemeriksaan dilakukan secara mendalam dan sistematis pada meverifikasi keabsahan isian serta mendeteksi anomali data secara langsung bersama petugas pencacah. Rangkaian validasi ini mencakup pengecekan kelengkapan variabel utama, konsistensi antar-blok pertanyaan, hingga kepatuhan terhadap SOP pendataan yang berlaku di wilayah sampel.`;
     const p3 = `Langkah konkrit tersebut diambil guna meminimalkan nonsampling error, menjaga tingkat integritas data statistik, serta memastikan seluruh alur operasional kegiatan harian di wilayah BPS Kabupaten Lebak memenuhi indikator kinerja utama yang telah ditetapkan secara tuntas dan proporsional.`;
     resultText = `${p1}\n\n${p2}\n\n${p3}`;
   }
 
-  // Strip any accidental markdown asterisks
-  return resultText.replace(/\*/g, '');
+  // Strip any accidental markdown asterisks and apply final non-baku dictionary cleanup
+  return normalizeNonBakuToBaku(resultText).replace(/\*/g, '');
 }
