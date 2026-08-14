@@ -1,6 +1,7 @@
 import { supabase, supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 import { Activity, ActivityPerson, ActivityDocument, ActivityStatus } from '@/types/laporan';
 import { normalizeActivityName } from '@/utils/sanitizeFilename';
+import { getStoredLaporanList, saveStoredLaporanList } from '@/lib/laporanStore';
 
 const LOCAL_STORAGE_LAPORAN = 'bps_laporan_data';
 
@@ -85,6 +86,18 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
   }
 
   const mergedMap = new Map<string, Activity>();
+
+  try {
+    const serverStoreList = getStoredLaporanList();
+    serverStoreList.forEach((item: any) => {
+      if (item && item.id) {
+        if (includeTrashed || !item.deleted_at) {
+          mergedMap.set(item.id, item as Activity);
+        }
+      }
+    });
+  } catch (e) {}
+
   localData.forEach((item) => {
     if (item && item.id) {
       if (includeTrashed || !item.deleted_at) {
@@ -322,7 +335,21 @@ export async function saveLaporanRecord(
     }
   }
 
-  // 2. Save to LocalStorage fallback
+  // 2. Save to Server-side JSON Store
+  try {
+    const serverList = getStoredLaporanList();
+    const existingIndex = serverList.findIndex((l: any) => l.id === fullRecord.id);
+    let updatedServerList;
+    if (existingIndex >= 0) {
+      updatedServerList = [...serverList];
+      updatedServerList[existingIndex] = fullRecord as any;
+    } else {
+      updatedServerList = [fullRecord as any, ...serverList];
+    }
+    saveStoredLaporanList(updatedServerList);
+  } catch (e) {}
+
+  // 3. Save to LocalStorage fallback
   if (typeof window !== 'undefined') {
     let list: Activity[] = [];
     const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
