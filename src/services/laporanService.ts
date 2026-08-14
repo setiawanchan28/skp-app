@@ -1,46 +1,103 @@
 import { supabase, supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
-import { Laporan } from '@/types/laporan';
-import { fetchPenugasanList, deletePenugasanRecord } from './penugasanService';
+import { Activity, ActivityPerson, ActivityDocument, ActivityStatus } from '@/types/laporan';
+import { normalizeActivityName } from '@/utils/sanitizeFilename';
 
 const LOCAL_STORAGE_LAPORAN = 'bps_laporan_data';
 
-export async function fetchLaporanList(): Promise<Laporan[]> {
-  let supabaseData: Laporan[] = [];
+/**
+ * Check case-insensitive activity name collision per user
+ */
+export async function checkActivityNameCollision(
+  userId: string,
+  name: string,
+  excludeId?: string
+): Promise<boolean> {
+  const normalized = normalizeActivityName(name);
 
-  // 1. Fetch from Supabase DB (Primary Online Source for HP & PC sync)
   if (isSupabaseConfigured()) {
     try {
-      const client = typeof window === 'undefined' ? supabaseAdmin : supabase;
-      const { data, error } = await client
-        .from('laporan')
-        .select(`
-          *,
-          fotos:laporan_foto(*)
-        `)
-        .order('tanggal', { ascending: false });
+      let query = supabaseAdmin
+        .from('activities')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('normalized_name', normalized)
+        .is('deleted_at', null);
 
-      if (!error && data) {
-        supabaseData = data;
+      if (excludeId) {
+        query = query.neq('id', excludeId);
+      }
+
+      const { data, error } = await query;
+      if (!error && data && data.length > 0) {
+        return true; // Collision detected
       }
     } catch (err) {
-      console.warn('Supabase fetch laporan exception:', err);
+      console.warn('Supabase name collision check exception:', err);
     }
   }
 
-  // 2. Fetch from Server API store if available
-  let serverData: Laporan[] = [];
-  try {
-    const res = await fetch('/api/laporan/list', { cache: 'no-store' });
-    if (res.ok) {
-      const result = await res.json();
-      if (result.data && Array.isArray(result.data)) {
-        serverData = result.data;
-      }
+  // Local storage check
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+    if (local) {
+      try {
+        const list: Activity[] = JSON.parse(local);
+        const match = list.find(
+          (a) =>
+            a.id !== excludeId &&
+            a.deleted_at == null &&
+            normalizeActivityName(a.name) === normalized
+        );
+        if (match) return true;
+      } catch (e) {}
     }
-  } catch (err) {}
+  }
 
-  // 3. Local storage fallback
-  let localData: Laporan[] = [];
+  return false;
+}
+
+/**
+ * Fetch all active (non-trashed) activities for current user
+ */
+export async function fetchLaporanList(includeTrashed: boolean = false): Promise<Activity[]> {
+  let supabaseData: Activity[] = [];
+
+  if (isSupabaseConfigured()) {
+    try {
+      const client = typeof window === 'undefined' ? supabaseAdmin : supabase;
+      let query = client
+        .from('activities')
+        .select(`
+          *,
+          people:activity_people(*),
+          documents:activity_documents(*)
+        `)
+        .order('start_date', { ascending: false });
+
+      if (!includeTrashed) {
+        query = query.is('deleted_at', null);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        supabaseData = data.map((item: any) => ({
+          ...item,
+          fotos: item.documents || [],
+          petugas_ditemui: item.people?.map((p: any) => ({ nama: p.person_name, jabatan: p.position })) || [],
+          tanggal: item.start_date,
+          tanggal_selesai: item.end_date,
+          nama_kegiatan: item.name,
+          deskripsi_kegiatan: item.description || '',
+          ringkasan_kegiatan: item.description || '',
+        }));
+      }
+    } catch (err) {
+      console.warn('Supabase fetch activities exception:', err);
+    }
+  }
+
+  // Fallback / merge LocalStorage
+  let localData: Activity[] = [];
   if (typeof window !== 'undefined') {
     const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
     if (local) {
@@ -50,148 +107,138 @@ export async function fetchLaporanList(): Promise<Laporan[]> {
     }
   }
 
-  const isDemoUrl = (url?: string, fileId?: string) =>
-    fileId === 'demo_pdf_1' ||
-    fileId === 'demo_pdf_2' ||
-    fileId === 'lap_sample_1' ||
-    (url && (url.includes('demo_pdf_1') || url.includes('demo_pdf_2')));
-
-  serverData = serverData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
-  localData = localData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
-  supabaseData = supabaseData.filter((l) => !isDemoUrl(l.drive_pdf_url, l.drive_pdf_file_id) && l.id !== 'lap_sample_1');
-
-  // Mark all harian reports as jenis_laporan: 'harian'
-  const mergedMap = new Map<string, Laporan>();
+  const mergedMap = new Map<string, Activity>();
   localData.forEach((item) => {
-    if (item && item.id) mergedMap.set(item.id, { ...item, jenis_laporan: item.jenis_laporan || 'harian' });
-  });
-  serverData.forEach((item) => {
-    if (item && item.id) mergedMap.set(item.id, { ...item, jenis_laporan: item.jenis_laporan || 'harian' });
-  });
-  supabaseData.forEach((item) => {
-    if (item && item.id) mergedMap.set(item.id, { ...item, jenis_laporan: item.jenis_laporan || 'harian' });
-  });
-
-  // 4. Fetch and map Laporan Penugasan records
-  try {
-    const penugasanList = await fetchPenugasanList();
-    penugasanList.forEach((p) => {
-      if (p && p.id) {
-        const mappedPenugasan: Laporan = {
-          id: p.id,
-          nama_pegawai: p.nama_pegawai,
-          nip: p.nip,
-          jabatan: p.jabatan,
-          tanggal: p.tanggal_perjadin,
-          tanggal_selesai: p.tanggal_selesai_perjadin,
-          nama_kegiatan: p.nama_kegiatan,
-          deskripsi_kegiatan: `Tempat Tujuan: ${p.tempat_tujuan} | Nomor ST: ${p.nomor_surat} | Nomor SPD: ${p.nomor_spd}`,
-          ringkasan_kegiatan: p.resume_kegiatan,
-          kategori: 'Perjalanan Dinas',
-          jenis_laporan: 'penugasan',
-          tempat_tujuan: p.tempat_tujuan,
-          nomor_surat: p.nomor_surat,
-          nomor_spd: p.nomor_spd,
-          petugas_ditemui: p.petugas_ditemui,
-          drive_pdf_url: p.drive_pdf_url,
-          drive_pdf_file_id: p.drive_pdf_file_id,
-          drive_folder_id: p.drive_folder_id,
-          fotos: p.fotos?.map((f: any) => ({
-            id: f.id,
-            drive_file_id: f.drive_file_id || '',
-            drive_file_url: f.drive_file_url || '',
-            file_name: f.file_name || 'Foto Penugasan.jpg',
-            tanggal_foto: f.tanggal_foto,
-          })),
-          created_at: p.created_at,
-          updated_at: p.updated_at,
-        };
-        mergedMap.set(p.id, mappedPenugasan);
+    if (item && item.id) {
+      if (includeTrashed || !item.deleted_at) {
+        mergedMap.set(item.id, item);
       }
-    });
-  } catch (err) {}
+    }
+  });
 
-  const finalResult = Array.from(mergedMap.values()).sort(
-    (a, b) => new Date(b.tanggal || Date.now()).getTime() - new Date(a.tanggal || Date.now()).getTime()
+  supabaseData.forEach((item) => {
+    if (item && item.id) {
+      mergedMap.set(item.id, item);
+    }
+  });
+
+  return Array.from(mergedMap.values()).sort(
+    (a, b) => new Date(b.start_date || b.created_at || Date.now()).getTime() - new Date(a.start_date || a.created_at || Date.now()).getTime()
   );
-
-  return finalResult;
 }
 
-export async function fetchLaporanById(id: string): Promise<Laporan | null> {
-  const list = await fetchLaporanList();
+/**
+ * Fetch activity by ID
+ */
+export async function fetchLaporanById(id: string): Promise<Activity | null> {
+  const list = await fetchLaporanList(true);
   return list.find((item) => item.id === id) || null;
 }
 
-export async function deleteLaporanRecord(id: string, jenis_laporan?: 'harian' | 'penugasan'): Promise<boolean> {
-  if (jenis_laporan === 'penugasan') {
-    return await deletePenugasanRecord(id);
+/**
+ * Save / Create Activity Record with photo limit check and identity locking check
+ */
+export async function saveLaporanRecord(
+  activityData: Partial<Activity>,
+  peopleData?: { person_name: string; position: string }[],
+  photosData?: any[]
+): Promise<Activity> {
+  const newId = activityData.id || `act_${Date.now()}`;
+  const userId = activityData.user_id || '00000000-0000-0000-0000-000000000000';
+  const name = activityData.name || activityData.nama_kegiatan || 'Kegiatan Tanpa Nama';
+  const normalized = normalizeActivityName(name);
+
+  // Check collision for new or updated activity name
+  const isCollision = await checkActivityNameCollision(userId, name, activityData.id);
+  if (isCollision && !activityData.id) {
+    throw new Error('Kegiatan dengan nama tersebut sudah ada. Silakan gunakan nama kegiatan yang berbeda.');
   }
 
-  // Delete local
-  if (typeof window !== 'undefined') {
-    let list: Laporan[] = [];
-    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
-    if (local) {
-      try {
-        list = JSON.parse(local);
-      } catch (e) {}
+  // Enforce photo limit: Max 6 photos per activity per date
+  if (photosData && photosData.length > 0) {
+    const dateCounts = new Map<string, number>();
+    for (const p of photosData) {
+      const pDate = p.documentation_date || p.tanggal_foto || activityData.start_date || new Date().toISOString().split('T')[0];
+      const count = (dateCounts.get(pDate) || 0) + 1;
+      if (count > 6) {
+        throw new Error('Maksimal 6 foto untuk satu kegiatan pada tanggal yang sama.');
+      }
+      dateCounts.set(pDate, count);
     }
-    const updated = list.filter((l) => l.id !== id);
-    localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(updated));
   }
 
-  // Call Server API delete
-  try {
-    await fetch('/api/laporan/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    });
-  } catch (err) {}
+  const existingRecord = activityData.id ? await fetchLaporanById(activityData.id) : null;
+  
+  // Enforce locking rule: Server/Service rejection if generated and attempting identity change without Force Change
+  if (existingRecord && existingRecord.status === 'GENERATED') {
+    const nameChanged = existingRecord.name !== name;
+    const startDateChanged = existingRecord.start_date !== (activityData.start_date || activityData.tanggal);
+    const endDateChanged = existingRecord.end_date !== (activityData.end_date || activityData.tanggal_selesai);
+    const spdChanged = existingRecord.spd_number !== activityData.spd_number;
 
-  return true;
-}
+    if (nameChanged || startDateChanged || endDateChanged || spdChanged) {
+      throw new Error('Identitas kegiatan telah terkunci karena PDF telah ter-generate. Gunakan opsi "Ganti Paksa" untuk mengubah identitas.');
+    }
+  }
 
-export async function saveLaporanRecord(laporan: Partial<Laporan>, photosData?: any[]): Promise<Laporan> {
-  const newId = laporan.id || `lap_${Date.now()}`;
-  const fullRecord: Laporan = {
+  const startDate = activityData.start_date || activityData.tanggal || new Date().toISOString().split('T')[0];
+  const endDate = activityData.end_date || activityData.tanggal_selesai || startDate;
+  const startTime = activityData.start_time || '08:00';
+  const endTime = activityData.end_time || '16:00';
+  const actType = activityData.activity_type || (activityData.spd_number ? 'PERJALANAN_DINAS' : 'NON_PERJALANAN_DINAS');
+  const status: ActivityStatus = activityData.status || (existingRecord ? existingRecord.status : 'DRAFT');
+
+  const fullRecord: Activity = {
     id: newId,
-    nama_pegawai: laporan.nama_pegawai || '',
-    nip: laporan.nip || '',
-    jabatan: laporan.jabatan || '',
-    tanggal: laporan.tanggal || new Date().toISOString().split('T')[0],
-    tanggal_selesai: laporan.tanggal_selesai,
-    nama_kegiatan: laporan.nama_kegiatan || '',
-    deskripsi_kegiatan: laporan.deskripsi_kegiatan || '',
-    ringkasan_kegiatan: laporan.ringkasan_kegiatan || '',
-    kategori: laporan.kategori || 'Lainnya',
-    jenis_laporan: 'harian',
-    drive_pdf_url: laporan.drive_pdf_url,
-    drive_pdf_file_id: laporan.drive_pdf_file_id,
-    drive_folder_id: laporan.drive_folder_id,
-    fotos: photosData || laporan.fotos || [],
-    created_at: laporan.created_at || new Date().toISOString(),
+    user_id: userId,
+    activity_type: actType,
+    name: name,
+    normalized_name: normalized,
+    start_date: startDate,
+    end_date: endDate,
+    start_time: startTime,
+    end_time: endTime,
+    destination: activityData.destination || activityData.tempat_tujuan,
+    letter_number: activityData.letter_number || activityData.nomor_surat,
+    spd_number: activityData.spd_number || activityData.nomor_spd,
+    description: activityData.description || activityData.deskripsi_kegiatan || activityData.ringkasan_kegiatan || '',
+    status: status,
+    generated_at: activityData.generated_at || existingRecord?.generated_at,
+    drive_pdf_url: activityData.drive_pdf_url || existingRecord?.drive_pdf_url,
+    drive_pdf_file_id: activityData.drive_pdf_file_id || existingRecord?.drive_pdf_file_id,
+    drive_folder_id: activityData.drive_folder_id || existingRecord?.drive_folder_id,
+    people: peopleData || existingRecord?.people || [],
+    documents: photosData || existingRecord?.documents || [],
+    created_at: activityData.created_at || existingRecord?.created_at || new Date().toISOString(),
     updated_at: new Date().toISOString(),
+    // Backward compatibility props
+    nama_pegawai: activityData.nama_pegawai,
+    nip: activityData.nip,
+    jabatan: activityData.jabatan,
   };
 
   // 1. Save to Supabase DB if configured
   if (isSupabaseConfigured()) {
     try {
       const { data: dbData, error } = await supabaseAdmin
-        .from('laporan')
+        .from('activities')
         .upsert(
           {
             id: fullRecord.id,
-            nama_pegawai: fullRecord.nama_pegawai,
-            nip: fullRecord.nip,
-            jabatan: fullRecord.jabatan,
-            tanggal: fullRecord.tanggal,
-            tanggal_selesai: fullRecord.tanggal_selesai,
-            nama_kegiatan: fullRecord.nama_kegiatan,
-            deskripsi_kegiatan: fullRecord.deskripsi_kegiatan,
-            ringkasan_kegiatan: fullRecord.ringkasan_kegiatan,
-            kategori: fullRecord.kategori,
+            user_id: fullRecord.user_id,
+            activity_type: fullRecord.activity_type,
+            name: fullRecord.name,
+            normalized_name: fullRecord.normalized_name,
+            start_date: fullRecord.start_date,
+            end_date: fullRecord.end_date,
+            start_time: fullRecord.start_time,
+            end_time: fullRecord.end_time,
+            destination: fullRecord.destination,
+            letter_number: fullRecord.letter_number,
+            spd_number: fullRecord.spd_number,
+            description: fullRecord.description,
+            status: fullRecord.status,
+            generated_at: fullRecord.generated_at,
             drive_pdf_url: fullRecord.drive_pdf_url,
             drive_pdf_file_id: fullRecord.drive_pdf_file_id,
             drive_folder_id: fullRecord.drive_folder_id,
@@ -203,29 +250,48 @@ export async function saveLaporanRecord(laporan: Partial<Laporan>, photosData?: 
         .single();
 
       if (!error && dbData) {
-        if (photosData && photosData.length > 0) {
-          const photoRows = photosData.map((p) => ({
-            laporan_id: dbData.id,
-            drive_file_id: p.drive_file_id,
-            drive_file_url: p.drive_file_url,
-            file_name: p.file_name,
-            tanggal_foto: p.tanggal_foto,
+        // Save People
+        if (peopleData && peopleData.length > 0) {
+          await supabaseAdmin.from('activity_people').delete().eq('activity_id', dbData.id);
+          const peopleRows = peopleData.map((p, idx) => ({
+            activity_id: dbData.id,
+            person_name: p.person_name,
+            position: p.position,
+            sort_order: idx + 1,
           }));
-          await supabaseAdmin.from('laporan_foto').delete().eq('laporan_id', dbData.id);
-          await supabaseAdmin.from('laporan_foto').insert(photoRows);
+          await supabaseAdmin.from('activity_people').insert(peopleRows);
+        }
+
+        // Save Documents
+        if (photosData && photosData.length > 0) {
+          await supabaseAdmin.from('activity_documents').delete().eq('activity_id', dbData.id);
+          const docRows = photosData.map((p, idx) => ({
+            activity_id: dbData.id,
+            documentation_date: p.documentation_date || p.tanggal_foto || startDate,
+            original_filename: p.original_filename || p.file_name || `foto_${idx + 1}.jpg`,
+            mime_type: p.mime_type || 'image/jpeg',
+            file_size_bytes: p.file_size_bytes || 0,
+            kind: p.kind || 'PHOTO',
+            drive_file_id: p.drive_file_id || '',
+            drive_name: p.drive_name || p.file_name || `foto_${idx + 1}.jpg`,
+            sort_order: idx + 1,
+          }));
+          await supabaseAdmin.from('activity_documents').insert(docRows);
         }
       }
     } catch (e) {
-      console.warn('Supabase save record exception:', e);
+      console.warn('Supabase save activity exception:', e);
     }
   }
 
-  // 2. Save to LocalStorage if client-side
+  // 2. Save to LocalStorage fallback
   if (typeof window !== 'undefined') {
-    let list: Laporan[] = [];
+    let list: Activity[] = [];
     const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
     if (local) {
-      try { list = JSON.parse(local); } catch (e) {}
+      try {
+        list = JSON.parse(local);
+      } catch (e) {}
     }
     const idx = list.findIndex((l) => l.id === fullRecord.id);
     if (idx >= 0) list[idx] = fullRecord;
@@ -234,4 +300,156 @@ export async function saveLaporanRecord(laporan: Partial<Laporan>, photosData?: 
   }
 
   return fullRecord;
+}
+
+/**
+ * Copy an existing activity (SRS Section 7)
+ * Does NOT copy dates, times, documentation, generated PDF, or Drive IDs.
+ */
+export async function copyActivityRecord(sourceId: string): Promise<Activity> {
+  const source = await fetchLaporanById(sourceId);
+  if (!source) {
+    throw new Error('Kegiatan asal tidak ditemukan!');
+  }
+
+  const copyName = `${source.name} (Salinan)`;
+  const copiedRecord: Partial<Activity> = {
+    user_id: source.user_id,
+    activity_type: source.activity_type,
+    name: copyName,
+    destination: source.destination,
+    letter_number: source.letter_number,
+    spd_number: source.spd_number ? `${source.spd_number}-COPY` : undefined,
+    description: source.description,
+    status: 'DRAFT',
+    people: source.people ? [...source.people] : [],
+    // Blank out dates, times, documents, PDF IDs as per SRS COPY-003
+    start_date: '',
+    end_date: '',
+    start_time: '08:00',
+    end_time: '16:00',
+    documents: [],
+    drive_pdf_url: undefined,
+    drive_pdf_file_id: undefined,
+    drive_folder_id: undefined,
+  };
+
+  return await saveLaporanRecord(copiedRecord, source.people);
+}
+
+/**
+ * Soft delete an activity (Move to TRASHED)
+ */
+export async function trashLaporanRecord(id: string): Promise<boolean> {
+  const item = await fetchLaporanById(id);
+  if (!item) return false;
+
+  if (isSupabaseConfigured()) {
+    try {
+      await supabaseAdmin
+        .from('activities')
+        .update({
+          status: 'TRASHED',
+          previous_status: item.status,
+          deleted_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+    } catch (e) {}
+  }
+
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+    if (local) {
+      try {
+        let list: Activity[] = JSON.parse(local);
+        list = list.map((l) =>
+          l.id === id
+            ? {
+                ...l,
+                status: 'TRASHED',
+                previous_status: l.status,
+                deleted_at: new Date().toISOString(),
+              }
+            : l
+        );
+        localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(list));
+      } catch (e) {}
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Restore an activity from TRASHED
+ */
+export async function restoreLaporanRecord(id: string): Promise<boolean> {
+  const item = await fetchLaporanById(id);
+  if (!item) return false;
+
+  const restoreStatus = item.previous_status || 'DRAFT';
+
+  if (isSupabaseConfigured()) {
+    try {
+      await supabaseAdmin
+        .from('activities')
+        .update({
+          status: restoreStatus,
+          previous_status: null,
+          deleted_at: null,
+        })
+        .eq('id', id);
+    } catch (e) {}
+  }
+
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+    if (local) {
+      try {
+        let list: Activity[] = JSON.parse(local);
+        list = list.map((l) =>
+          l.id === id
+            ? {
+                ...l,
+                status: restoreStatus,
+                previous_status: undefined,
+                deleted_at: undefined,
+              }
+            : l
+        );
+        localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(list));
+      } catch (e) {}
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Permanent delete activity
+ */
+export async function permanentDeleteLaporanRecord(id: string): Promise<boolean> {
+  if (isSupabaseConfigured()) {
+    try {
+      await supabaseAdmin.from('activities').delete().eq('id', id);
+    } catch (e) {}
+  }
+
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+    if (local) {
+      try {
+        let list: Activity[] = JSON.parse(local);
+        list = list.filter((l) => l.id !== id);
+        localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(list));
+      } catch (e) {}
+    }
+  }
+
+  return true;
+}
+
+// Backward compatibility function alias
+export async function deleteLaporanRecord(id: string): Promise<boolean> {
+  return await trashLaporanRecord(id);
 }

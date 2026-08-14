@@ -13,7 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { fetchLaporanList } from '@/services/laporanService';
-import { Laporan } from '@/types/laporan';
+import { Activity } from '@/types/laporan';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { ActivityChart } from '@/components/dashboard/ActivityChart';
 import { formatDateIndonesian } from '@/utils/formatters';
@@ -21,9 +21,9 @@ import { PDFPreviewModal } from '@/components/laporan/PDFPreviewModal';
 import { BULAN_INDONESIA } from '@/constants/bpsConfig';
 
 export default function DashboardPage() {
-  const [laporanList, setLaporanList] = useState<Laporan[]>([]);
+  const [laporanList, setLaporanList] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedLaporan, setSelectedLaporan] = useState<Laporan | null>(null);
+  const [selectedLaporan, setSelectedLaporan] = useState<Activity | null>(null);
 
   useEffect(() => {
     fetchLaporanList().then((list) => {
@@ -37,24 +37,29 @@ export default function DashboardPage() {
 
   // Metrics computation
   const monthlyReports = laporanList.filter((l) => {
-    const d = new Date(l.tanggal);
+    const dateStr = l.start_date || l.tanggal || '';
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
     return d.getFullYear() === currentYear && d.getMonth() === currentMonthIdx;
   }).length;
 
   const yearlyReports = laporanList.filter((l) => {
-    const d = new Date(l.tanggal);
+    const dateStr = l.start_date || l.tanggal || '';
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
     return d.getFullYear() === currentYear;
   }).length;
 
   const totalActivities = laporanList.length;
-
-  const totalPhotos = laporanList.reduce((acc, curr) => acc + (curr.fotos?.length || 0), 0);
+  const totalPhotos = laporanList.reduce((acc, curr) => acc + (curr.documents?.length || curr.fotos?.length || 0), 0);
   const totalPdfs = laporanList.filter((l) => l.drive_pdf_url).length;
 
   // Monthly Chart Data
   const monthlyChartData = BULAN_INDONESIA.map((monthName, idx) => {
     const count = laporanList.filter((l) => {
-      const d = new Date(l.tanggal);
+      const dateStr = l.start_date || l.tanggal || '';
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
       return d.getMonth() === idx;
     }).length;
     return { month: monthName, count };
@@ -129,15 +134,15 @@ export default function DashboardPage() {
       <ActivityChart data={monthlyChartData} />
 
       {/* Recent Reports Section */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-6 space-y-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-bold text-base text-slate-900">Laporan Kegiatan Terbaru</h3>
-            <p className="text-xs text-slate-500">Daftar entri bukti dukung harian terkini</p>
+            <h3 className="font-bold text-base text-slate-900 dark:text-white">Laporan Kegiatan Terbaru</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Daftar entri bukti dukung harian terkini</p>
           </div>
           <Link
             href="/laporan"
-            className="text-xs font-bold text-sky-600 hover:text-sky-700 hover:underline"
+            className="text-xs font-bold text-sky-600 dark:text-sky-400 hover:underline"
           >
             Lihat Semua Laporan →
           </Link>
@@ -148,9 +153,9 @@ export default function DashboardPage() {
             Memuat data laporan harian...
           </div>
         ) : laporanList.length === 0 ? (
-          <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-2xl space-y-2">
+          <div className="py-12 text-center border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-2">
             <FileText className="w-10 h-10 text-slate-300 mx-auto" />
-            <p className="text-sm font-semibold text-slate-600">Belum ada laporan kegiatan</p>
+            <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">Belum ada laporan kegiatan</p>
             <p className="text-xs text-slate-400">
               Klik tombol 'Buat Laporan Hari Ini' untuk menambah laporan baru
             </p>
@@ -159,27 +164,27 @@ export default function DashboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50">
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/40">
                   <th className="py-3 px-4">Tanggal</th>
                   <th className="py-3 px-4">Nama Pegawai</th>
                   <th className="py-3 px-4">Nama Kegiatan</th>
-                  <th className="py-3 px-4">Kategori</th>
+                  <th className="py-3 px-4">Jenis</th>
                   <th className="py-3 px-4 text-center">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {laporanList.slice(0, 5).map((lap) => (
-                  <tr key={lap.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 font-medium text-slate-700 whitespace-nowrap">
-                      {formatDateIndonesian(lap.tanggal)}
+                  <tr key={lap.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="py-3.5 px-4 font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                      {formatDateIndonesian(lap.start_date || lap.tanggal || '')}
                     </td>
-                    <td className="py-3.5 px-4 font-bold text-slate-800">{lap.nama_pegawai}</td>
-                    <td className="py-3.5 px-4 text-slate-700 max-w-xs truncate">
-                      {lap.nama_kegiatan}
+                    <td className="py-3.5 px-4 font-bold text-slate-800 dark:text-slate-200">{lap.nama_pegawai || 'Dede Setiawan'}</td>
+                    <td className="py-3.5 px-4 text-slate-700 dark:text-slate-300 max-w-xs truncate">
+                      {lap.name || lap.nama_kegiatan}
                     </td>
                     <td className="py-3.5 px-4">
-                      <span className="inline-block px-2.5 py-1 text-[11px] font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-full">
-                        {lap.kategori || 'Lainnya'}
+                      <span className="inline-block px-2.5 py-1 text-[11px] font-bold text-sky-700 dark:text-sky-300 bg-sky-50 dark:bg-sky-950 border border-sky-200 dark:border-sky-800 rounded-full">
+                        {lap.activity_type === 'PERJALANAN_DINAS' ? 'Perjadin' : 'Non-PD'}
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-center whitespace-nowrap">
@@ -213,11 +218,13 @@ export default function DashboardPage() {
       </div>
 
       {/* PDF Preview Modal */}
-      <PDFPreviewModal
-        isOpen={!!selectedLaporan}
-        onClose={() => setSelectedLaporan(null)}
-        laporan={selectedLaporan}
-      />
+      {selectedLaporan && (
+        <PDFPreviewModal
+          isOpen={!!selectedLaporan}
+          onClose={() => setSelectedLaporan(null)}
+          laporan={selectedLaporan}
+        />
+      )}
     </div>
   );
 }

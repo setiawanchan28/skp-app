@@ -12,17 +12,17 @@ import {
   FileText,
 } from 'lucide-react';
 import { fetchLaporanList } from '@/services/laporanService';
-import { Laporan } from '@/types/laporan';
+import { Activity } from '@/types/laporan';
 import { BULAN_INDONESIA } from '@/constants/bpsConfig';
 import { PDFPreviewModal } from '@/components/laporan/PDFPreviewModal';
 
 export default function KalenderPage() {
-  const [laporanList, setLaporanList] = useState<Laporan[]>([]);
+  const [laporanList, setLaporanList] = useState<Activity[]>([]);
   const [currentDate, setCurrentDate] = useState(new Date(2026, 7, 1)); // August 2026 default
 
   // Selected date popup modal state
-  const [selectedDayLaporan, setSelectedDayLaporan] = useState<{ day: number; list: Laporan[] } | null>(null);
-  const [previewLaporan, setPreviewLaporan] = useState<Laporan | null>(null);
+  const [selectedDayLaporan, setSelectedDayLaporan] = useState<{ day: number; list: Activity[] } | null>(null);
+  const [previewLaporan, setPreviewLaporan] = useState<Activity | null>(null);
 
   useEffect(() => {
     fetchLaporanList().then(setLaporanList);
@@ -42,10 +42,10 @@ export default function KalenderPage() {
     const formattedMonth = String(month + 1).padStart(2, '0');
     const targetDateStr = `${year}-${formattedMonth}-${formattedDay}`;
 
-    return laporanList.filter((l) => l.tanggal === targetDateStr);
+    return laporanList.filter((l) => (l.start_date || l.tanggal) === targetDateStr);
   };
 
-  const handleCellClick = (day: number, list: Laporan[]) => {
+  const handleCellClick = (day: number, list: Activity[]) => {
     if (list.length > 0) {
       setSelectedDayLaporan({ day, list });
     }
@@ -148,9 +148,9 @@ export default function KalenderPage() {
                         <div
                           key={lap.id}
                           className="bg-white dark:bg-slate-800 border border-sky-200 dark:border-sky-700 text-sky-900 dark:text-sky-200 rounded-lg px-2 py-1 text-[11px] font-bold truncate hover:bg-sky-100 dark:hover:bg-sky-900/60 shadow-2xs"
-                          title={lap.nama_kegiatan}
+                          title={lap.name || lap.nama_kegiatan}
                         >
-                          {lap.nama_kegiatan}
+                          {lap.name || lap.nama_kegiatan}
                         </div>
                       ))}
                     </div>
@@ -195,17 +195,17 @@ export default function KalenderPage() {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <h4 className="font-extrabold text-sm text-slate-900 dark:text-white leading-snug">
-                      {lap.nama_kegiatan}
+                      {lap.name || lap.nama_kegiatan}
                     </h4>
                     <span className="px-2 py-0.5 bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300 text-[10px] font-bold rounded-full shrink-0">
-                      {lap.kategori || 'BPS'}
+                      {lap.activity_type === 'PERJALANAN_DINAS' ? 'Perjadin' : 'Non-PD'}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 pt-1">
                     <div className="flex items-center gap-1.5 font-semibold">
                       <User className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{lap.nama_pegawai}</span>
+                      <span>{lap.nama_pegawai || 'Pegawai BPS'}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5">
@@ -249,11 +249,30 @@ export default function KalenderPage() {
       )}
 
       {/* PDF Preview Modal */}
-      <PDFPreviewModal
-        isOpen={!!previewLaporan}
-        onClose={() => setPreviewLaporan(null)}
-        laporan={previewLaporan}
-      />
+      {previewLaporan && (
+        <PDFPreviewModal
+          isOpen={!!previewLaporan}
+          onClose={() => setPreviewLaporan(null)}
+          laporanData={{
+            id: previewLaporan.id,
+            namaKegiatan: previewLaporan.name || previewLaporan.nama_kegiatan,
+            tanggal: previewLaporan.start_date || previewLaporan.tanggal,
+            tanggalSelesai: previewLaporan.end_date || previewLaporan.tanggal_selesai,
+            jamMulai: previewLaporan.start_time || '08:00',
+            jamSelesai: previewLaporan.end_time || '16:00',
+            deskripsiKegiatan: previewLaporan.description || '',
+            ringkasanKegiatan: previewLaporan.description || '',
+            jenisLaporan: previewLaporan.activity_type === 'PERJALANAN_DINAS' ? 'penugasan' : 'harian',
+            tempatTujuan: previewLaporan.destination,
+            nomorSurat: previewLaporan.letter_number,
+            nomorSpd: previewLaporan.spd_number,
+            namaPegawai: previewLaporan.nama_pegawai || 'Dede Setiawan, S.Tr.Stat.',
+            nip: previewLaporan.nip || '199502282024211021',
+            jabatan: previewLaporan.jabatan || 'Pranata Komputer Ahli Pertama',
+            fotos: previewLaporan.documents || previewLaporan.fotos || [],
+          }}
+        />
+      )}
     </div>
   );
 }

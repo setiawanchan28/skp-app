@@ -333,9 +333,16 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
     }
   };
 
-  // Transient preview object
   const transientPenugasanPreview: Laporan = {
     id: initialData?.id || 'preview_penugasan',
+    user_id: '00000000-0000-0000-0000-000000000000',
+    activity_type: 'PERJALANAN_DINAS',
+    name: namaKegiatan || 'Nama Kegiatan Penugasan',
+    start_date: tanggalPerjadin,
+    end_date: isRangeDate ? tanggalSelesaiPerjadin || tanggalPerjadin : tanggalPerjadin,
+    start_time: '08:00',
+    end_time: '16:00',
+    status: 'DRAFT',
     nama_pegawai: namaPegawai || 'Dede Setiawan',
     nip: nip || '199502282024211021',
     jabatan: jabatan || 'Pranata Komputer',
@@ -692,11 +699,10 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
               V. DOKUMENTASI FOTO PERJALANAN DINAS (Hingga 24 Foto, Kompresi Hemat Drive)
             </h4>
             <PhotoUploader
+              startDate={tanggalPerjadin}
+              endDate={isRangeDate ? tanggalSelesaiPerjadin || tanggalPerjadin : tanggalPerjadin}
               photos={photos}
               onChange={setPhotos}
-              dateList={computedDateList}
-              isRangeDate={isRangeDate}
-              maxPhotos={24}
             />
           </div>
         </div>

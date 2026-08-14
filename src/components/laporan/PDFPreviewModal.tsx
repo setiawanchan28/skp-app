@@ -10,7 +10,8 @@ import { ExternalLink, FileText } from 'lucide-react';
 interface PDFPreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  laporan: Laporan | null;
+  laporan?: Laporan | null;
+  laporanData?: any;
 }
 
 function generateDateList(startDateStr: string, endDateStr?: string): { dateStr: string; label: string }[] {
@@ -65,6 +66,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
   isOpen,
   onClose,
   laporan,
+  laporanData,
 }) => {
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
@@ -75,12 +77,14 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
     img.onerror = () => setHasCustomLogo(false);
   }, []);
 
-  if (!laporan) return null;
+  const activeLaporan = laporanData || laporan;
 
-  const dateYear = new Date(laporan.tanggal || Date.now()).getFullYear();
-  const isPenugasan = laporan.jenis_laporan === 'penugasan';
-  const allPhotos = laporan.fotos || [];
-  const petugasList = laporan.petugas_ditemui || [];
+  if (!activeLaporan) return null;
+
+  const dateYear = new Date(activeLaporan.tanggal || activeLaporan.start_date || Date.now()).getFullYear();
+  const isPenugasan = activeLaporan.jenis_laporan === 'penugasan' || activeLaporan.activity_type === 'PERJALANAN_DINAS';
+  const allPhotos = activeLaporan.fotos || activeLaporan.documents || [];
+  const petugasList = activeLaporan.petugas_ditemui || activeLaporan.people?.map((p: any) => ({ nama: p.person_name, jabatan: p.position })) || [];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={isPenugasan ? 'Preview Laporan Penugasan BPS' : 'Preview Bukti Dukung BPS'} maxWidth="4xl">
@@ -130,9 +134,9 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   </div>
                   <table className="w-full text-xs">
                     <tbody>
-                      <tr className="border-b border-slate-200"><td className="w-1/3 p-2 font-medium">Nama</td><td className="p-2 font-bold">{laporan.nama_pegawai}</td></tr>
-                      <tr className="border-b border-slate-200"><td className="p-2 font-medium">Jabatan</td><td className="p-2 font-semibold">{laporan.jabatan}</td></tr>
-                      <tr><td className="p-2 font-medium">NIP</td><td className="p-2 font-mono">{laporan.nip}</td></tr>
+                      <tr className="border-b border-slate-200"><td className="w-1/3 p-2 font-medium">Nama</td><td className="p-2 font-bold">{activeLaporan.nama_pegawai}</td></tr>
+                      <tr className="border-b border-slate-200"><td className="p-2 font-medium">Jabatan</td><td className="p-2 font-semibold">{activeLaporan.jabatan}</td></tr>
+                      <tr><td className="p-2 font-medium">NIP</td><td className="p-2 font-mono">{activeLaporan.nip}</td></tr>
                     </tbody>
                   </table>
                 </div>
@@ -146,23 +150,23 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                     <tbody>
                       <tr className="border-b border-slate-200">
                         <td className="w-1/3 p-2 font-medium">Nama Kegiatan</td>
-                        <td className="p-2 font-semibold">{laporan.nama_kegiatan}</td>
+                        <td className="p-2 font-semibold">{activeLaporan.nama_kegiatan}</td>
                       </tr>
                       <tr className="border-b border-slate-200">
                         <td className="p-2 font-medium">Tanggal Perjadin</td>
-                        <td className="p-2 font-medium">{formatDateIndonesian(laporan.tanggal, laporan.tanggal_selesai)}</td>
+                        <td className="p-2 font-medium">{formatDateIndonesian(activeLaporan.tanggal, activeLaporan.tanggal_selesai)}</td>
                       </tr>
                       <tr className="border-b border-slate-200">
                         <td className="p-2 font-medium">Tempat Tujuan</td>
-                        <td className="p-2 font-semibold">{laporan.tempat_tujuan || '-'}</td>
+                        <td className="p-2 font-semibold">{activeLaporan.tempat_tujuan || '-'}</td>
                       </tr>
                       <tr className="border-b border-slate-200">
                         <td className="p-2 font-medium">Nomor Surat</td>
-                        <td className="p-2 font-mono">{laporan.nomor_surat || '-'}</td>
+                        <td className="p-2 font-mono">{activeLaporan.nomor_surat || '-'}</td>
                       </tr>
                       <tr>
                         <td className="p-2 font-medium">Nomor SPD</td>
-                        <td className="p-2 font-mono">{laporan.nomor_spd || '-'}</td>
+                        <td className="p-2 font-mono">{activeLaporan.nomor_spd || '-'}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -189,7 +193,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                           <td className="p-2">-</td>
                         </tr>
                       ) : (
-                        petugasList.map((p, idx) => (
+                        petugasList.map((p: any, idx: number) => (
                           <tr key={idx} className="border-b border-slate-200">
                             <td className="p-2 text-center border-r border-slate-200 font-semibold">{idx + 1}</td>
                             <td className="p-2 border-r border-slate-200 font-semibold">{p.nama}</td>
@@ -207,7 +211,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                     IV. RESUME PERJALANAN DINAS
                   </div>
                   <div className="p-3 leading-relaxed whitespace-pre-line text-slate-800 text-justify">
-                    {laporan.ringkasan_kegiatan}
+                    {activeLaporan.ringkasan_kegiatan}
                   </div>
                 </div>
 
@@ -218,7 +222,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                       V. DOKUMENTASI
                     </div>
                     <div className="grid grid-cols-2 gap-3 p-3 bg-white">
-                      {allPhotos.map((foto, idx) => (
+                      {allPhotos.map((foto: any, idx: number) => (
                         <div key={idx} className="border border-slate-200 p-2 text-center rounded bg-white">
                           <img src={getDirectImageUrl(foto)} alt={foto.file_name} className="h-32 w-full object-contain mx-auto rounded" />
                           <div className="text-[10px] text-slate-500 mt-1 font-medium">{foto.file_name}</div>
@@ -241,37 +245,37 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                         <td className="w-6 sm:w-8 p-1.5 sm:p-2 text-center border-r border-black font-semibold">1.</td>
                         <td className="w-24 sm:w-32 p-1.5 sm:p-2 border-r border-black font-bold uppercase">NAMA</td>
                         <td className="w-3 sm:w-4 p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                        <td className="p-1.5 sm:p-2 font-medium">{laporan.nama_pegawai}</td>
+                        <td className="p-1.5 sm:p-2 font-medium">{activeLaporan.nama_pegawai}</td>
                       </tr>
                       <tr className="border-b border-black">
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">2.</td>
                         <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">JABATAN</td>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                        <td className="p-1.5 sm:p-2 font-medium">{laporan.jabatan}</td>
+                        <td className="p-1.5 sm:p-2 font-medium">{activeLaporan.jabatan}</td>
                       </tr>
                       <tr className="border-b border-black">
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">3.</td>
                         <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">NIP</td>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                        <td className="p-1.5 sm:p-2 font-medium font-mono">{laporan.nip}</td>
+                        <td className="p-1.5 sm:p-2 font-medium font-mono">{activeLaporan.nip}</td>
                       </tr>
                       <tr className="border-b border-black">
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">4.</td>
                         <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">KEGIATAN</td>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                        <td className="p-1.5 sm:p-2 font-medium">{laporan.nama_kegiatan}</td>
+                        <td className="p-1.5 sm:p-2 font-medium">{activeLaporan.nama_kegiatan}</td>
                       </tr>
                       <tr className="border-b border-black">
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">5.</td>
                         <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">TANGGAL</td>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                        <td className="p-1.5 sm:p-2 font-medium">{formatDateIndonesian(laporan.tanggal, laporan.tanggal_selesai)}</td>
+                        <td className="p-1.5 sm:p-2 font-medium">{formatDateIndonesian(activeLaporan.tanggal, activeLaporan.tanggal_selesai)}</td>
                       </tr>
                       <tr>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-semibold">6.</td>
                         <td className="p-1.5 sm:p-2 border-r border-black font-bold uppercase">RINGKASAN</td>
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
-                        <td className="p-1.5 sm:p-2 font-normal leading-relaxed whitespace-pre-line text-justify">{laporan.ringkasan_kegiatan}</td>
+                        <td className="p-1.5 sm:p-2 font-normal leading-relaxed whitespace-pre-line text-justify">{activeLaporan.ringkasan_kegiatan}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -284,7 +288,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                   <div className="p-2 sm:p-4">
                     {allPhotos.length > 0 ? (
                       <div className="grid grid-cols-2 gap-3 p-3 bg-white border border-black">
-                        {allPhotos.map((foto, idx) => (
+                        {allPhotos.map((foto: any, idx: number) => (
                           <div key={idx} className="border border-slate-300 p-2 text-center bg-white">
                             <img src={getDirectImageUrl(foto)} alt={foto.file_name} className="h-32 w-full object-contain mx-auto" />
                           </div>
@@ -303,11 +307,11 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
         </div>
 
         {/* Footer Drive Action Link */}
-        {laporan.drive_pdf_url && (
+        {activeLaporan.drive_pdf_url && (
           <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
             <span className="text-xs text-slate-500">Berkas PDF resmi tersimpan di Google Drive BPS</span>
             <a
-              href={laporan.drive_pdf_url}
+              href={activeLaporan.drive_pdf_url}
               target="_blank"
               rel="noreferrer"
               className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"

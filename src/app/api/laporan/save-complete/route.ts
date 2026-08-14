@@ -139,8 +139,8 @@ export async function POST(req: NextRequest) {
         kategori,
         drive_pdf_url: pdfDriveRes.webViewLink,
         drive_pdf_file_id: pdfDriveRes.id,
-        drive_folder_id: folderStructure.monthFolderId,
       },
+      undefined,
       photosData
     );
 

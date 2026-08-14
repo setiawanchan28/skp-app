@@ -1,10 +1,10 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
 import { DriveFolderStructure, DriveUploadResult } from '@/types/drive';
-import { getYearAndMonthName } from '@/utils/formatters';
-import { Laporan } from '@/types/laporan';
+import { formatDriveFolderName, formatDrivePdfName } from '@/utils/sanitizeFilename';
+import { Activity } from '@/types/laporan';
 
-const SCOPES = ['https://www.googleapis.com/auth/drive'];
+const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 
 function cleanEnvVal(val?: string): string {
   if (!val) return '';
@@ -34,22 +34,16 @@ function getDriveClient() {
   const clientSecret = cleanEnvVal(process.env.GOOGLE_CLIENT_SECRET);
   const refreshToken = cleanEnvVal(process.env.GOOGLE_REFRESH_TOKEN);
 
-  // 1. Try OAuth2 Client ID + Refresh Token (User Preferred Method)
   if (clientId && clientSecret && refreshToken && !clientId.includes('dummy')) {
     const oauth2Client = new google.auth.OAuth2(
       clientId,
       clientSecret,
       'https://developers.google.com/oauthplayground'
     );
-
-    oauth2Client.setCredentials({
-      refresh_token: refreshToken,
-    });
-
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
     return google.drive({ version: 'v3', auth: oauth2Client });
   }
 
-  // 2. Fallback to Service Account JWT if present
   const clientEmail = cleanEnvVal(process.env.GOOGLE_CLIENT_EMAIL);
   let privateKey = cleanEnvVal(process.env.GOOGLE_PRIVATE_KEY);
 
@@ -60,7 +54,6 @@ function getDriveClient() {
       key: privateKey,
       scopes: SCOPES,
     });
-
     return google.drive({ version: 'v3', auth });
   }
 
@@ -68,57 +61,72 @@ function getDriveClient() {
 }
 
 /**
- * Ensure folder hierarchy exists in Google Drive:
- * Root Folder ("Laporan Harian Kerja") -> Year ("2026") -> Month ("Agustus") -> "Dokumentasi" & "PDF"
+ * Standard Folder Structure (PRD.md / SRS.md / DESIGN.md):
+ * Laporan Kegiatan / YYYY / MM / YYMMDD - Nama Kegiatan /
  */
-export async function getOrCreateFolderHierarchy(dateString: string): Promise<DriveFolderStructure> {
+export async function getOrCreateActivityDriveFolder(
+  startDateString: string,
+  activityName: string
+): Promise<{ rootFolderId: string; yearFolderId: string; monthFolderId: string; activityFolderId: string }> {
   const drive = getDriveClient();
-  const { year, monthName } = getYearAndMonthName(dateString);
+  const date = new Date(startDateString || Date.now());
+  const yearStr = String(date.getFullYear());
+  const monthStr = String(date.getMonth() + 1).padStart(2, '0');
+  const activityFolderName = formatDriveFolderName(startDateString, activityName);
 
   const rootParentId = extractRawDriveFolderId(process.env.GOOGLE_DRIVE_FOLDER_ID);
 
   if (!drive) {
     return {
-      yearFolderId: `mock_year_${year}`,
-      monthFolderId: `mock_month_${monthName}`,
-      dokumentasiFolderId: `mock_dok_${year}_${monthName}`,
-      pdfFolderId: `mock_pdf_${year}_${monthName}`,
+      rootFolderId: 'mock_root',
+      yearFolderId: `mock_year_${yearStr}`,
+      monthFolderId: `mock_month_${monthStr}`,
+      activityFolderId: `mock_act_${activityFolderName}`,
     };
   }
 
   try {
     let mainRootId = rootParentId;
     if (!mainRootId) {
-      mainRootId = await findOrCreateFolder(drive, 'Laporan Harian Kerja', 'root');
+      mainRootId = await findOrCreateFolder(drive, 'Laporan Kegiatan', 'root');
     }
 
-    const yearFolderId = await findOrCreateFolder(drive, year, mainRootId);
-    const monthFolderId = await findOrCreateFolder(drive, monthName, yearFolderId);
-    const dokumentasiFolderId = await findOrCreateFolder(drive, 'Dokumentasi', monthFolderId);
-    const pdfFolderId = await findOrCreateFolder(drive, 'PDF', monthFolderId);
+    const yearFolderId = await findOrCreateFolder(drive, yearStr, mainRootId);
+    const monthFolderId = await findOrCreateFolder(drive, monthStr, yearFolderId);
+    const activityFolderId = await findOrCreateFolder(drive, activityFolderName, monthFolderId);
 
     return {
+      rootFolderId: mainRootId,
       yearFolderId,
       monthFolderId,
-      dokumentasiFolderId,
-      pdfFolderId,
+      activityFolderId,
     };
   } catch (error) {
-    console.error('Error creating Google Drive hierarchy:', error);
+    console.error('Error creating Google Drive activity folder:', error);
     return {
+      rootFolderId: 'fallback_root',
       yearFolderId: 'fallback_year',
       monthFolderId: 'fallback_month',
-      dokumentasiFolderId: 'fallback_dok',
-      pdfFolderId: 'fallback_pdf',
+      activityFolderId: 'fallback_activity',
     };
   }
 }
 
 /**
- * Search for an existing folder under parentId or create it if not found
+ * Backward compatibility helper wrapper
  */
+export async function getOrCreateFolderHierarchy(dateString: string): Promise<DriveFolderStructure> {
+  const res = await getOrCreateActivityDriveFolder(dateString, 'Kegiatan');
+  return {
+    yearFolderId: res.yearFolderId,
+    monthFolderId: res.monthFolderId,
+    dokumentasiFolderId: res.activityFolderId,
+    pdfFolderId: res.activityFolderId,
+  };
+}
+
 async function findOrCreateFolder(drive: any, folderName: string, parentId: string): Promise<string> {
-  const query = `name = '${folderName}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`;
+  const query = `name = '${folderName.replace(/'/g, "\\'")}' and mimeType = 'application/vnd.google-apps.folder' and '${parentId}' in parents and trashed = false`;
   
   const searchRes = await drive.files.list({
     q: query,
@@ -143,18 +151,19 @@ async function findOrCreateFolder(drive: any, folderName: string, parentId: stri
 }
 
 /**
- * Upload file buffer or stream to a specific Google Drive folder
+ * Upload file buffer to Google Drive folder
  */
 export async function uploadFileToDrive(
   buffer: Buffer,
   fileName: string,
   mimeType: string,
-  folderId: string
+  folderId: string,
+  existingFileId?: string
 ): Promise<DriveUploadResult> {
   const drive = getDriveClient();
 
   if (!drive || folderId.startsWith('mock_') || folderId.startsWith('fallback_')) {
-    const fakeId = `file_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const fakeId = existingFileId || `file_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     return {
       id: fakeId,
       name: fileName,
@@ -167,6 +176,28 @@ export async function uploadFileToDrive(
   bufferStream.push(buffer);
   bufferStream.push(null);
 
+  let fileId = existingFileId;
+
+  if (fileId && !fileId.startsWith('mock_') && !fileId.startsWith('file_')) {
+    // Update existing file idempotently
+    try {
+      const res = await drive.files.update({
+        fileId: fileId,
+        media: { mimeType, body: bufferStream },
+        fields: 'id, name, webViewLink, webContentLink',
+      });
+      return {
+        id: res.data.id || fileId,
+        name: res.data.name || fileName,
+        webViewLink: res.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=sharing`,
+        webContentLink: res.data.webContentLink || undefined,
+      };
+    } catch (updateErr) {
+      console.warn('Drive update file failed, falling back to create:', updateErr);
+    }
+  }
+
+  // Create new file
   const res = await drive.files.create({
     requestBody: {
       name: fileName,
@@ -179,25 +210,26 @@ export async function uploadFileToDrive(
     fields: 'id, name, webViewLink, webContentLink',
   });
 
-  const fileId = res.data.id || `file_${Date.now()}`;
+  fileId = res.data.id || `file_${Date.now()}`;
 
-  try {
-    await drive.permissions.create({
-      fileId,
-      requestBody: {
-        role: 'reader',
-        type: 'anyone',
-      },
-    });
-  } catch (permErr) {
-    console.warn('Could not set public permission on Drive file:', permErr);
+  // Set permission "Anyone with the link - Viewer" for PDFs
+  if (mimeType === 'application/pdf') {
+    try {
+      await drive.permissions.create({
+        fileId,
+        requestBody: {
+          role: 'reader',
+          type: 'anyone',
+        },
+      });
+    } catch (permErr) {
+      console.warn('Could not set public permission on Drive PDF:', permErr);
+    }
   }
 
   let viewLink = res.data.webViewLink || `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
   if (viewLink.includes('/edit')) {
     viewLink = viewLink.replace(/\/edit.*$/, '/view?usp=sharing');
-  } else if (!viewLink.includes('/view')) {
-    viewLink = `${viewLink.replace(/\/+$/, '')}/view?usp=sharing`;
   }
 
   return {
@@ -206,6 +238,27 @@ export async function uploadFileToDrive(
     webViewLink: viewLink,
     webContentLink: res.data.webContentLink || undefined,
   };
+}
+
+/**
+ * Rename Google Drive resource (Folder or File) for Force Change workflow
+ */
+export async function renameDriveResource(resourceId: string, newName: string): Promise<boolean> {
+  const drive = getDriveClient();
+  if (!drive || !resourceId || resourceId.startsWith('mock_') || resourceId.startsWith('file_')) {
+    return true;
+  }
+
+  try {
+    await drive.files.update({
+      fileId: resourceId,
+      requestBody: { name: newName },
+    });
+    return true;
+  } catch (err) {
+    console.error('Failed to rename Google Drive resource:', err);
+    return false;
+  }
 }
 
 /**
@@ -227,73 +280,12 @@ export async function deleteFileFromDrive(fileId: string): Promise<boolean> {
 }
 
 /**
- * Fetch cloud-synced laporan list directly from Google Drive cloud storage
+ * Legacy stubs for backward compatibility
  */
-export async function fetchLaporanFromDriveCloud(): Promise<Laporan[]> {
-  const drive = getDriveClient();
-  if (!drive) return [];
-
-  try {
-    const rootParentId = extractRawDriveFolderId(process.env.GOOGLE_DRIVE_FOLDER_ID) || 'root';
-    const query = `name = 'bps_laporan_db.json' and '${rootParentId}' in parents and trashed = false`;
-    const res = await drive.files.list({ q: query, fields: 'files(id, name)' });
-
-    if (res.data.files && res.data.files.length > 0) {
-      const fileId = res.data.files[0].id;
-      const fileRes = await drive.files.get({ fileId: fileId!, alt: 'media' }, { responseType: 'text' });
-      const rawData = fileRes.data as string;
-      return JSON.parse(rawData);
-    }
-  } catch (err) {
-    console.warn('Drive Cloud DB fetch notice:', err);
-  }
-
+export async function fetchLaporanFromDriveCloud(): Promise<Activity[]> {
   return [];
 }
 
-/**
- * Sync and save laporan record directly to Google Drive cloud storage
- */
-export async function syncLaporanToDriveCloud(laporanItem: Laporan): Promise<boolean> {
-  const drive = getDriveClient();
-  if (!drive) return false;
-
-  try {
-    const rootParentId = extractRawDriveFolderId(process.env.GOOGLE_DRIVE_FOLDER_ID) || 'root';
-    const currentList = await fetchLaporanFromDriveCloud();
-
-    const existingIdx = currentList.findIndex((l) => l.id === laporanItem.id);
-    let updatedList: Laporan[];
-    if (existingIdx >= 0) {
-      updatedList = [...currentList];
-      updatedList[existingIdx] = laporanItem;
-    } else {
-      updatedList = [laporanItem, ...currentList];
-    }
-
-    const jsonString = JSON.stringify(updatedList, null, 2);
-    const bufferStream = new Readable();
-    bufferStream.push(Buffer.from(jsonString, 'utf-8'));
-    bufferStream.push(null);
-
-    const query = `name = 'bps_laporan_db.json' and '${rootParentId}' in parents and trashed = false`;
-    const res = await drive.files.list({ q: query, fields: 'files(id, name)' });
-
-    if (res.data.files && res.data.files.length > 0) {
-      const fileId = res.data.files[0].id;
-      await drive.files.update({
-        fileId: fileId!,
-        media: { mimeType: 'application/json', body: bufferStream },
-      });
-    } else {
-      await drive.files.create({
-        requestBody: { name: 'bps_laporan_db.json', parents: [rootParentId], mimeType: 'application/json' },
-        media: { mimeType: 'application/json', body: bufferStream },
-      });
-    }
-    return true;
-  } catch (err) {
-    console.warn('Drive Cloud DB sync notice:', err);
-    return false;
-  }
+export async function syncLaporanToDriveCloud(laporanItem: any): Promise<boolean> {
+  return true;
 }

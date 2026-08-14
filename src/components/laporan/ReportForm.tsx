@@ -6,840 +6,661 @@ import {
   Sparkles,
   Save,
   Loader2,
-  Bookmark,
   Calendar as CalendarIcon,
-  UserCheck,
-  AlertCircle,
-  CheckCircle2,
+  Clock,
+  MapPin,
+  FileText,
+  Lock,
+  Unlock,
+  AlertTriangle,
+  UserPlus,
+  Trash2,
   Mic,
   Maximize2,
   X,
-  Check,
+  CheckCircle2,
+  Copy,
+  Eye,
 } from 'lucide-react';
-import { fetchPegawaiList } from '@/services/pegawaiService';
-import { Pegawai } from '@/types/pegawai';
-import { TemplateSelector } from './TemplateSelector';
-import { PhotoUploader, PhotoItem, DateGroupOption } from './PhotoUploader';
+import { PhotoUploader, PhotoItem } from './PhotoUploader';
 import { PDFPreviewModal } from './PDFPreviewModal';
 import { useToast } from '@/components/ui/Toast';
-import { ActivityTemplate } from '@/constants/templates';
-import { Laporan } from '@/types/laporan';
-import { formatDateIndonesian } from '@/utils/formatters';
-import { BULAN_INDONESIA } from '@/constants/bpsConfig';
+import { Activity, ActivityType } from '@/types/laporan';
+import { checkActivityNameCollision } from '@/services/laporanService';
 
-const DRAFT_KEY = 'laporan_form_draft';
+const DRAFT_KEY = 'mamang_activity_draft';
 
 interface ReportFormProps {
-  initialData?: any;
+  initialData?: Activity;
 }
 
 export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   const router = useRouter();
   const { showToast } = useToast();
 
-  const [pegawaiList, setPegawaiList] = useState<Pegawai[]>([]);
-  const [selectedPegawaiId, setSelectedPegawaiId] = useState<string>('');
-
-  const [namaPegawai, setNamaPegawai] = useState('');
-  const [nip, setNip] = useState('');
-  const [jabatan, setJabatan] = useState('');
-
-  const [isRangeDate, setIsRangeDate] = useState(false);
-  const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
-  const [tanggalSelesai, setTanggalSelesai] = useState('');
-
+  // Activity Core Form State
+  const [activityType, setActivityType] = useState<ActivityType>('NON_PERJALANAN_DINAS');
   const [namaKegiatan, setNamaKegiatan] = useState('');
-  const [deskripsiKegiatan, setDeskripsiKegiatan] = useState('');
-  const [ringkasanKegiatan, setRingkasanKegiatan] = useState('');
-  
-  // Custom Category State
-  const [kategori, setKategori] = useState('Pelatihan');
-  const [isCustomCategory, setIsCustomCategory] = useState(false);
-  const [customCategoryText, setCustomCategoryText] = useState('');
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [startTime, setStartTime] = useState('08:00');
+  const [endTime, setEndTime] = useState('16:00');
+  const [description, setDescription] = useState('');
 
-  const [jumlahParagraf, setJumlahParagraf] = useState('auto');
+  // PD Specific Form State
+  const [destination, setDestination] = useState('');
+  const [letterNumber, setLetterNumber] = useState('');
+  const [spdNumber, setSpdNumber] = useState('');
+  const [people, setPeople] = useState<{ person_name: string; position: string }[]>([
+    { person_name: '', position: '' },
+  ]);
+
+  // Profile Snapshot State
+  const [namaPegawai, setNamaPegawai] = useState('Dede Setiawan, S.Tr.Stat.');
+  const [nip, setNip] = useState('199502282024211021');
+  const [jabatan, setJabatan] = useState('Pranata Komputer Ahli Pertama');
+
+  // Documentation Photos State
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
 
+  // Workflow & UI State
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState<string>('');
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isForceChangeModalOpen, setIsForceChangeModalOpen] = useState(false);
 
-  // Voice Dictation & Fullscreen Writing Modal State
-  const [isListeningDeskripsi, setIsListeningDeskripsi] = useState(false);
-  const [isListeningRingkasan, setIsListeningRingkasan] = useState(false);
-  const [fullscreenField, setFullscreenField] = useState<'deskripsi' | 'ringkasan' | null>(null);
+  // Status & Locking State
+  const isGenerated = initialData?.status === 'GENERATED';
+  const [isForceChangeActive, setIsForceChangeActive] = useState(false);
 
-  // Load Pegawai List on mount
+  // Load User Profile & Initial Data
   useEffect(() => {
-    fetchPegawaiList().then((list) => {
-      setPegawaiList(list);
-      if (list.length > 0 && !initialData && !selectedPegawaiId) {
-        const p = list[0];
-        setSelectedPegawaiId(p.id);
-        setNamaPegawai(p.nama);
-        setNip(p.nip);
-        setJabatan(p.jabatan);
-      }
-    });
-  }, [initialData]);
-
-  // Load Initial Data if editing or Draft if present
-  useEffect(() => {
-    if (initialData) {
-      setNamaPegawai(initialData.nama_pegawai || '');
-      setNip(initialData.nip || '');
-      setJabatan(initialData.jabatan || '');
-      setTanggal(initialData.tanggal || new Date().toISOString().split('T')[0]);
-      if (initialData.tanggal_selesai) {
-        setIsRangeDate(true);
-        setTanggalSelesai(initialData.tanggal_selesai);
-      }
-      setNamaKegiatan(initialData.nama_kegiatan || '');
-      setDeskripsiKegiatan(initialData.deskripsi_kegiatan || '');
-      setRingkasanKegiatan(initialData.ringkasan_kegiatan || '');
-
-      const existingKategori = initialData.kategori || 'Pelatihan';
-      const presetCategories = ['Pelatihan', 'Rapat', 'Monitoring', 'Supervisi', 'Sosialisasi', 'Evaluasi', 'Pengolahan Data', 'Lainnya'];
-      if (presetCategories.includes(existingKategori)) {
-        setKategori(existingKategori);
-      } else {
-        setKategori('CUSTOM_NEW');
-        setIsCustomCategory(true);
-        setCustomCategoryText(existingKategori);
-      }
-
-      // Map existing photos with Google Drive thumbnail previews
-      if (initialData.fotos && Array.isArray(initialData.fotos) && initialData.fotos.length > 0) {
-        const mappedPhotos: PhotoItem[] = initialData.fotos.map((f: any, idx: number) => {
-          const driveId = f.drive_file_id;
-          const preview = driveId
-            ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1000`
-            : f.drive_file_url || f.previewUrl || '';
-
-          return {
-            id: f.id || `foto_${idx}_${Date.now()}`,
-            name: f.file_name || `Foto Dokumentasi ${idx + 1}.jpg`,
-            previewUrl: preview,
-            tanggal_foto: f.tanggal_foto || initialData.tanggal,
-            drive_file_id: driveId,
-            drive_file_url: f.drive_file_url,
-          };
-        });
-        setPhotos(mappedPhotos);
-      }
-    } else {
-      const savedDraft = localStorage.getItem(DRAFT_KEY);
-      if (savedDraft) {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('bps_auth_user') || localStorage.getItem('bps_saved_profile');
+      if (savedUser) {
         try {
-          const parsed = JSON.parse(savedDraft);
-          setNamaKegiatan(parsed.namaKegiatan || '');
-          setDeskripsiKegiatan(parsed.deskripsiKegiatan || '');
-          setRingkasanKegiatan(parsed.ringkasanKegiatan || '');
-          if (parsed.tanggal) setTanggal(parsed.tanggal);
-          if (parsed.tanggalSelesai) {
-            setIsRangeDate(true);
-            setTanggalSelesai(parsed.tanggalSelesai);
-          }
-          if (parsed.photos && Array.isArray(parsed.photos)) {
-            setPhotos(parsed.photos);
-          }
-          if (parsed.savedAt) setDraftSavedAt(parsed.savedAt);
+          const parsed = JSON.parse(savedUser);
+          if (parsed.nama) setNamaPegawai(parsed.nama);
+          if (parsed.nip) setNip(parsed.nip);
+          if (parsed.jabatan) setJabatan(parsed.jabatan);
         } catch (e) {}
       }
     }
+
+    if (initialData) {
+      setActivityType(initialData.activity_type || (initialData.spd_number ? 'PERJALANAN_DINAS' : 'NON_PERJALANAN_DINAS'));
+      setNamaKegiatan(initialData.name || initialData.nama_kegiatan || '');
+      setStartDate(initialData.start_date || initialData.tanggal || new Date().toISOString().split('T')[0]);
+      setEndDate(initialData.end_date || initialData.tanggal_selesai || initialData.start_date || new Date().toISOString().split('T')[0]);
+      setStartTime(initialData.start_time || '08:00');
+      setEndTime(initialData.end_time || '16:00');
+      setDescription(initialData.description || initialData.deskripsi_kegiatan || initialData.ringkasan_kegiatan || '');
+
+      setDestination(initialData.destination || initialData.tempat_tujuan || '');
+      setLetterNumber(initialData.letter_number || initialData.nomor_surat || '');
+      setSpdNumber(initialData.spd_number || initialData.nomor_spd || '');
+
+      if (initialData.people && initialData.people.length > 0) {
+        setPeople(initialData.people.map((p) => ({ person_name: p.person_name, position: p.position })));
+      } else if ((initialData as any).petugas_ditemui) {
+        setPeople((initialData as any).petugas_ditemui.map((p: any) => ({ person_name: p.nama, position: p.jabatan })));
+      }
+
+      if (initialData.documents && Array.isArray(initialData.documents)) {
+        const mapped: PhotoItem[] = initialData.documents.map((d: any, idx: number) => ({
+          id: d.id || `foto_${idx}`,
+          name: d.original_filename || d.file_name || `Foto_${idx + 1}.jpg`,
+          previewUrl: d.drive_file_id ? `https://drive.google.com/thumbnail?id=${d.drive_file_id}&sz=w1000` : d.previewUrl || '',
+          tanggal_foto: d.documentation_date || d.tanggal_foto || initialData.start_date,
+          drive_file_id: d.drive_file_id,
+          drive_file_url: d.web_view_url || d.drive_file_url,
+        }));
+        setPhotos(mapped);
+      }
+    }
   }, [initialData]);
 
-  // Voice Dictation Helper (Web Speech API - Bahasa Indonesia)
-  const toggleVoiceDictation = (targetField: 'deskripsi' | 'ringkasan') => {
-    if (typeof window === 'undefined') return;
+  // People List Manager Functions
+  const handleAddPerson = () => setPeople([...people, { person_name: '', position: '' }]);
+  const handleRemovePerson = (index: number) => setPeople(people.filter((_, i) => i !== index));
+  const handlePersonChange = (index: number, field: 'person_name' | 'position', value: string) => {
+    const updated = [...people];
+    updated[index][field] = value;
+    setPeople(updated);
+  };
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      showToast('Browser Anda belum mendukung Dikte Suara (Gunakan Chrome/Edge)', 'error');
+  // AI Description Refiner (Gemini)
+  const handleGenerateAiDescription = async () => {
+    if (!namaKegiatan.trim() || !description.trim()) {
+      showToast('Masukkan Nama Kegiatan dan Catatan Poin Kegiatan terlebih dahulu!', 'warning');
       return;
     }
 
-    const isCurrentlyListening = targetField === 'deskripsi' ? isListeningDeskripsi : isListeningRingkasan;
-
-    if (isCurrentlyListening) {
-      setIsListeningDeskripsi(false);
-      setIsListeningRingkasan(false);
-      showToast('Dikte Suara Dihentikan', 'info');
-      return;
-    }
-
+    setIsGeneratingAi(true);
     try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = 'id-ID';
-      recognition.continuous = true;
-      recognition.interimResults = false;
-
-      if (targetField === 'deskripsi') setIsListeningDeskripsi(true);
-      if (targetField === 'ringkasan') setIsListeningRingkasan(true);
-
-      showToast('🎙️ Dikte Suara Aktif! Silakan bicaralah dalam Bahasa Indonesia...', 'info');
-
-      recognition.onresult = (event: any) => {
-        const lastIndex = event.results.length - 1;
-        const transcript = event.results[lastIndex][0].transcript;
-
-        if (targetField === 'deskripsi') {
-          setDeskripsiKegiatan((prev) => (prev ? `${prev} ${transcript}` : transcript));
-        } else {
-          setRingkasanKegiatan((prev) => (prev ? `${prev} ${transcript}` : transcript));
-        }
-      };
-
-      recognition.onerror = () => {
-        setIsListeningDeskripsi(false);
-        setIsListeningRingkasan(false);
-      };
-
-      recognition.onend = () => {
-        setIsListeningDeskripsi(false);
-        setIsListeningRingkasan(false);
-      };
-
-      recognition.start();
-    } catch (err) {
-      setIsListeningDeskripsi(false);
-      setIsListeningRingkasan(false);
-      showToast('Gagal mengaktifkan mikrofon', 'error');
-    }
-  };
-
-  // Category Selector Change Handler
-  const handleCategoryChange = (val: string) => {
-    if (val === 'CUSTOM_NEW') {
-      setKategori('CUSTOM_NEW');
-      setIsCustomCategory(true);
-    } else {
-      setKategori(val);
-      setIsCustomCategory(false);
-    }
-  };
-
-  const finalKategori = isCustomCategory ? customCategoryText.trim() || 'Kegiatan BPS' : kategori;
-
-  // Auto-Save Draft every 30 seconds
-  useEffect(() => {
-    if (initialData) return;
-    const interval = setInterval(() => {
-      if (namaKegiatan || deskripsiKegiatan || ringkasanKegiatan || photos.length > 0) {
-        saveDraftToLocal(false);
-      }
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [namaKegiatan, deskripsiKegiatan, ringkasanKegiatan, photos, initialData]);
-
-  const saveDraftToLocal = (showToastNotice = true) => {
-    const nowTime = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-    const draft = {
-      namaKegiatan,
-      deskripsiKegiatan,
-      ringkasanKegiatan,
-      tanggal,
-      tanggalSelesai,
-      photos: photos.map((p) => ({
-        id: p.id,
-        name: p.name,
-        previewUrl: p.previewUrl,
-        tanggal_foto: p.tanggal_foto,
-      })),
-      savedAt: nowTime,
-    };
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
-    setDraftSavedAt(nowTime);
-
-    if (showToastNotice) {
-      showToast('Draf laporan berhasil disimpan!', 'success');
-    }
-  };
-
-  // Generate Date List Options for Multi-day Upload
-  const computedDateList: DateGroupOption[] = React.useMemo(() => {
-    if (!isRangeDate || !tanggalSelesai || tanggal === tanggalSelesai) {
-      return [{ dateStr: tanggal, formattedLabel: formatDateIndonesian(tanggal) }];
-    }
-    const start = new Date(tanggal);
-    const end = new Date(tanggalSelesai);
-    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) {
-      return [{ dateStr: tanggal, formattedLabel: formatDateIndonesian(tanggal) }];
-    }
-    const list: DateGroupOption[] = [];
-    const curr = new Date(start);
-    while (curr <= end) {
-      const yyyy = curr.getFullYear();
-      const mm = String(curr.getMonth() + 1).padStart(2, '0');
-      const dd = String(curr.getDate()).padStart(2, '0');
-      const iso = `${yyyy}-${mm}-${dd}`;
-      const label = `${curr.getDate()} ${BULAN_INDONESIA[curr.getMonth()]} ${yyyy}`;
-      list.push({ dateStr: iso, formattedLabel: label });
-      curr.setDate(curr.getDate() + 1);
-    }
-    return list;
-  }, [tanggal, tanggalSelesai, isRangeDate]);
-
-  // Pegawai Dropdown Change Handler
-  const handlePegawaiChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const id = e.target.value;
-    setSelectedPegawaiId(id);
-    const found = pegawaiList.find((p) => p.id === id);
-    if (found) {
-      setNamaPegawai(found.nama);
-      setNip(found.nip);
-      setJabatan(found.jabatan);
-    }
-  };
-
-  // Template select handler
-  const handleTemplateSelect = (tmpl: ActivityTemplate) => {
-    setNamaKegiatan(tmpl.nama);
-    setDeskripsiKegiatan(tmpl.deskripsiPlaceholder);
-    setRingkasanKegiatan(tmpl.ringkasanTemplate);
-    handleCategoryChange(tmpl.kategori);
-    showToast(`Template ${tmpl.kategori} diterapkan!`, 'info');
-  };
-
-  // Generate with Gemini AI
-  const handleGenerateGemini = async () => {
-    if (!namaKegiatan.trim()) {
-      showToast('Mohon isi Nama Kegiatan terlebih dahulu!', 'error');
-      return;
-    }
-    if (!deskripsiKegiatan.trim()) {
-      showToast('Mohon isi Deskripsi Kegiatan sebagai bahan acuan AI!', 'error');
-      return;
-    }
-
-    try {
-      setIsGeneratingAi(true);
       const res = await fetch('/api/gemini/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ namaKegiatan, deskripsiKegiatan, namaPegawai, jumlahParagraf }),
+        body: JSON.stringify({
+          namaKegiatan,
+          deskripsiKegiatan: description,
+          namaPegawai,
+        }),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gagal generate ringkasan');
-
-      setRingkasanKegiatan(data.ringkasan);
-      showToast('Ringkasan kegiatan resmi BPS berhasil dibuat dengan Gemini AI!', 'success');
+      if (res.ok && data.summary) {
+        setDescription(data.summary);
+        showToast('Narasi berhasil dirapikan dengan AI! Anda dapat memeriksa dan mengeditnya.', 'success');
+      } else {
+        throw new Error(data.error || 'Gagal memproses dengan Gemini AI');
+      }
     } catch (err: any) {
-      showToast(err.message || 'Gagal menghubungi Gemini API', 'error');
+      showToast(`Gagal merapikan dengan AI: ${err.message}`, 'error');
     } finally {
       setIsGeneratingAi(false);
     }
   };
 
-  // Automated 1-Click "Simpan Laporan" Submit Handler
-  const handleSubmitLaporan = async (e: React.FormEvent) => {
+  // Submit Handler (Draft/Save)
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!namaPegawai || !nip || !namaKegiatan || !ringkasanKegiatan) {
-      showToast('Mohon lengkapi seluruh bidang bertanda bintang (*)', 'error');
+    if (!namaKegiatan.trim()) {
+      showToast('Nama Kegiatan wajib diisi!', 'error');
       return;
     }
 
-    try {
-      setIsSubmitting(true);
-      setSubmitProgress('Menyiapkan data & kompresi foto...');
-
-      const formData = new FormData();
-      formData.append('id', initialData?.id || '');
-      formData.append('namaPegawai', namaPegawai);
-      formData.append('nama_pegawai', namaPegawai);
-      formData.append('nip', nip);
-      formData.append('jabatan', jabatan);
-      formData.append('tanggal', tanggal);
-      if (isRangeDate && tanggalSelesai) {
-        formData.append('tanggalSelesai', tanggalSelesai);
-        formData.append('tanggal_selesai', tanggalSelesai);
+    if (activityType === 'PERJALANAN_DINAS') {
+      if (!destination.trim() || !letterNumber.trim() || !spdNumber.trim()) {
+        showToast('Tujuan, Nomor Surat Tugas, dan Nomor SPD wajib diisi untuk Perjalanan Dinas!', 'error');
+        return;
       }
-      formData.append('namaKegiatan', namaKegiatan);
-      formData.append('nama_kegiatan', namaKegiatan);
-      formData.append('deskripsiKegiatan', deskripsiKegiatan);
-      formData.append('deskripsi_kegiatan', deskripsiKegiatan);
-      formData.append('ringkasanKegiatan', ringkasanKegiatan);
-      formData.append('ringkasan_kegiatan', ringkasanKegiatan);
-      formData.append('kategori', finalKategori);
+    }
 
-      const photosMetadata: { index: number; tanggal_foto?: string }[] = [];
-      photos.forEach((p, index) => {
-        if (p.file) {
-          formData.append('photos', p.file);
-          formData.append(`photo_${index}`, p.file);
-          photosMetadata.push({ index, tanggal_foto: p.tanggal_foto || tanggal });
-        } else if (p.drive_file_id) {
-          formData.append(`existing_drive_id_${index}`, p.drive_file_id);
-          photosMetadata.push({ index, tanggal_foto: p.tanggal_foto || tanggal });
+    // Check collision case-insensitively
+    try {
+      const isCollision = await checkActivityNameCollision('user_curr', namaKegiatan, initialData?.id);
+      if (isCollision && !isForceChangeActive) {
+        showToast('Kegiatan dengan nama tersebut sudah ada. Silakan gunakan nama kegiatan yang berbeda.', 'error');
+        return;
+      }
+    } catch (e) {}
+
+    setIsSubmitting(true);
+    setSubmitProgress('Menyimpan data kegiatan...');
+
+    try {
+      const activityPayload: Partial<Activity> = {
+        id: initialData?.id,
+        activity_type: activityType,
+        name: namaKegiatan,
+        start_date: startDate,
+        end_date: endDate,
+        start_time: startTime,
+        end_time: endTime,
+        destination: activityType === 'PERJALANAN_DINAS' ? destination : undefined,
+        letter_number: activityType === 'PERJALANAN_DINAS' ? letterNumber : undefined,
+        spd_number: activityType === 'PERJALANAN_DINAS' ? spdNumber : undefined,
+        description: description,
+        nama_pegawai: namaPegawai,
+        nip: nip,
+        jabatan: jabatan,
+      };
+
+      const validPeople = people.filter((p) => p.person_name.trim().length > 0);
+
+      const res = await fetch(
+        isForceChangeActive && initialData?.id
+          ? `/api/activities/${initialData.id}/force-change`
+          : initialData?.id
+          ? `/api/activities/${initialData.id}`
+          : '/api/activities',
+        {
+          method: isForceChangeActive ? 'POST' : initialData?.id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            activity: activityPayload,
+            people: validPeople,
+            photos: photos.map((p) => ({
+              documentation_date: p.tanggal_foto || startDate,
+              original_filename: p.name,
+              mime_type: 'image/jpeg',
+              drive_file_id: p.drive_file_id || '',
+              web_view_url: p.drive_file_url || '',
+            })),
+          }),
         }
-      });
-      formData.append('photos_metadata', JSON.stringify(photosMetadata));
-
-      setSubmitProgress('Membuat berkas PDF & Word di Google Drive...');
-      const res = await fetch('/api/laporan/save-complete', {
-        method: 'POST',
-        body: formData,
-      });
+      );
 
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error || 'Gagal menyimpan laporan');
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'Gagal menyimpan kegiatan');
+      }
 
-      showToast('Laporan & Berkas PDF/Word berhasil disimpan!', 'success');
-      localStorage.removeItem(DRAFT_KEY);
-
+      showToast(
+        isForceChangeActive
+          ? 'Identitas kegiatan berhasil diperbarui melalui Ganti Paksa!'
+          : 'Kegiatan berhasil disimpan!',
+        'success'
+      );
       router.push('/laporan');
     } catch (err: any) {
-      showToast(err.message || 'Gagal memproses pembuatan laporan', 'error');
+      showToast(err.message || 'Terjadi kesalahan saat menyimpan data', 'error');
     } finally {
       setIsSubmitting(false);
       setSubmitProgress('');
     }
   };
 
-  // Current transient preview object
-  const transientLaporanPreview: Laporan = {
-    id: initialData?.id || 'preview',
-    nama_pegawai: namaPegawai || 'Dede Setiawan',
-    nip: nip || '199502282024211021',
-    jabatan: jabatan || 'Pranata Komputer',
-    tanggal: tanggal,
-    tanggal_selesai: isRangeDate ? tanggalSelesai : undefined,
-    nama_kegiatan: namaKegiatan || 'Nama Kegiatan',
-    deskripsi_kegiatan: deskripsiKegiatan,
-    ringkasan_kegiatan: ringkasanKegiatan || 'Ringkasan Kegiatan...',
-    kategori: finalKategori,
-    fotos: photos.map((p, idx) => ({
-      id: p.id,
-      drive_file_id: p.drive_file_id || `preview_${idx}`,
-      drive_file_url: p.previewUrl || p.drive_file_url || '',
-      file_name: p.name,
-      previewUrl: p.previewUrl,
-      tanggal_foto: p.tanggal_foto,
-    })),
-  };
+  const isFieldsLocked = isGenerated && !isForceChangeActive;
 
   return (
-    <>
-      <form onSubmit={handleSubmitLaporan} className="space-y-6 max-w-4xl mx-auto">
-        {/* Template Selector Banner */}
-        <TemplateSelector onSelect={handleTemplateSelect} />
-
-        {/* Main Card */}
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs p-6 space-y-6 transition-colors">
-          <div className="border-b border-slate-100 dark:border-slate-800 pb-4 flex items-center justify-between">
-            <div>
-              <h3 className="font-extrabold text-slate-900 dark:text-white text-lg flex items-center gap-2">
-                <span>Form Bukti Dukung Kegiatan Harian</span>
-                {draftSavedAt && (
-                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Draf Tersimpan ({draftSavedAt})</span>
-                  </span>
-                )}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Isi formulir untuk membuat laporan kegiatan harian pegawai BPS Kabupaten Lebak
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => saveDraftToLocal(true)}
-              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+    <form onSubmit={handleSubmit} className="max-w-5xl mx-auto space-y-8 pb-12">
+      {/* Header Banner & Status */}
+      <div className="bg-slate-800 text-white p-6 rounded-3xl shadow-xl flex flex-wrap items-center justify-between gap-4 border border-slate-700">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-extrabold tracking-tight">Form Kegiatan Pegawai BPS</h1>
+            <span
+              className={`px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wider ${
+                isGenerated ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+              }`}
             >
-              <Bookmark className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
-              <span>Simpan Draf</span>
-            </button>
+              Status: {initialData?.status || 'DRAFT'}
+            </span>
           </div>
+          <p className="text-xs text-slate-300 mt-1">
+            Isi detail kegiatan, atur dokumentasi, dan rapihkan narasi dengan AI sebelum mencetak PDF.
+          </p>
+        </div>
 
-          {/* Pegawai Dropdown & Auto Filled Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                Pilih Nama Pegawai *
-              </label>
-              <select
-                value={selectedPegawaiId}
-                onChange={handlePegawaiChange}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors dark:text-white"
+        {isGenerated && (
+          <div className="flex items-center gap-3">
+            {isFieldsLocked ? (
+              <button
+                type="button"
+                onClick={() => setIsForceChangeModalOpen(true)}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-md transition-colors"
               >
-                {pegawaiList.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nama}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                NIP (Otomatis)
-              </label>
-              <input
-                type="text"
-                readOnly
-                value={nip}
-                className="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl text-sm font-mono cursor-not-allowed"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                Jabatan (Otomatis)
-              </label>
-              <input
-                type="text"
-                readOnly
-                value={jabatan}
-                className="w-full px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 rounded-xl text-sm cursor-not-allowed"
-              />
-            </div>
+                <Unlock className="w-4 h-4" />
+                <span>Ganti Paksa Identitas</span>
+              </button>
+            ) : (
+              <span className="px-3 py-1.5 bg-rose-500/20 text-rose-300 border border-rose-500/50 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4" /> Mode Ganti Paksa Aktif
+              </span>
+            )}
           </div>
+        )}
+      </div>
 
-          {/* Date Picker Mode & Category Section */}
-          <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 rounded-xl">
-            <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Tanggal & Kategori Pelaksanaan *
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={isRangeDate}
-                  onChange={(e) => setIsRangeDate(e.target.checked)}
-                  className="w-4 h-4 text-sky-600 rounded focus:ring-sky-500"
-                />
-                <span>Rentang Tanggal (Multi-hari, misal 1 - 3 Agustus)</span>
-              </label>
-            </div>
+      {/* Locked Fields Warning Banner */}
+      {isFieldsLocked && (
+        <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-start gap-3 text-amber-800 dark:text-amber-200">
+          <Lock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="text-xs leading-relaxed">
+            <strong>Identitas Kegiatan Terkunci:</strong> Kegiatan ini telah berhasil di-generate menjadi PDF. Nama kegiatan, tanggal, waktu, dan nomor SPD dikunci untuk menjaga konsistensi file Google Drive. Anda tetap dapat mengedit narasi deskripsi.
+          </div>
+        </div>
+      )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  {isRangeDate ? 'Tanggal Mulai *' : 'Tanggal Kegiatan *'}
-                </label>
-                <input
-                  type="date"
-                  value={tanggal}
-                  onChange={(e) => setTanggal(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors dark:text-white"
-                />
-              </div>
+      {/* Section 1: Type Selection */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
+        <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+          <FileText className="w-4 h-4 text-sky-500" /> Jenis Kegiatan *
+        </h2>
 
-              {isRangeDate && (
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                    Tanggal Selesai *
-                  </label>
-                  <input
-                    type="date"
-                    value={tanggalSelesai}
-                    onChange={(e) => setTanggalSelesai(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors dark:text-white"
-                  />
-                </div>
-              )}
-
-              <div className={isRangeDate ? '' : 'md:col-span-2'}>
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  Kategori Kegiatan *
-                </label>
-                <select
-                  value={isCustomCategory ? 'CUSTOM_NEW' : kategori}
-                  onChange={(e) => handleCategoryChange(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors dark:text-white"
-                >
-                  <option value="Pelatihan">Pelatihan</option>
-                  <option value="Rapat">Rapat</option>
-                  <option value="Monitoring">Monitoring</option>
-                  <option value="Supervisi">Supervisi</option>
-                  <option value="Sosialisasi">Sosialisasi</option>
-                  <option value="Evaluasi">Evaluasi</option>
-                  <option value="Pengolahan Data">Pengolahan Data</option>
-                  <option value="Sensus & Survei">Sensus & Survei</option>
-                  <option value="Teknologi Informasi">Teknologi Informasi</option>
-                  <option value="Administrasi & Keuangan">Administrasi & Keuangan</option>
-                  <option value="Lainnya">Lainnya</option>
-                  <option value="CUSTOM_NEW">+ Tulis Kategori Custom Baru...</option>
-                </select>
-
-                {isCustomCategory && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={customCategoryText}
-                      onChange={(e) => setCustomCategoryText(e.target.value)}
-                      placeholder="Tuliskan nama kategori khusus Anda..."
-                      className="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-sky-300 dark:border-sky-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors dark:text-white"
-                    />
-                  </div>
-                )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <button
+            type="button"
+            disabled={isFieldsLocked}
+            onClick={() => setActivityType('NON_PERJALANAN_DINAS')}
+            className={`p-4 rounded-2xl border text-left flex items-start justify-between transition-all ${
+              activityType === 'NON_PERJALANAN_DINAS'
+                ? 'bg-sky-500/10 border-sky-500 ring-2 ring-sky-500/20'
+                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <div>
+              <div className="font-bold text-sm text-slate-900 dark:text-white">Non-Perjalanan Dinas</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Kegiatan rutin kantor, pelatihan, rapat internal, pengolahan data, atau supervisi harian.
               </div>
             </div>
-          </div>
+            {activityType === 'NON_PERJALANAN_DINAS' && <CheckCircle2 className="w-5 h-5 text-sky-500 shrink-0" />}
+          </button>
 
-          {/* Nama Kegiatan */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-              Nama Kegiatan *
+          <button
+            type="button"
+            disabled={isFieldsLocked}
+            onClick={() => setActivityType('PERJALANAN_DINAS')}
+            className={`p-4 rounded-2xl border text-left flex items-start justify-between transition-all ${
+              activityType === 'PERJALANAN_DINAS'
+                ? 'bg-sky-500/10 border-sky-500 ring-2 ring-sky-500/20'
+                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <div>
+              <div className="font-bold text-sm text-slate-900 dark:text-white">Perjalanan Dinas (PD)</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Tugas luar kantor dengan Surat Tugas dan Nomor SPD resmi BPS.
+              </div>
+            </div>
+            {activityType === 'PERJALANAN_DINAS' && <CheckCircle2 className="w-5 h-5 text-sky-500 shrink-0" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Section 2: Identity & Dates */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
+        <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+          <CalendarIcon className="w-4 h-4 text-sky-500" /> Identitas & Waktu Kegiatan
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="md:col-span-2">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+              Nama Kegiatan * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
             </label>
             <input
               type="text"
+              required
+              disabled={isFieldsLocked}
               value={namaKegiatan}
               onChange={(e) => setNamaKegiatan(e.target.value)}
-              placeholder="Contoh: Pelatihan Petugas Sakernas Periode Agustus 2026"
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors font-medium text-slate-800 dark:text-white"
+              placeholder="Contoh: Pelatihan Petugas Sensus Ekonomi 2026"
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
             />
           </div>
 
-          {/* Deskripsi Kegiatan (With Voice Dictation & Fullscreen Expand Modal) */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Deskripsi Kegiatan (Poin-poin / Catatan Kegiatan)
-              </label>
-
-              <div className="flex items-center gap-2">
-                {/* Voice Dictation Button */}
-                <button
-                  type="button"
-                  onClick={() => toggleVoiceDictation('deskripsi')}
-                  className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border ${
-                    isListeningDeskripsi
-                      ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 text-rose-600 animate-pulse'
-                      : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-                  }`}
-                  title="Dikte Suara Bahasa Indonesia"
-                >
-                  <Mic className={`w-3.5 h-3.5 ${isListeningDeskripsi ? 'text-rose-600 animate-spin' : 'text-sky-600 dark:text-sky-400'}`} />
-                  <span className="hidden xs:inline">{isListeningDeskripsi ? 'Mendengarkan...' : 'Dikte Suara 🎙️'}</span>
-                </button>
-
-                {/* Fullscreen Expand Button */}
-                <button
-                  type="button"
-                  onClick={() => setFullscreenField('deskripsi')}
-                  className="p-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
-                  title="Perbesar Layar Penuh"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-
-            <textarea
-              rows={5}
-              value={deskripsiKegiatan}
-              onChange={(e) => setDeskripsiKegiatan(e.target.value)}
-              placeholder="- Mendampingi petugas pencacah di wilayah sampel&#10;- Melakukan validasi isian kuesioner digital/fisik&#10;- Desa Aweh&#10;- PML Bu Sundari dan PPL Fahmi"
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors leading-relaxed min-h-[130px] resize-y dark:text-white"
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+              Tanggal Mulai * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
+            </label>
+            <input
+              type="date"
+              required
+              disabled={isFieldsLocked}
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
             />
           </div>
 
-          {/* Ringkasan Kegiatan & Gemini Controls */}
-          <div className="space-y-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                Ringkasan Kegiatan (Bahasa Laporan Resmi BPS) *
-              </label>
-
-              <div className="flex items-center gap-2">
-                {/* Voice Dictation Button for Ringkasan */}
-                <button
-                  type="button"
-                  onClick={() => toggleVoiceDictation('ringkasan')}
-                  className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 border ${
-                    isListeningRingkasan
-                      ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 text-rose-600 animate-pulse'
-                      : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-                  }`}
-                  title="Dikte Suara Bahasa Indonesia"
-                >
-                  <Mic className={`w-3.5 h-3.5 ${isListeningRingkasan ? 'text-rose-600 animate-spin' : 'text-sky-600 dark:text-sky-400'}`} />
-                  <span className="hidden xs:inline">{isListeningRingkasan ? 'Mendengarkan...' : 'Dikte Suara 🎙️'}</span>
-                </button>
-
-                {/* Fullscreen Expand Button */}
-                <button
-                  type="button"
-                  onClick={() => setFullscreenField('ringkasan')}
-                  className="p-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg transition-colors"
-                  title="Perbesar Layar Penuh"
-                >
-                  <Maximize2 className="w-3.5 h-3.5" />
-                </button>
-
-                <select
-                  value={jumlahParagraf}
-                  onChange={(e) => setJumlahParagraf(e.target.value)}
-                  className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-none"
-                  title="Pilih Jumlah Paragraf Ringkasan AI"
-                >
-                  <option value="auto">Paragraf: Otomatis</option>
-                  <option value="1">Paragraf: 1 Paragraf</option>
-                  <option value="2">Paragraf: 2 Paragraf</option>
-                  <option value="3">Paragraf: 3 Paragraf</option>
-                </select>
-
-                <button
-                  type="button"
-                  onClick={handleGenerateGemini}
-                  disabled={isGeneratingAi}
-                  className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 ai-pulse-button"
-                >
-                  {isGeneratingAi ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Menyusun Narasi BPS...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Generate Narasi AI</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <textarea
-              rows={6}
-              value={ringkasanKegiatan}
-              onChange={(e) => setRingkasanKegiatan(e.target.value)}
-              placeholder="Susunan paragraf narasi resmi kegiatan BPS (dimulai dengan kata kerja aktif seperti 'Melaksanakan...', 'Mengikuti...')"
-              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 transition-colors leading-relaxed min-h-[140px] resize-y dark:text-white"
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+              Tanggal Selesai * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
+            </label>
+            <input
+              type="date"
+              required
+              disabled={isFieldsLocked}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              min={startDate}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
             />
           </div>
 
-          {/* Photo Uploader Section */}
-          <div className="border-t border-slate-100 dark:border-slate-800 pt-4">
-            <PhotoUploader
-              photos={photos}
-              onChange={setPhotos}
-              dateList={computedDateList}
-              isRangeDate={isRangeDate}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+              Jam Mulai * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
+            </label>
+            <input
+              type="time"
+              required
+              disabled={isFieldsLocked}
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+              Jam Selesai * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
+            </label>
+            <input
+              type="time"
+              required
+              disabled={isFieldsLocked}
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
             />
           </div>
         </div>
+      </div>
 
-        {/* Action Controls Header / Sticky Footer */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs transition-colors">
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            {submitProgress ? (
-              <span className="font-bold text-sky-600 dark:text-sky-400 flex items-center gap-1.5 animate-pulse">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>{submitProgress}</span>
-              </span>
-            ) : (
-              <span>Dokumen PDF & Word akan di-update otomatis ke Google Drive</span>
-            )}
-          </div>
+      {/* Section 3: Perjalanan Dinas Extra Fields */}
+      {activityType === 'PERJALANAN_DINAS' && (
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
+          <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-sky-500" /> Detail Perjalanan Dinas
+          </h2>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={() => setIsPreviewOpen(true)}
-              className="flex-1 sm:flex-none px-4 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5"
-            >
-              <span>Preview PDF</span>
-            </button>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 sm:flex-none px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-extrabold rounded-xl text-xs shadow-md shadow-sky-600/20 transition-all flex items-center justify-center gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Menyimpan Laporan...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>Simpan Final & Sinkron ke Drive</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </form>
-
-      {/* Fullscreen Expand Writing Modal for Mobile HP */}
-      {fullscreenField && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-3xl h-[85vh] flex flex-col shadow-2xl p-4 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
-                <Maximize2 className="w-5 h-5 text-sky-600" />
-                <span>
-                  {fullscreenField === 'deskripsi'
-                    ? 'Tulis Deskripsi Kegiatan (Layar Penuh HP)'
-                    : 'Tulis Narasi Ringkasan BPS (Layar Penuh HP)'}
-                </span>
-              </h3>
-
-              <button
-                type="button"
-                onClick={() => setFullscreenField(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 flex flex-col space-y-2">
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => toggleVoiceDictation(fullscreenField)}
-                  className="px-3 py-1.5 bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 text-sky-700 dark:text-sky-300 rounded-xl text-xs font-bold border border-sky-200 dark:border-sky-800 flex items-center gap-1.5"
-                >
-                  <Mic className="w-4 h-4 text-sky-600" />
-                  <span>Dikte Suara 🎙️</span>
-                </button>
-                <span className="text-xs text-slate-400">
-                  {(fullscreenField === 'deskripsi' ? deskripsiKegiatan : ringkasanKegiatan).length} karakter
-                </span>
-              </div>
-
-              <textarea
-                value={fullscreenField === 'deskripsi' ? deskripsiKegiatan : ringkasanKegiatan}
-                onChange={(e) =>
-                  fullscreenField === 'deskripsi'
-                    ? setDeskripsiKegiatan(e.target.value)
-                    : setRingkasanKegiatan(e.target.value)
-                }
-                placeholder="Ketik atau gunakan dikte suara di sini..."
-                className="w-full flex-1 p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500/20 dark:text-white resize-none"
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+                Tempat Tujuan *
+              </label>
+              <input
+                type="text"
+                required
+                value={destination}
+                onChange={(e) => setDestination(e.target.value)}
+                placeholder="Contoh: Desa Aweh, Kec. Kalanganyar"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
               />
             </div>
 
-            <div className="pt-2 text-right">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+                Nomor Surat Tugas *
+              </label>
+              <input
+                type="text"
+                required
+                value={letterNumber}
+                onChange={(e) => setLetterNumber(e.target.value)}
+                placeholder="Contoh: B-123/36020/06/2026"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+                Nomor SPD * {isFieldsLocked && <Lock className="w-3.5 h-3.5 inline text-amber-500 ml-1" />}
+              </label>
+              <input
+                type="text"
+                required
+                disabled={isFieldsLocked}
+                value={spdNumber}
+                onChange={(e) => setSpdNumber(e.target.value)}
+                placeholder="Contoh: 098/SPD/BPS/2026"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 disabled:opacity-60"
+              />
+            </div>
+          </div>
+
+          {/* People Encountered Section */}
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                Daftar Petugas / Orang yang Ditemui
+              </label>
               <button
                 type="button"
-                onClick={() => setFullscreenField(null)}
-                className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 ml-auto"
+                onClick={handleAddPerson}
+                className="px-3 py-1.5 bg-sky-500/10 text-sky-600 hover:bg-sky-500/20 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
               >
-                <Check className="w-4 h-4" />
-                <span>Selesai & Simpan Teks</span>
+                <UserPlus className="w-3.5 h-3.5" /> Tambah Orang
+              </button>
+            </div>
+
+            {people.map((p, idx) => (
+              <div key={idx} className="flex items-center gap-3">
+                <input
+                  type="text"
+                  placeholder="Nama Lengkap"
+                  value={p.person_name}
+                  onChange={(e) => handlePersonChange(idx, 'person_name', e.target.value)}
+                  className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Jabatan"
+                  value={p.position}
+                  onChange={(e) => handlePersonChange(idx, 'position', e.target.value)}
+                  className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+                />
+                {people.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePerson(idx)}
+                    className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section 4: Narrative & AI Refiner */}
+      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-sky-500" /> Deskripsi & Narasi Kegiatan
+          </h2>
+
+          <button
+            type="button"
+            onClick={handleGenerateAiDescription}
+            disabled={isGeneratingAi}
+            className="px-4 py-2 bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 flex items-center gap-2 transition-all"
+          >
+            {isGeneratingAi ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4 text-amber-300" />
+            )}
+            <span>{isGeneratingAi ? 'Merapikan Narasi...' : 'Rapikan dengan AI (Gemini)'}</span>
+          </button>
+        </div>
+
+        <div>
+          <textarea
+            rows={6}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Ketik catatan kegiatan atau ucapkan secara lisan. Contoh: Melaksanakan pendampingan pendataan di Desa Aweh bersama PML Sundari..."
+            className="w-full p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-medium leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500"
+          />
+        </div>
+      </div>
+
+      {/* Section 5: Photo Documentation Uploader */}
+      <PhotoUploader
+        startDate={startDate}
+        endDate={endDate}
+        photos={photos}
+        onChange={setPhotos}
+      />
+
+      {/* Bottom Sticky Action Bar */}
+      <div className="sticky bottom-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 z-40">
+        <button
+          type="button"
+          onClick={() => setIsPreviewOpen(true)}
+          className="px-5 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center gap-2 transition-colors"
+        >
+          <Eye className="w-4 h-4 text-sky-500" /> Pratinjau PDF
+        </button>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 flex items-center gap-2 transition-all"
+          >
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>{isSubmitting ? submitProgress || 'Menyimpan...' : 'Simpan Kegiatan'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Force Change Modal */}
+      {isForceChangeModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 max-w-md w-full p-6 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-rose-500/10 text-rose-500 rounded-2xl shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Peringatan Ganti Paksa</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  Mengubah identitas kegiatan yang sudah dibuatkan PDF dapat menyebabkan perubahan nama folder dan file di Google Drive. Sebaiknya hapus kegiatan ini lalu buat baru.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsForceChangeModalOpen(false)}
+                className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsForceChangeActive(true);
+                  setIsForceChangeModalOpen(false);
+                  showToast('Mode Ganti Paksa diaktifkan! Silakan edit identitas.', 'info');
+                }}
+                className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-600/20"
+              >
+                Tetap Ganti Paksa
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* PDF Transient Preview Modal */}
-      <PDFPreviewModal
-        isOpen={isPreviewOpen}
-        onClose={() => setIsPreviewOpen(false)}
-        laporan={transientLaporanPreview}
-      />
-    </>
+      {/* PDF Preview Modal */}
+      {isPreviewOpen && (
+        <PDFPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          laporanData={{
+            id: initialData?.id || 'preview_id',
+            namaKegiatan,
+            tanggal: startDate,
+            tanggalSelesai: endDate,
+            jamMulai: startTime,
+            jamSelesai: endTime,
+            deskripsiKegiatan: description,
+            ringkasanKegiatan: description,
+            jenisLaporan: activityType === 'PERJALANAN_DINAS' ? 'penugasan' : 'harian',
+            tempatTujuan: destination,
+            nomorSurat: letterNumber,
+            nomorSpd: spdNumber,
+            petugasDitemui: people.map((p) => ({ nama: p.person_name, jabatan: p.position })),
+            namaPegawai,
+            nip,
+            jabatan,
+            fotos: photos,
+          }}
+        />
+      )}
+    </form>
   );
 };

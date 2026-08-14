@@ -61,13 +61,13 @@ export async function importPegawaiFromExcel(file: File): Promise<PegawaiInput[]
 export function exportLaporanToExcel(laporanList: Laporan[]): void {
   const data = laporanList.map((l, idx) => ({
     No: idx + 1,
-    Tanggal: formatDateIndonesian(l.tanggal),
-    'Nama Pegawai': l.nama_pegawai,
-    NIP: l.nip,
-    Jabatan: l.jabatan,
-    Kategori: l.kategori || 'Lainnya',
-    'Nama Kegiatan': l.nama_kegiatan,
-    'Ringkasan Kegiatan': l.ringkasan_kegiatan,
+    Tanggal: formatDateIndonesian(l.start_date || l.tanggal || ''),
+    'Nama Pegawai': l.nama_pegawai || 'Dede Setiawan',
+    NIP: l.nip || '',
+    Jabatan: l.jabatan || '',
+    Kategori: l.activity_type === 'PERJALANAN_DINAS' ? 'Perjalanan Dinas' : (l.kategori || 'Non-PD'),
+    'Nama Kegiatan': l.name || l.nama_kegiatan,
+    'Ringkasan Kegiatan': l.description || l.ringkasan_kegiatan || '',
     'Link PDF Drive': l.drive_pdf_url || '-',
   }));
 
