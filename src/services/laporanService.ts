@@ -1,9 +1,8 @@
 import { supabase, supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 import { Activity, ActivityPerson, ActivityDocument, ActivityStatus } from '@/types/laporan';
 import { normalizeActivityName } from '@/utils/sanitizeFilename';
-import { getStoredLaporanList, saveStoredLaporanList } from '@/lib/laporanStore';
-
-import { getStoredPenugasanList } from '@/lib/penugasanStore';
+import { getStoredLaporanListServer, saveStoredLaporanListServer } from '@/lib/laporanStoreServer';
+import { getStoredPenugasanList, saveStoredPenugasanList } from '@/lib/penugasanStore';
 import { LaporanPenugasan } from '@/types/penugasan';
 
 export function mapPenugasanToActivity(p: LaporanPenugasan): Activity {
@@ -70,11 +69,36 @@ export async function checkActivityNameCollision(
  * Fetch all active (non-trashed) activities for current user
  */
 export async function fetchLaporanList(includeTrashed: boolean = false): Promise<Activity[]> {
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await fetch(`/api/activities?trashed=${includeTrashed}`);
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        if (!includeTrashed) {
+          localStorage.setItem(LOCAL_STORAGE_LAPORAN, JSON.stringify(json.data));
+        }
+        return json.data;
+      }
+    } catch (e) {
+      console.warn('Failed to fetch /api/activities from client:', e);
+    }
+    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
+    if (local) {
+      try {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((a: any) => includeTrashed || (a.status !== 'TRASHED' && !a.deleted_at));
+        }
+      } catch (e) {}
+    }
+    return [];
+  }
+
   let supabaseData: Activity[] = [];
 
   if (isSupabaseConfigured()) {
     try {
-      const client = typeof window === 'undefined' ? supabaseAdmin : supabase;
+      const client = supabaseAdmin;
       let query = client
         .from('activities')
         .select(`
@@ -141,21 +165,10 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
     }
   }
 
-  // Fallback / merge LocalStorage
-  let localData: Activity[] = [];
-  if (typeof window !== 'undefined') {
-    const local = localStorage.getItem(LOCAL_STORAGE_LAPORAN);
-    if (local) {
-      try {
-        localData = JSON.parse(local);
-      } catch (e) {}
-    }
-  }
-
   const mergedMap = new Map<string, Activity>();
 
   try {
-    const serverStoreList = getStoredLaporanList();
+    const serverStoreList = getStoredLaporanListServer();
     serverStoreList.forEach((item: any) => {
       if (item && item.id) {
         const isTrashed = Boolean(item.deleted_at || item.status === 'TRASHED');
@@ -178,15 +191,6 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
       }
     });
   } catch (e) {}
-
-  localData.forEach((item) => {
-    if (item && item.id) {
-      const isTrashed = Boolean(item.deleted_at || item.status === 'TRASHED');
-      if (includeTrashed || !isTrashed) {
-        mergedMap.set(item.id, item);
-      }
-    }
-  });
 
   supabaseData.forEach((item) => {
     if (item && item.id) {
@@ -422,7 +426,7 @@ export async function saveLaporanRecord(
 
   // 2. Save to Server-side JSON Store
   try {
-    const serverList = getStoredLaporanList();
+    const serverList = getStoredLaporanListServer();
     const existingIndex = serverList.findIndex((l: any) => l.id === fullRecord.id);
     let updatedServerList;
     if (existingIndex >= 0) {
@@ -431,8 +435,10 @@ export async function saveLaporanRecord(
     } else {
       updatedServerList = [fullRecord as any, ...serverList];
     }
-    saveStoredLaporanList(updatedServerList);
-  } catch (e) {}
+    saveStoredLaporanListServer(updatedServerList);
+  } catch (e) {
+    console.warn('Failed to save to server json store:', e);
+  }
 
   // 3. Save to LocalStorage fallback
   if (typeof window !== 'undefined') {
