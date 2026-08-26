@@ -91,57 +91,40 @@ export async function generateBpsSummary(
   const cleanNamaKegiatan = normalizeNonBakuToBaku(namaKegiatan);
   const cleanDeskripsiKegiatan = normalizeNonBakuToBaku(deskripsiKegiatan);
 
-  let paragraphInstruction = 'Tulis ringkasan naratif secara proporsional (1-3 paragraf jika materi cukup panjang).';
+  let paragraphTarget = '1 hingga 3 paragraf naratif komprehensif';
   if (jumlahParagraf === '1') {
-    paragraphInstruction = 'Wajib tuliskan ringkasan naratif dalam TEPAT 1 PARAGRAF UTUH.';
+    paragraphTarget = 'TEPAT 1 PARAGRAF UTUH';
   } else if (jumlahParagraf === '2') {
-    paragraphInstruction = 'Wajib bagi ringkasan naratif menjadi TEPAT 2 PARAGRAF RAPI yang terpisah oleh dua kali perpindahan baris (line break).';
+    paragraphTarget = 'TEPAT 2 PARAGRAF';
   } else if (jumlahParagraf === '3') {
-    paragraphInstruction = `WAJIB SUSUN DALAM TEPAT 3 PARAGRAF COMPREHENSIVE, DETAIL, DAN PANJANG (minimal 4-6 kalimat kaya per paragraf). 
-Pembagian isi 3 paragraf:
-- PARAGRAF 1: Penjelasan rinci latar belakang, maksud & tujuan kegiatan, lokasi pendataan (Desa/Kecamatan/Blok Sensus), koordinasi awal, serta komposisi tim/petugas yang terlibat.
-- PARAGRAF 2: Uraian mendalam alur teknis verifikasi kuesioner digital/fisik, pengawasan pencacahan, pendampingan sampel, evaluasi anomali data di lapangan, dan pencapaian target harian.
-- PARAGRAF 3: Tindakan korektif yang diambil, rekomendasi perbaikan kualitas data, dampaknya terhadap keakuratan statistik BPS Kabupaten Lebak, serta penyelesaian kegiatan secara tuntas.`;
+    paragraphTarget = 'TEPAT 3 PARAGRAF COMPREHENSIVE (dipisahkan oleh dua kali perpindahan baris)';
   }
 
-  let lengthInstruction = 'Tuliskan deskripsi narasi yang SANGAT DETAIL, LENGKAP, TERDOKUMENTASI DENGAN BAIK, DAN PANJANG (uraikan setiap poin kegiatan secara mendalam mulai dari persiapan, proses verifikasi, koordinasi lapangan, hingga jaminan mutu statistik).';
-  if (modePanjang === 'pendek') {
-    lengthInstruction = 'Tuliskan deskripsi narasi yang RINGKAS, PADAT, DAN STRUKTURAL (1-2 kalimat fokus pada inti hasil kegiatan).';
-  }
+  const prompt = `Anda adalah asisten penulis laporan profesional. Tugas Anda adalah menyusun ulang catatan perjalanan dinas / kegiatan kedinasan menjadi sebuah narasi resume (laporan) yang komprehensif, terstruktur, mengalir alami (tidak kaku), dan profesional.
 
-  const prompt = `Anda adalah "Editor Bahasa Indonesia untuk Dokumen Kedinasan" pada Badan Pusat Statistik (BPS).
-Tugas utama Anda adalah **MENYUSUN DAN MEMPARAFRASEKAN CATATAN KEGIATAN MENJADI NARASI LAPORAN KEDINASAN RESMI BERBAHASA INDONESIA BAKU, FORMAL, PROFESIONAL, OBJEKTIF, DAN EFEKTIF**.
+Berikut adalah aturan wajib dalam penulisan narasi:
+1. PENGGUNAAN BAHASA: Gunakan Bahasa Indonesia yang baku, baik, dan benar (sesuai kaidah PUEBI/EYD). 
+2. FORMALISASI: Ubah semua kata ganti santai, bahasa sehari-hari (slang), dan istilah non-formal menjadi bahasa resmi instansi/pemerintahan.
+3. PENJABARAN SINGKATAN: Perluas dan perjelas semua singkatan menjadi kata utuh (misalnya: "yg" menjadi "yang", "kordinasi" menjadi "koordinasi", "rapat dgn kades" menjadi "melaksanakan rapat bersama Kepala Desa"). Pertahankan istilah resmi BPS seperti BPS, PML, PPL, SLS, SE2026.
+4. KEDETAILAN PARAGRAF: Tulis narasi ini dalam ${paragraphTarget}. Kembangkan setiap paragraf menjadi narasi yang panjang, padat informasi, mendetail, dan mengalir luas (minimal 4-6 kalimat kaya per paragraf). Gabungkan poin-poin kegiatan menjadi kalimat majemuk yang mengalir secara alami dengan transisi yang logis (jangan kaku, jangan menggunakan format list/bullet point, wajib berbentuk paragraf cerita/naratif).
+5. TANPA MENGARANG (DILARANG HALUSINASI): Gunakan hanya informasi dasar yang terdapat pada catatan input, namun kembangkan struktur kalimatnya secara naratif, mengalir, dan rinci tanpa menambah fakta palsu.
+6. HASIL LANGSUNG: DILARANG memberikan kata pembuka/penutup seperti "Berikut hasilnya:", "Sebagai AI...", atau menggunakan tanda bintang (*). Langsung hasilkan teks narasi siap pakai yang dapat langsung ditempel ke dokumen laporan kedinasan.
 
-INFORMASI INPUT PENGGUNA:
-- Nama Kegiatan: ${cleanNamaKegiatan}
-- Catatan Poin Kegiatan Input:
+Berikut adalah catatan kasar perjalanan dinas yang perlu Anda susun ulang:
+"""
+Nama Kegiatan: ${cleanNamaKegiatan}
+Catatan Poin Kegiatan:
 ${cleanDeskripsiKegiatan}
-
-PANDUAN & ATURAN PENULISAN KEDINASAN (STRICT RULES):
-1. BAHASA BAKU & FORMAL: Secara otomatis ubah bahasa percakapan, kata tidak baku, singkatan informal (yg, dgn, utk, blm, sbg, krn, tdk, dr, gak, udah), atau kalimat tidak lengkap menjadi Bahasa Indonesia yang baku, formal, dan sesuai Pedoman Umum Ejaan Bahasa Indonesia (PUEBI).
-2. DILARANG KERAS MENGULANG-ULANG KALIMAT ATAU NAMA KEGIATAN (NO REPETITIVE SENTENCES / NO DUPLICATION). Tuliskan setiap informasi HANYA SATU KALI dengan alur cerita yang logis dan mengalir.
-3. PERTAHANKAN SINGKATAN RESMI BPS:
-   - BPS = Badan Pusat Statistik
-   - PML = Pengawas Lapangan
-   - PPL = Petugas Pendataan Lapangan
-   - SE2026 = Sensus Ekonomi 2026
-   - SLS = Satuan Lingkungan Setempat
-   Pertahankan istilah resmi dan jangan mengubah singkatan resmi yang sudah umum secara tidak perlu.
-4. KAPITALISASI & EJAAN PUEBI: Gunakan huruf kapital untuk nama instansi, wilayah (Desa/Kecamatan/Kabupaten), nama orang, nama program, dan singkatan resmi (Contoh: "Badan Pusat Statistik Kabupaten Lebak", "Desa Cilangkap", "Kecamatan Kalanganyar").
-5. JANGAN MENGARANG (DILARANG HALUSINASI): HANYA gunakan informasi yang diberikan oleh pengguna. DILARANG KERAS mengarang nama orang, tanggal, lokasi, angka, hasil kegiatan, atau kesimpulan yang tidak terdapat pada input.
-6. GAYA HASIL & KATA KERJA AKTIF: Awali paragraf dengan Kata Kerja Aktif Formal (seperti "Melaksanakan...", "Mengikuti...", "Melakukan...", "Mengolah...", "Menyusun...", "Memeriksa...", "Mengoordinasikan...", "Mendampingi...").
-7. DILARANG MENGGUNAKAN SIMBOL BINTANG (*) ATAU MARKDOWN BOLD/ITALIC. Tuliskan istilah asing secara polos tanpa tanda bintang (Contoh: tulis Coverage, BUKAN *Coverage*).
-8. HASIL LANGSUNG: DILARANG memberikan kata pembuka/penutup seperti "Berikut hasilnya:", "Sebagai AI...", "Berikut narasi...". Langsung hasilkan teks narasi siap pakai yang dapat langsung ditempel ke dokumen laporan kedinasan.
-9. PANJANG & PARAGRAF: ${lengthInstruction} ${paragraphInstruction}`;
+"""`;
 
   try {
     if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy')) {
       return composeCustomParagraphNarrative(cleanNamaKegiatan, cleanDeskripsiKegiatan, jumlahParagraf, modePanjang);
     }
 
-    // Fast Direct REST API with 5s Timeout to guarantee instant response
+    // Fast Direct REST API with 6s Timeout to guarantee instant response
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
 
     try {
       const restRes = await fetch(
@@ -223,7 +206,7 @@ function composeCustomParagraphNarrative(
   );
 
   if (lines.length === 0) {
-    return `Melaksanakan kegiatan ${namaKegiatan} sesuai petunjuk teknis dan standar operasional prosedur yang berlaku di lingkungan Badan Pusat Statistik Kabupaten Lebak.`;
+    return `Dalam rangka pelaksanaan tugas kedinasan, kegiatan ${namaKegiatan} telah dilaksanakan dengan komprehensif sesuai petunjuk teknis dan standar operasional prosedur yang berlaku di lingkungan Badan Pusat Statistik Kabupaten Lebak. Seluruh alur pelaksanaan dikawal secara cermat untuk memastikan efektivitas kegiatan dan penjaminan kualitas data di lapangan.`;
   }
 
   let locations: string[] = [];
@@ -264,30 +247,28 @@ function composeCustomParagraphNarrative(
     )
   );
 
-  let p1 = `Melaksanakan kegiatan ${namaKegiatan}`;
-  if (locations.length > 0) p1 += ` di lokasi ${locations.join(', ')}`;
-  if (personnel.length > 0) p1 += ` bersama ${personnel.join(' serta ')}`;
+  let p1 = `Dalam rangka mendukung keandalan pelaksanaan tugas kedinasan, kegiatan ${namaKegiatan} telah dilaksanakan secara tertib dan terstruktur.`;
+  if (locations.length > 0) p1 += ` Pelaksanaan kegiatan bertempat di lokasi ${locations.join(', ')}`;
+  if (personnel.length > 0) p1 += ` dengan melibatkan tim kerja yang terdiri atas ${personnel.join(' serta ')}`;
   p1 += `. `;
 
   if (cleanActions.length > 0) {
     const formatted = cleanActions.map((a) => a.charAt(0).toLowerCase() + a.slice(1));
-    p1 += `Rangkaian pelaksanaan tugas berfokus pada ${formatted.join(', ')}.`;
+    p1 += `Rangkaian pelaksanaan tugas diawali dengan koordinasi awal dan dilanjutkan pada fokus utama kegiatan yaitu ${formatted.join(', ')}.`;
   } else {
-    p1 += `Pelaksanaan tugas berfokus pada verifikasi isian kuesioner dan pemantauan kualitas data di lapangan.`;
+    p1 += `Pelaksanaan tugas diawali dengan persiapan instrumen serta berfokus pada verifikasi isian kuesioner dan pemantauan kualitas data secara mendalam di lapangan.`;
   }
 
-  if (modePanjang === 'panjang' || jumlahParagraf === '3') {
-    p1 += ` Kegiatan diawali dengan pengarahan teknis bersama tim kerja guna menyamakan persepsi operasional dan memastikan kelengkapan seluruh instrumen pendataan sesuai standar operasional Badan Pusat Statistik.`;
-  }
+  p1 += ` Setiap tahap pelaksanaan dikawal dengan ketat guna memastikan kesesuaian prosedur serta ketepatan alur kerja sesuai petunjuk teknis yang ditetapkan oleh Badan Pusat Statistik.`;
 
   let resultText = p1;
 
   if (jumlahParagraf === '2' || (jumlahParagraf === 'auto' && modePanjang === 'panjang')) {
-    const p2 = `Melalui kegiatan ini, koordinasi teknis serta pemeriksaan konsistensi data statistik terus ditingkatkan secara intensif. Hal ini dilakukan guna mengidentifikasi dan meminimalkan error pendataan sejak dini, sehingga menjamin keakuratan serta mutu data statistik yang dihasilkan secara berkelanjutan di Kabupaten Lebak.`;
+    const p2 = `Melalui pelaksanaan kegiatan ini, koordinasi teknis serta verifikasi konsistensi data statistik terus ditingkatkan secara menyeluruh dan berkesinambungan. Langkah ini diambil untuk mengidentifikasi serta meminimalkan anomali atau kesalahan pendataan sejak awal, sehingga dapat memberikan jaminan mutu terhadap akurasi dan integritas data statistik yang dihasilkan oleh Badan Pusat Statistik Kabupaten Lebak secara tuntas.`;
     resultText = `${p1}\n\n${p2}`;
   } else if (jumlahParagraf === '3') {
-    const p2 = `Selama pelaksanaan di lapangan, pemeriksaan dilakukan secara mendalam dan sistematis guna memverifikasi keabsahan isian serta mendeteksi anomali data secara langsung bersama petugas pencacah. Rangkaian validasi ini mencakup pengecekan kelengkapan variabel utama, konsistensi antar-blok pertanyaan, hingga kepatuhan terhadap SOP pendataan yang berlaku di wilayah sampel.`;
-    const p3 = `Langkah konkret tersebut diambil guna meminimalkan nonsampling error, menjaga tingkat integritas data statistik, serta memastikan seluruh alur operasional kegiatan harian di wilayah Badan Pusat Statistik Kabupaten Lebak memenuhi indikator kinerja utama yang telah ditetapkan secara tuntas dan proporsional.`;
+    const p2 = `Selama pelaksanaan di lapangan, verifikasi dilakukan secara mendalam dan berjenjang guna memastikan keabsahan isian kuesioner serta mendeteksi potensi nonsampling error secara dini bersama para petugas. Rangkaian evaluasi ini mencakup pengecekan kelengkapan variabel utama, uji konsistensi antar-blok pertanyaan, hingga penyesuaian terhadap dinamika kondisi lapangan secara langsung.`;
+    const p3 = `Langkah komprehensif tersebut memberikan kontribusi nyata dalam menjaga kualitas dan keandalan data statistik instansi. Dengan terselesaikannya seluruh tahapan kerja secara tuntas, hasil dari kegiatan ini diharapkan mampu menjadi dasar bahan penentuan kebijakan serta pemenuhan capaian kinerja organisasi Badan Pusat Statistik Kabupaten Lebak secara optimal.`;
     resultText = `${p1}\n\n${p2}\n\n${p3}`;
   }
 
