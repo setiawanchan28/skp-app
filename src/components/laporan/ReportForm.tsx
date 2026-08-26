@@ -24,6 +24,7 @@ import {
 import { PhotoUploader, PhotoItem } from './PhotoUploader';
 import { PDFPreviewModal } from './PDFPreviewModal';
 import { ReauthModal } from '@/components/ui/ReauthModal';
+import { VoiceInputButton } from '@/components/ui/VoiceInputButton';
 import { useToast } from '@/components/ui/Toast';
 import { Activity, ActivityType } from '@/types/laporan';
 import { checkActivityNameCollision } from '@/services/laporanService';
@@ -651,6 +652,13 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
                 <option value="pendek">Pendek & Ringkas</option>
               </select>
             </div>
+
+            {/* Voice Input Button */}
+            <VoiceInputButton
+              onTranscript={setDescription}
+              currentValue={description}
+              label="Dikte Suara 🎙️"
+            />
 
             <button
               type="button"
