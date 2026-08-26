@@ -333,11 +333,13 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
           if (idx >= 0) list[idx] = mappedAct;
           else list.unshift(mappedAct);
           localStorage.setItem('bps_laporan_data', JSON.stringify(list));
+          window.dispatchEvent(new Event('bps_laporan_updated'));
         } catch (e) {}
       }
 
       showToast('Laporan Penugasan BPS berhasil disimpan!', 'success');
       router.push('/laporan');
+      router.refresh();
     } catch (err: any) {
       showToast(err.message || 'Gagal memproses pembuatan laporan penugasan', 'error');
     } finally {

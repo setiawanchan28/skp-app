@@ -48,6 +48,14 @@ export function mapPenugasanToActivity(p: LaporanPenugasan): Activity {
     nama_pegawai: p.nama_pegawai,
     nip: p.nip,
     jabatan: p.jabatan,
+    tanggal: p.tanggal_perjadin,
+    tanggal_selesai: p.tanggal_selesai_perjadin || p.tanggal_perjadin,
+    nama_kegiatan: p.nama_kegiatan,
+    ringkasan_kegiatan: p.resume_kegiatan,
+    deskripsi_kegiatan: p.resume_kegiatan,
+    tempat_tujuan: p.tempat_tujuan,
+    nomor_surat: p.nomor_surat,
+    nomor_spd: p.nomor_spd,
   };
 }
 
@@ -394,6 +402,14 @@ export async function saveLaporanRecord(
     nama_pegawai: activityData.nama_pegawai,
     nip: activityData.nip,
     jabatan: activityData.jabatan,
+    tanggal: startDate,
+    tanggal_selesai: endDate,
+    nama_kegiatan: name,
+    deskripsi_kegiatan: activityData.description || activityData.deskripsi_kegiatan || activityData.ringkasan_kegiatan || '',
+    ringkasan_kegiatan: activityData.description || activityData.deskripsi_kegiatan || activityData.ringkasan_kegiatan || '',
+    tempat_tujuan: activityData.destination || activityData.tempat_tujuan,
+    nomor_surat: activityData.letter_number || activityData.nomor_surat,
+    nomor_spd: activityData.spd_number || activityData.nomor_spd,
   };
 
   // 1. Save to Supabase DB if configured

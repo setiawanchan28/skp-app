@@ -264,11 +264,13 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
           if (idx >= 0) list[idx] = result.data;
           else list.unshift(result.data);
           localStorage.setItem('bps_laporan_data', JSON.stringify(list));
+          window.dispatchEvent(new Event('bps_laporan_updated'));
         } catch (e) {}
       }
 
       showToast('Kegiatan berhasil disimpan!', 'success');
       router.push('/laporan');
+      router.refresh();
     } catch (err: any) {
       const errMsg = err.message || 'Terjadi kesalahan saat menyimpan data';
       showToast(errMsg, 'error');

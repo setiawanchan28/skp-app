@@ -83,55 +83,66 @@ export default function RiwayatLaporanPage() {
 
   const loadData = async () => {
     setLoading(true);
-    let currentList: Activity[] = [];
+    let localList: Activity[] = [];
 
     if (typeof window !== 'undefined') {
       const local = localStorage.getItem('bps_laporan_data');
       if (local) {
         try {
           const parsed = JSON.parse(local);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            currentList = parsed;
+          if (Array.isArray(parsed)) {
+            localList = parsed;
             setActivities(parsed);
           }
         } catch (e) {}
       }
     }
 
-    const data = await fetchLaporanList();
-    if (data && data.length > 0) {
+    try {
+      const remoteData = await fetchLaporanList();
       const map = new Map<string, Activity>();
-      currentList.forEach((item) => {
-        if (item && item.id) map.set(item.id, item);
-      });
-      data.forEach((item) => {
+      if (Array.isArray(remoteData)) {
+        remoteData.forEach((item) => {
+          if (item && item.id) map.set(item.id, item);
+        });
+      }
+      localList.forEach((item) => {
         if (item && item.id) {
           const existing = map.get(item.id);
           map.set(item.id, { ...existing, ...item });
         }
       });
-      const mergedList = Array.from(map.values()).sort(
-        (a, b) =>
-          new Date(b.start_date || b.tanggal || b.created_at || Date.now()).getTime() -
-          new Date(a.start_date || a.tanggal || a.created_at || Date.now()).getTime()
-      );
+      const mergedList = Array.from(map.values())
+        .filter((a) => a.status !== 'TRASHED' && !a.deleted_at)
+        .sort(
+          (a, b) =>
+            new Date(b.start_date || b.tanggal || b.created_at || Date.now()).getTime() -
+            new Date(a.start_date || a.tanggal || a.created_at || Date.now()).getTime()
+        );
       setActivities(mergedList);
       if (typeof window !== 'undefined') {
         localStorage.setItem('bps_laporan_data', JSON.stringify(mergedList));
       }
+    } catch (e) {
+      console.warn('Failed to load remote laporan list:', e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     loadData();
-    const onFocus = () => loadData();
+    const handleUpdate = () => loadData();
     if (typeof window !== 'undefined') {
-      window.addEventListener('focus', onFocus);
+      window.addEventListener('focus', handleUpdate);
+      window.addEventListener('storage', handleUpdate);
+      window.addEventListener('bps_laporan_updated', handleUpdate);
     }
     return () => {
       if (typeof window !== 'undefined') {
-        window.removeEventListener('focus', onFocus);
+        window.removeEventListener('focus', handleUpdate);
+        window.removeEventListener('storage', handleUpdate);
+        window.removeEventListener('bps_laporan_updated', handleUpdate);
       }
     };
   }, []);
@@ -141,13 +152,24 @@ export default function RiwayatLaporanPage() {
     .filter((act) => {
       if (act.status === 'TRASHED' || act.deleted_at) return false;
 
-      const actDateStr = act.start_date || act.tanggal || '';
-      const dateParts = actDateStr.split('T')[0].split('-');
+      const actDateStr = act.start_date || act.tanggal || (act as any).tanggal_perjadin || act.created_at || '';
+      let y = '';
+      let m = '';
+      if (actDateStr) {
+        const isoMatch = String(actDateStr).match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (isoMatch) {
+          y = isoMatch[1];
+          m = isoMatch[2].padStart(2, '0');
+        } else {
+          const parsedDate = new Date(actDateStr);
+          if (!isNaN(parsedDate.getTime())) {
+            y = String(parsedDate.getFullYear());
+            m = String(parsedDate.getMonth() + 1).padStart(2, '0');
+          }
+        }
+      }
 
-      if (dateParts.length === 3) {
-        const y = dateParts[0];
-        const m = dateParts[1].padStart(2, '0');
-
+      if (y && m) {
         if (filterTahun !== 'ALL' && y !== filterTahun) return false;
         if (filterBulan !== 'ALL' && m !== filterBulan) return false;
       }
@@ -177,11 +199,13 @@ export default function RiwayatLaporanPage() {
       return true;
     })
     .sort((a, b) => {
+      const nameA = a.name || a.nama_kegiatan || '';
+      const nameB = b.name || b.nama_kegiatan || '';
       if (sortOrder === 'NAME_ASC') {
-        return a.name.localeCompare(b.name);
+        return nameA.localeCompare(nameB);
       }
-      const timeA = new Date(a.start_date || a.tanggal || 0).getTime();
-      const timeB = new Date(b.start_date || b.tanggal || 0).getTime();
+      const timeA = new Date(a.start_date || a.tanggal || a.created_at || 0).getTime();
+      const timeB = new Date(b.start_date || b.tanggal || b.created_at || 0).getTime();
       if (sortOrder === 'OLDEST') return timeA - timeB;
       return timeB - timeA; // NEWEST
     });
