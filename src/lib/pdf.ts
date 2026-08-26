@@ -316,11 +316,45 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     ];
 
     for (const r of pdKet) {
-      const rH = 22;
+      const words = (r.val || '').split(/\s+/);
+      const valLines: string[] = [];
+      let currentLine = '';
+
+      for (const word of words) {
+        if (!word) continue;
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const testWidth = fontBold.widthOfTextAtSize(testLine, 10);
+        if (testWidth <= colValW - 16) {
+          currentLine = testLine;
+        } else {
+          if (currentLine) valLines.push(currentLine);
+          currentLine = word;
+        }
+      }
+      if (currentLine) valLines.push(currentLine);
+      if (valLines.length === 0) valLines.push('');
+
+      const rH = Math.max(22, valLines.length * 14 + 8);
+
+      if (y - rH < 40) {
+        page = pdfDoc.addPage([pageWidth, pageHeight]);
+        y = pageHeight - 50;
+      }
+
       page.drawRectangle({ x: margin, y: y - rH, width: contentWidth, height: rH, borderColor: black, borderWidth: 1 });
       page.drawLine({ start: { x: margin + colLabelW, y }, end: { x: margin + colLabelW, y: y - rH }, thickness: 1, color: black });
       page.drawText(r.label, { x: margin + 8, y: y - 15, size: 10, font: fontRegular, color: black });
-      page.drawText(r.val, { x: margin + colLabelW + 8, y: y - 15, size: 10, font: fontBold, color: black });
+
+      valLines.forEach((lineText, lIdx) => {
+        page.drawText(lineText, {
+          x: margin + colLabelW + 8,
+          y: y - 15 - lIdx * 14,
+          size: 10,
+          font: fontBold,
+          color: black,
+        });
+      });
+
       y -= rH;
     }
     y -= 12;
@@ -395,20 +429,53 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     }
 
     let lineIdx = 0;
-    while (lineIdx < resumeLines.length) {
+    const totalResumeLines = resumeLines.length;
+
+    while (lineIdx < totalResumeLines) {
       const availH = y - 60;
       const maxLinesOnThisPage = Math.max(1, Math.floor((availH - 16) / lineHeight));
       const linesChunk = resumeLines.slice(lineIdx, lineIdx + maxLinesOnThisPage);
-      const chunkH = Math.max(linesChunk.length * lineHeight + 16, 40);
+      const isLastPageOfResume = (lineIdx + linesChunk.length >= totalResumeLines);
 
-      page.drawRectangle({ x: margin, y: y - chunkH, width: contentWidth, height: chunkH, borderColor: black, borderWidth: 1 });
+      const chunkH = isLastPageOfResume
+        ? Math.max(linesChunk.length * lineHeight + 16, 40)
+        : availH;
+
+      const topY = y;
+      const bottomY = y - chunkH;
+
+      // Draw left vertical line
+      page.drawLine({
+        start: { x: margin, y: topY },
+        end: { x: margin, y: bottomY },
+        thickness: 1,
+        color: black,
+      });
+
+      // Draw right vertical line
+      page.drawLine({
+        start: { x: margin + contentWidth, y: topY },
+        end: { x: margin + contentWidth, y: bottomY },
+        thickness: 1,
+        color: black,
+      });
+
+      // Only draw bottom closing line if this is the last page of resume
+      if (isLastPageOfResume) {
+        page.drawLine({
+          start: { x: margin, y: bottomY },
+          end: { x: margin + contentWidth, y: bottomY },
+          thickness: 1,
+          color: black,
+        });
+      }
 
       linesChunk.forEach((lineObj, idx) => {
         drawJustifiedLine(
           page,
           lineObj.text,
           margin + 10,
-          y - 16 - idx * lineHeight,
+          topY - 16 - idx * lineHeight,
           contentWidth - 20,
           fontRegular,
           fontSize,
@@ -417,10 +484,10 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
         );
       });
 
-      y -= chunkH + 15;
-      lineIdx += maxLinesOnThisPage;
+      lineIdx += linesChunk.length;
+      y = bottomY - 15;
 
-      if (lineIdx < resumeLines.length) {
+      if (lineIdx < totalResumeLines) {
         page = pdfDoc.addPage([pageWidth, pageHeight]);
         y = pageHeight - 50;
       }

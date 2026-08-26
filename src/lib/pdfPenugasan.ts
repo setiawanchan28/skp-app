@@ -167,26 +167,74 @@ export async function generatePenugasanPdfBuffer(
   drawCell(page, margin, y, contentWidth, 20, 'II. KETERANGAN PERJALANAN DINAS', true, greyHeaderBg, 9);
   y -= 20;
 
-  drawCell(page, margin, y, labelW, rowH, 'Nama Kegiatan', false, null, 9);
-  drawCell(page, margin + labelW, y, valueW, rowH, laporan.nama_kegiatan || '', false, null, 9);
-  y -= rowH;
-
   const tglFormatted = formatDateIndonesian(laporan.tanggal_perjadin, laporan.tanggal_selesai_perjadin);
-  drawCell(page, margin, y, labelW, rowH, 'Tanggal Perjadin', false, null, 9);
-  drawCell(page, margin + labelW, y, valueW, rowH, tglFormatted, false, null, 9);
-  y -= rowH;
 
-  drawCell(page, margin, y, labelW, rowH, 'Tempat Tujuan', false, null, 9);
-  drawCell(page, margin + labelW, y, valueW, rowH, laporan.tempat_tujuan || '', false, null, 9);
-  y -= rowH;
+  const pdKetPenugasan = [
+    { label: 'Nama Kegiatan', val: laporan.nama_kegiatan || '' },
+    { label: 'Tanggal Perjadin', val: tglFormatted },
+    { label: 'Tempat Tujuan', val: laporan.tempat_tujuan || '' },
+    { label: 'Nomor Surat', val: laporan.nomor_surat || '' },
+    { label: 'Nomor SPD', val: laporan.nomor_spd || '' },
+  ];
 
-  drawCell(page, margin, y, labelW, rowH, 'Nomor Surat', false, null, 9);
-  drawCell(page, margin + labelW, y, valueW, rowH, laporan.nomor_surat || '', false, null, 9);
-  y -= rowH;
+  for (const r of pdKetPenugasan) {
+    const words = (r.val || '').split(/\s+/);
+    const valLines: string[] = [];
+    let currentLine = '';
 
-  drawCell(page, margin, y, labelW, rowH, 'Nomor SPD', false, null, 9);
-  drawCell(page, margin + labelW, y, valueW, rowH, laporan.nomor_spd || '', false, null, 9);
-  y -= rowH + 12;
+    for (const word of words) {
+      if (!word) continue;
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const testWidth = fontRegular.widthOfTextAtSize(testLine, 9);
+      if (testWidth <= valueW - 12) {
+        currentLine = testLine;
+      } else {
+        if (currentLine) valLines.push(currentLine);
+        currentLine = word;
+      }
+    }
+    if (currentLine) valLines.push(currentLine);
+    if (valLines.length === 0) valLines.push('');
+
+    const rH = Math.max(18, valLines.length * 13 + 6);
+    checkNewPage(rH);
+
+    page.drawRectangle({
+      x: margin,
+      y: y - rH,
+      width: contentWidth,
+      height: rH,
+      borderColor: borderColor,
+      borderWidth: 0.5,
+    });
+    page.drawLine({
+      start: { x: margin + labelW, y },
+      end: { x: margin + labelW, y: y - rH },
+      thickness: 0.5,
+      color: borderColor,
+    });
+
+    page.drawText(r.label, {
+      x: margin + 6,
+      y: y - 13,
+      size: 9,
+      font: fontRegular,
+      color: blackColor,
+    });
+
+    valLines.forEach((lineText, lIdx) => {
+      page.drawText(lineText, {
+        x: margin + labelW + 6,
+        y: y - 13 - lIdx * 13,
+        size: 9,
+        font: fontRegular,
+        color: blackColor,
+      });
+    });
+
+    y -= rH;
+  }
+  y -= 12;
 
   // 5. BAGIAN III: DAFTAR PETUGAS YANG DITEMUI
   const petugasList = laporan.petugas_ditemui || [];
@@ -221,7 +269,7 @@ export async function generatePenugasanPdfBuffer(
   y -= 12;
 
   // 6. BAGIAN IV: RESUME PERJALANAN DINAS
-  checkNewPage(120);
+  checkNewPage(60);
   drawCell(page, margin, y, contentWidth, 20, 'IV. RESUME PERJALANAN DINAS', true, greyHeaderBg, 9);
   y -= 20;
 
@@ -234,7 +282,7 @@ export async function generatePenugasanPdfBuffer(
     const testLine = currentLine ? `${currentLine} ${word}` : word;
     const testWidth = fontRegular.widthOfTextAtSize(testLine, 9);
     if (testWidth > contentWidth - 16) {
-      lines.push(currentLine);
+      if (currentLine) lines.push(currentLine);
       currentLine = word;
     } else {
       currentLine = testLine;
@@ -242,34 +290,68 @@ export async function generatePenugasanPdfBuffer(
   });
   if (currentLine) lines.push(currentLine);
 
-  const boxHeight = Math.max(60, lines.length * 13 + 16);
+  let lineIdx = 0;
+  const totalResumeLines = lines.length;
 
-  page.drawRectangle({
-    x: margin,
-    y: y - boxHeight,
-    width: contentWidth,
-    height: boxHeight,
-    borderColor: borderColor,
-    borderWidth: 0.5,
-  });
+  while (lineIdx < totalResumeLines) {
+    const availH = y - margin - 20;
+    const maxLinesOnThisPage = Math.max(1, Math.floor((availH - 14) / 13));
+    const linesChunk = lines.slice(lineIdx, lineIdx + maxLinesOnThisPage);
+    const isLastPageOfResume = (lineIdx + linesChunk.length >= totalResumeLines);
 
-  let lineY = y - 14;
-  lines.forEach((ln) => {
-    if (lineY < margin + 15) {
+    const chunkH = isLastPageOfResume
+      ? Math.max(linesChunk.length * 13 + 14, 40)
+      : availH;
+
+    const topY = y;
+    const bottomY = y - chunkH;
+
+    // Draw left vertical line
+    page.drawLine({
+      start: { x: margin, y: topY },
+      end: { x: margin, y: bottomY },
+      thickness: 0.5,
+      color: borderColor,
+    });
+
+    // Draw right vertical line
+    page.drawLine({
+      start: { x: margin + contentWidth, y: topY },
+      end: { x: margin + contentWidth, y: bottomY },
+      thickness: 0.5,
+      color: borderColor,
+    });
+
+    // Only draw bottom closing line if this is the last page of resume
+    if (isLastPageOfResume) {
+      page.drawLine({
+        start: { x: margin, y: bottomY },
+        end: { x: margin + contentWidth, y: bottomY },
+        thickness: 0.5,
+        color: borderColor,
+      });
+    }
+
+    let lineY = topY - 14;
+    linesChunk.forEach((ln) => {
+      page.drawText(ln, {
+        x: margin + 8,
+        y: lineY,
+        size: 9,
+        font: fontRegular,
+        color: blackColor,
+      });
+      lineY -= 13;
+    });
+
+    lineIdx += linesChunk.length;
+    y = bottomY - 12;
+
+    if (lineIdx < totalResumeLines) {
       page = pdfDoc.addPage([pageWidth, pageHeight]);
       y = pageHeight - margin;
-      lineY = y - 14;
     }
-    page.drawText(ln, {
-      x: margin + 8,
-      y: lineY,
-      size: 9,
-      font: fontRegular,
-      color: blackColor,
-    });
-    lineY -= 13;
-  });
-  y -= boxHeight + 12;
+  }
 
   // 7. BAGIAN V: DOKUMENTASI (Photo Grid - 2 per row with white canvas)
   if (compressedPhotos.length > 0) {
