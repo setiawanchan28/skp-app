@@ -109,47 +109,42 @@ export async function POST(req: NextRequest) {
     }
     saveStoredPenugasanList(updatedList);
 
-    // Sync to Supabase DB using supabaseAdmin
-    if (isSupabaseConfigured()) {
-      try {
-        await supabaseAdmin.from('laporan_penugasan').upsert({
-          id: penugasanRecord.id,
-          nama_pegawai: penugasanRecord.nama_pegawai,
-          nip: penugasanRecord.nip,
-          jabatan: penugasanRecord.jabatan,
-          nama_kegiatan: penugasanRecord.nama_kegiatan,
-          tanggal_perjadin: penugasanRecord.tanggal_perjadin,
-          tanggal_selesai_perjadin: penugasanRecord.tanggal_selesai_perjadin,
-          tempat_tujuan: penugasanRecord.tempat_tujuan,
-          nomor_surat: penugasanRecord.nomor_surat,
-          nomor_spd: penugasanRecord.nomor_spd,
-          resume_kegiatan: penugasanRecord.resume_kegiatan,
-          drive_pdf_url: penugasanRecord.drive_pdf_url,
-          drive_pdf_file_id: penugasanRecord.drive_pdf_file_id,
-          drive_folder_id: penugasanRecord.drive_folder_id,
-        });
+    // Sync to Supabase DB via Unified Activities Model (activities, activity_people, activity_documents)
+    try {
+      const activityData = {
+        id: penugasanRecord.id,
+        activity_type: 'PERJALANAN_DINAS' as const,
+        name: penugasanRecord.nama_kegiatan,
+        start_date: penugasanRecord.tanggal_perjadin,
+        end_date: penugasanRecord.tanggal_selesai_perjadin || penugasanRecord.tanggal_perjadin,
+        destination: penugasanRecord.tempat_tujuan,
+        letter_number: penugasanRecord.nomor_surat,
+        spd_number: penugasanRecord.nomor_spd,
+        description: penugasanRecord.resume_kegiatan,
+        nama_pegawai: penugasanRecord.nama_pegawai,
+        nip: penugasanRecord.nip,
+        jabatan: penugasanRecord.jabatan,
+        status: penugasanRecord.drive_pdf_url ? ('GENERATED' as const) : ('DRAFT' as const),
+        drive_pdf_url: penugasanRecord.drive_pdf_url,
+        drive_pdf_file_id: penugasanRecord.drive_pdf_file_id,
+        drive_folder_id: penugasanRecord.drive_folder_id,
+      };
 
-        // Insert petugas ditemui
-        await supabaseAdmin.from('penugasan_petugas_ditemui').delete().eq('penugasan_id', id);
-        if (petugasDitemui.length > 0) {
-          await supabaseAdmin.from('penugasan_petugas_ditemui').insert(
-            petugasDitemui.map((p, idx) => ({
-              penugasan_id: id,
-              no: idx + 1,
-              nama: p.nama,
-              jabatan: p.jabatan,
-            }))
-          );
-        }
+      const peopleData = petugasDitemui.map((p) => ({
+        person_name: p.nama,
+        position: p.jabatan,
+      }));
 
-        // Insert photos
-        await supabaseAdmin.from('penugasan_foto').delete().eq('penugasan_id', id);
-        if (photoRecords.length > 0) {
-          await supabaseAdmin.from('penugasan_foto').insert(photoRecords);
-        }
-      } catch (err) {
-        console.warn('Supabase penugasan upsert notice:', err);
-      }
+      const photosData = photoRecords.map((p) => ({
+        id: p.id,
+        documentation_date: p.tanggal_foto || penugasanRecord.tanggal_perjadin,
+        original_filename: p.file_name || 'foto.jpg',
+        drive_file_id: p.drive_file_id || '',
+      }));
+
+      await saveLaporanRecord(activityData, peopleData, photosData);
+    } catch (err) {
+      console.warn('Supabase activities sync notice for penugasan:', err);
     }
 
     return NextResponse.json({

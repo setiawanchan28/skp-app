@@ -1,0 +1,24 @@
+[
+  {
+    "id": "50aea685-728d-4a40-8ee0-7241ddac1dcf",
+    "user_id": "00000000-0000-0000-0000-000000000000",
+    "activity_type": "NON_PERJALANAN_DINAS",
+    "name": "Tes Kegiatan Langsung Ke Supabase 8:19:36 AM",
+    "normalized_name": "tes kegiatan langsung ke supabase 8:19:36 am",
+    "start_date": "2026-08-27",
+    "end_date": "2026-08-27",
+    "start_time": "08:00",
+    "end_time": "16:00",
+    "description": "Pengujian langsung fungsi saveLaporanRecord",
+    "status": "DRAFT",
+    "people": [],
+    "documents": [],
+    "created_at": "2026-08-27T01:19:36.771Z",
+    "updated_at": "2026-08-27T01:19:36.771Z",
+    "tanggal": "2026-08-27",
+    "tanggal_selesai": "2026-08-27",
+    "nama_kegiatan": "Tes Kegiatan Langsung Ke Supabase 8:19:36 AM",
+    "deskripsi_kegiatan": "Pengujian langsung fungsi saveLaporanRecord",
+    "ringkasan_kegiatan": "Pengujian langsung fungsi saveLaporanRecord"
+  }
+]
