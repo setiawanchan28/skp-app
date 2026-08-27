@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
 
     const id = (formData.get('id') as string) || (typeof crypto !== 'undefined' ? crypto.randomUUID() : `penugasan_${Date.now()}`);
+    const userId = (formData.get('userId') as string) || undefined;
     const namaPegawai = (formData.get('namaPegawai') as string) || '';
     const nip = (formData.get('nip') as string) || '';
     const jabatan = (formData.get('jabatan') as string) || '';
@@ -114,6 +115,7 @@ export async function POST(req: NextRequest) {
     try {
       const activityData = {
         id: penugasanRecord.id,
+        user_id: userId,
         activity_type: 'PERJALANAN_DINAS' as const,
         name: penugasanRecord.nama_kegiatan,
         start_date: penugasanRecord.tanggal_perjadin,

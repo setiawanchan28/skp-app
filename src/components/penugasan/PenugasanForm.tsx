@@ -290,8 +290,20 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
       setIsSubmitting(true);
       setSubmitProgress('Menyiapkan berkas laporan penugasan...');
 
+      let currentUserId = '';
+      if (typeof window !== 'undefined') {
+        const savedUserStr = localStorage.getItem('bps_auth_user') || localStorage.getItem('bps_saved_profile');
+        if (savedUserStr) {
+          try {
+            const parsed = JSON.parse(savedUserStr);
+            if (parsed.id) currentUserId = parsed.id;
+          } catch (e) {}
+        }
+      }
+
       const formData = new FormData();
       formData.append('id', initialData?.id || '');
+      formData.append('userId', currentUserId);
       formData.append('namaPegawai', namaPegawai);
       formData.append('nip', nip);
       formData.append('jabatan', jabatan);
