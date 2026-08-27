@@ -21,6 +21,9 @@ export async function POST(req: NextRequest) {
     // 2. Delete from Supabase DB using supabaseAdmin
     if (isSupabaseConfigured()) {
       try {
+        await supabaseAdmin.from('activity_documents').delete().eq('activity_id', id);
+        await supabaseAdmin.from('activity_people').delete().eq('activity_id', id);
+        await supabaseAdmin.from('activities').delete().eq('id', id);
         await supabaseAdmin.from('laporan_foto').delete().eq('laporan_id', id);
         await supabaseAdmin.from('laporan').delete().eq('id', id);
       } catch (err) {

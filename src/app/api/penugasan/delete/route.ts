@@ -23,6 +23,9 @@ export async function POST(req: NextRequest) {
 
     if (isSupabaseConfigured()) {
       try {
+        await supabaseAdmin.from('activity_documents').delete().eq('activity_id', id);
+        await supabaseAdmin.from('activity_people').delete().eq('activity_id', id);
+        await supabaseAdmin.from('activities').delete().eq('id', id);
         await supabaseAdmin.from('penugasan_petugas_ditemui').delete().eq('penugasan_id', id);
         await supabaseAdmin.from('penugasan_foto').delete().eq('penugasan_id', id);
         await supabaseAdmin.from('laporan_penugasan').delete().eq('id', id);

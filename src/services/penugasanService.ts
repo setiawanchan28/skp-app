@@ -76,9 +76,12 @@ export async function fetchPenugasanList(): Promise<LaporanPenugasan[]> {
   }
 
   const mergedMap = new Map<string, LaporanPenugasan>();
-  localData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
-  serverData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
-  supabaseData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
+  if (supabaseData.length > 0 || serverData.length > 0) {
+    serverData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
+    supabaseData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
+  } else {
+    localData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
+  }
 
   const finalResult = Array.from(mergedMap.values()).sort(
     (a, b) => new Date(b.tanggal_perjadin || Date.now()).getTime() - new Date(a.tanggal_perjadin || Date.now()).getTime()
