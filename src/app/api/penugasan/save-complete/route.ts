@@ -3,6 +3,7 @@ import { generatePenugasanPdfBuffer } from '@/lib/pdfPenugasan';
 import { generatePenugasanDocxBuffer } from '@/lib/docxPenugasan';
 import { uploadFileToDrive, extractRawDriveFolderId } from '@/lib/drive';
 import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
+import { saveLaporanRecord } from '@/services/laporanService';
 import { getStoredPenugasanList, saveStoredPenugasanList } from '@/lib/penugasanStore';
 import { LaporanPenugasan, PetugasDitemui } from '@/types/penugasan';
 
