@@ -437,6 +437,10 @@ export async function saveLaporanRecord(
     nomor_spd: activityData.spd_number || activityData.nomor_spd,
   };
 
+  const destVal = actType === 'PERJALANAN_DINAS' ? (fullRecord.destination || fullRecord.tempat_tujuan || '-').trim() : null;
+  const letterVal = actType === 'PERJALANAN_DINAS' ? (fullRecord.letter_number || fullRecord.nomor_surat || '-').trim() : null;
+  const spdVal = actType === 'PERJALANAN_DINAS' ? (fullRecord.spd_number || fullRecord.nomor_spd || '-').trim() : null;
+
   // 1. Save to Supabase DB if configured
   if (isSupabaseConfigured()) {
     try {
@@ -453,10 +457,10 @@ export async function saveLaporanRecord(
             end_date: fullRecord.end_date,
             start_time: fullRecord.start_time,
             end_time: fullRecord.end_time,
-            destination: fullRecord.destination,
-            letter_number: fullRecord.letter_number,
-            spd_number: fullRecord.spd_number,
-            description: fullRecord.description,
+            destination: destVal,
+            letter_number: letterVal,
+            spd_number: spdVal,
+            description: fullRecord.description || '',
             nama_pegawai: fullRecord.nama_pegawai,
             nip: fullRecord.nip,
             jabatan: fullRecord.jabatan,
