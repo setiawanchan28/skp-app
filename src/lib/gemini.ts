@@ -100,22 +100,19 @@ export async function generateBpsSummary(
     paragraphTarget = 'TEPAT 3 PARAGRAF COMPREHENSIVE (dipisahkan oleh dua kali perpindahan baris)';
   }
 
-  const prompt = `Anda adalah asisten penulis laporan profesional. Tugas Anda adalah menyusun ulang catatan perjalanan dinas / kegiatan kedinasan menjadi sebuah narasi resume (laporan) yang komprehensif, terstruktur, mengalir alami (tidak kaku), dan profesional.
+  const prompt = `Anda adalah asisten penulis laporan kegiatan kedinasan BPS yang profesional. Tugas Anda adalah menyusun ulang catatan kegiatan pengguna menjadi sebuah narasi resume (laporan) yang ALAMI, LUGAS, EFEKTIF, BERSIH DARI KALIMAT BAKU KAKU/BOT, dan SANGAT AKURAT.
 
-Berikut adalah aturan wajib dalam penulisan narasi:
-1. PENGGUNAAN BAHASA: Gunakan Bahasa Indonesia yang baku, baik, dan benar (sesuai kaidah PUEBI/EYD). 
-2. FORMALISASI: Ubah semua kata ganti santai, bahasa sehari-hari (slang), dan istilah non-formal menjadi bahasa resmi instansi/pemerintahan.
-3. PENJABARAN SINGKATAN: Perluas dan perjelas semua singkatan menjadi kata utuh (misalnya: "yg" menjadi "yang", "kordinasi" menjadi "koordinasi", "rapat dgn kades" menjadi "melaksanakan rapat bersama Kepala Desa"). Pertahankan istilah resmi BPS seperti BPS, PML, PPL, SLS, SE2026.
-4. KEDETAILAN PARAGRAF: Tulis narasi ini dalam ${paragraphTarget}. Kembangkan setiap paragraf menjadi narasi yang panjang, padat informasi, mendetail, dan mengalir luas (minimal 4-6 kalimat kaya per paragraf). Gabungkan poin-poin kegiatan menjadi kalimat majemuk yang mengalir secara alami dengan transisi yang logis (jangan kaku, jangan menggunakan format list/bullet point, wajib berbentuk paragraf cerita/naratif).
-5. TANPA MENGARANG (DILARANG HALUSINASI): Gunakan hanya informasi dasar yang terdapat pada catatan input, namun kembangkan struktur kalimatnya secara naratif, mengalir, dan rinci tanpa menambah fakta palsu.
-6. HASIL LANGSUNG: DILARANG memberikan kata pembuka/penutup seperti "Berikut hasilnya:", "Sebagai AI...", atau menggunakan tanda bintang (*). Langsung hasilkan teks narasi siap pakai yang dapat langsung ditempel ke dokumen laporan kedinasan.
+Aturan Wajib Penulisan:
+1. ATURAN UTAMA - TANPA MENGARANG (DILARANG HALUSINASI): Gunakan HANYA informasi dan fakta yang terdapat pada catatan input pengguna. DILARANG KERAS menambahkan tugas/kegiatan fiktif yang tidak disebutkan pengguna (seperti verifikasi kuesioner, wawancara lapangan, pemantauan kualitas data di lapangan, dll jika tidak ada pada input).
+2. GAYA BAHASA ALAMI & LUGAS: Hindari pembukaan kaku bertemplat seperti "Dalam rangka mendukung keandalan pelaksanaan tugas kedinasan..." atau "kegiatan ini telah dilaksanakan secara tertib dan terstruktur". Tuliskan narasi secara fokus, langsung pada inti kegiatan, mengalir, dan profesional.
+3. KATA BAKU & PERBAIKAN EYD: Ubah kata non-formal/singkatan (misal: "yg", "dgn", "utk", "bikin", "ngecek") menjadi kata baku Bahasa Indonesia (EYD/PUEBI). Pertahankan singkatan resmi BPS seperti BPS, PML, PPL, Wilkerstat, Susenas, SE2026, dll.
+4. STRUKTUR: Tuliskan dalam ${paragraphTarget} secara rapi tanpa tanda bintang (*) atau format list.
+5. HASIL LANGSUNG: DILARANG memberikan kata pembuka/penutup seperti "Berikut hasilnya:". Langsung berikan teks narasi siap pakai.
 
-Berikut adalah catatan kasar perjalanan dinas yang perlu Anda susun ulang:
-"""
+Input Catatan Kegiatan:
 Nama Kegiatan: ${cleanNamaKegiatan}
-Catatan Poin Kegiatan:
-${cleanDeskripsiKegiatan}
-"""`;
+Rincian Catatan Input:
+${cleanDeskripsiKegiatan || cleanNamaKegiatan}`;
 
   try {
     if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy')) {
@@ -143,7 +140,7 @@ ${cleanDeskripsiKegiatan}
       if (restRes.ok) {
         const json = await restRes.json();
         const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawText && rawText.trim().length > 20) {
+        if (rawText && rawText.trim().length > 10) {
           let clean = rawText.replace(/^(berikut adalah|berikut ringkasan|berikut narasi|berikut hasilnya|sebagai ai)[^:\n]*[:\n]\s*/i, '').trim();
           clean = clean.replace(/^"|"$/g, '').trim();
           clean = clean.replace(/\*/g, '').trim();
@@ -162,7 +159,7 @@ ${cleanDeskripsiKegiatan}
       const response = await result.response;
       let text = response.text();
 
-      if (text && text.trim().length > 20) {
+      if (text && text.trim().length > 10) {
         text = text.replace(/^(berikut adalah|berikut ringkasan|berikut narasi|berikut hasilnya|sebagai ai)[^:\n]*[:\n]\s*/i, '').trim();
         text = text.replace(/^"|"$/g, '').trim();
         text = text.replace(/\*/g, '').trim();
@@ -186,94 +183,15 @@ function composeCustomParagraphNarrative(
   jumlahParagraf: string,
   modePanjang: string = 'panjang'
 ): string {
-  const cleanDeskripsi = normalizeNonBakuToBaku(deskripsiKegiatan);
-  const rawLines = cleanDeskripsi
-    .split('\n')
-    .map((line) => line.replace(/^[-*•\d.]+\s*/, '').trim())
-    .filter((line) => line.length > 0);
+  const cleanDeskripsi = normalizeNonBakuToBaku(deskripsiKegiatan).trim();
+  const cleanNama = normalizeNonBakuToBaku(namaKegiatan).trim();
 
-  // Remove duplicate lines or lines that just duplicate the activity title
-  const lines = Array.from(
-    new Set(
-      rawLines.filter((line) => {
-        const lowerLine = line.toLowerCase().trim();
-        const lowerName = namaKegiatan.toLowerCase().trim();
-        if (lowerLine === lowerName) return false;
-        if (lowerLine.startsWith('melaksanakan kegiatan') && lowerLine.includes(lowerName)) return false;
-        return true;
-      })
-    )
-  );
-
-  if (lines.length === 0) {
-    return `Dalam rangka pelaksanaan tugas kedinasan, kegiatan ${namaKegiatan} telah dilaksanakan dengan komprehensif sesuai petunjuk teknis dan standar operasional prosedur yang berlaku di lingkungan Badan Pusat Statistik Kabupaten Lebak. Seluruh alur pelaksanaan dikawal secara cermat untuk memastikan efektivitas kegiatan dan penjaminan kualitas data di lapangan.`;
+  let detail = cleanDeskripsi || cleanNama;
+  if (detail.toLowerCase().startsWith('mencetak')) {
+    detail = `pelaksanaan ` + detail.charAt(0).toLowerCase() + detail.slice(1);
   }
 
-  let locations: string[] = [];
-  let personnel: string[] = [];
-  let actions: string[] = [];
+  let text = `Kegiatan ${cleanNama} telah dilaksanakan dengan baik. Fokus utama pelaksanaan meliputi ${detail}. Seluruh tahapan pekerjaan diselesaikan secara tertib dan tepat waktu sesuai standar Badan Pusat Statistik Kabupaten Lebak.`;
 
-  const datePattern = /(\d{1,2}\s+(januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember|\d{1,2})\s+\d{2,4})|(\d{4}-\d{2}-\d{2})/i;
-
-  for (const line of lines) {
-    if (datePattern.test(line)) continue;
-    const lower = line.toLowerCase();
-    const isActionVerb = /^(mendampingi|melakukan|memastikan|menyampaikan|memeriksa|membahas|mengikuti|menyusun|mengolah|memandu|melaksanakan|mengevaluasi|mengoordinasikan)/i.test(line);
-
-    if (isActionVerb) {
-      actions.push(line);
-    } else if (lower.startsWith('desa ') || lower.startsWith('kecamatan ') || lower.startsWith('kelurahan ') || lower.startsWith('blok sensus') || lower.startsWith('bs ') || lower.startsWith('wilayah ')) {
-      locations.push(line);
-    } else if (lower.startsWith('pml') || lower.startsWith('ppl') || lower.startsWith('koordinator') || lower.startsWith('tim ') || lower.startsWith('oleh ')) {
-      personnel.push(line);
-    } else {
-      actions.push(line);
-    }
-  }
-
-  // Deduplicate items
-  locations = Array.from(new Set(locations));
-  personnel = Array.from(new Set(personnel));
-
-  // Filter actions so they don't repeat the activity title
-  const cleanActions = Array.from(
-    new Set(
-      actions.filter((a) => {
-        const lowerA = a.toLowerCase();
-        const lowerName = namaKegiatan.toLowerCase();
-        if (lowerA.includes(lowerName)) return false;
-        return true;
-      })
-    )
-  );
-
-  let p1 = `Dalam rangka mendukung keandalan pelaksanaan tugas kedinasan, kegiatan ${namaKegiatan} telah dilaksanakan secara tertib dan terstruktur.`;
-  if (locations.length > 0) p1 += ` Pelaksanaan kegiatan bertempat di lokasi ${locations.join(', ')}`;
-  if (personnel.length > 0) p1 += ` dengan melibatkan tim kerja yang terdiri atas ${personnel.join(' serta ')}`;
-  p1 += `. `;
-
-  if (cleanActions.length > 0) {
-    const formatted = cleanActions.map((a) => a.charAt(0).toLowerCase() + a.slice(1));
-    p1 += `Rangkaian pelaksanaan tugas diawali dengan koordinasi awal dan dilanjutkan pada fokus utama kegiatan yaitu ${formatted.join(', ')}.`;
-  } else {
-    p1 += `Pelaksanaan tugas diawali dengan persiapan instrumen serta berfokus pada verifikasi isian kuesioner dan pemantauan kualitas data secara mendalam di lapangan.`;
-  }
-
-  p1 += ` Setiap tahap pelaksanaan dikawal dengan ketat guna memastikan kesesuaian prosedur serta ketepatan alur kerja sesuai petunjuk teknis yang ditetapkan oleh Badan Pusat Statistik.`;
-
-  let resultText = p1;
-
-  if (jumlahParagraf === '2' || (jumlahParagraf === 'auto' && modePanjang === 'panjang')) {
-    const p2 = `Melalui pelaksanaan kegiatan ini, koordinasi teknis serta verifikasi konsistensi data statistik terus ditingkatkan secara menyeluruh dan berkesinambungan. Langkah ini diambil untuk mengidentifikasi serta meminimalkan anomali atau kesalahan pendataan sejak awal, sehingga dapat memberikan jaminan mutu terhadap akurasi dan integritas data statistik yang dihasilkan oleh Badan Pusat Statistik Kabupaten Lebak secara tuntas.`;
-    resultText = `${p1}\n\n${p2}`;
-  } else if (jumlahParagraf === '3') {
-    const p2 = `Selama pelaksanaan di lapangan, verifikasi dilakukan secara mendalam dan berjenjang guna memastikan keabsahan isian kuesioner serta mendeteksi potensi nonsampling error secara dini bersama para petugas. Rangkaian evaluasi ini mencakup pengecekan kelengkapan variabel utama, uji konsistensi antar-blok pertanyaan, hingga penyesuaian terhadap dinamika kondisi lapangan secara langsung.`;
-    const p3 = `Langkah komprehensif tersebut memberikan kontribusi nyata dalam menjaga kualitas dan keandalan data statistik instansi. Dengan terselesaikannya seluruh tahapan kerja secara tuntas, hasil dari kegiatan ini diharapkan mampu menjadi dasar bahan penentuan kebijakan serta pemenuhan capaian kinerja organisasi Badan Pusat Statistik Kabupaten Lebak secara optimal.`;
-    resultText = `${p1}\n\n${p2}\n\n${p3}`;
-  }
-
-  // Strip accidental asterisks, double punctuation, and cleanup
-  let finalResult = normalizeNonBakuToBaku(resultText).replace(/\*/g, '');
-  finalResult = finalResult.replace(/\.{2,}/g, '.').replace(/\s+,/g, ',').replace(/\s+\./g, '.');
-  return finalResult;
+  return normalizeNonBakuToBaku(text).replace(/\*/g, '').replace(/\.{2,}/g, '.').replace(/\s+,/g, ',').replace(/\s+\./g, '.');
 }
