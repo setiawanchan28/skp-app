@@ -83,16 +83,13 @@ export default function RiwayatLaporanPage() {
 
   const loadData = async () => {
     setLoading(true);
-    let localList: Activity[] = [];
-
     if (typeof window !== 'undefined') {
       const local = localStorage.getItem('bps_laporan_data');
       if (local) {
         try {
           const parsed = JSON.parse(local);
-          if (Array.isArray(parsed)) {
-            localList = parsed;
-            setActivities(parsed);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setActivities(parsed.filter((a: any) => a.status !== 'TRASHED' && !a.deleted_at));
           }
         } catch (e) {}
       }
@@ -100,36 +97,19 @@ export default function RiwayatLaporanPage() {
 
     try {
       const remoteData = await fetchLaporanList();
-      const map = new Map<string, Activity>();
-
-      // 1. Put local items first
-      localList.forEach((item) => {
-        if (item && item.id) {
-          map.set(item.id, item);
-        }
-      });
-
-      // 2. Override with Supabase remote items (Supabase DB is Primary Source of Truth)
       if (Array.isArray(remoteData)) {
-        remoteData.forEach((item) => {
-          if (item && item.id) {
-            const existing = map.get(item.id);
-            map.set(item.id, { ...existing, ...item });
-          }
-        });
-      }
+        const cleanList = remoteData
+          .filter((a) => a.status !== 'TRASHED' && !a.deleted_at)
+          .sort(
+            (a, b) =>
+              new Date(b.start_date || b.tanggal || b.created_at || Date.now()).getTime() -
+              new Date(a.start_date || a.tanggal || a.created_at || Date.now()).getTime()
+          );
 
-      const mergedList = Array.from(map.values())
-        .filter((a) => a.status !== 'TRASHED' && !a.deleted_at)
-        .sort(
-          (a, b) =>
-            new Date(b.start_date || b.tanggal || b.created_at || Date.now()).getTime() -
-            new Date(a.start_date || a.tanggal || a.created_at || Date.now()).getTime()
-        );
-
-      setActivities(mergedList);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('bps_laporan_data', JSON.stringify(mergedList));
+        setActivities(cleanList);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('bps_laporan_data', JSON.stringify(cleanList));
+        }
       }
     } catch (e) {
       console.warn('Failed to load remote laporan list:', e);
