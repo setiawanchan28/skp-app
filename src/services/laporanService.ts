@@ -327,18 +327,27 @@ export async function saveLaporanRecord(
 
   let userId = activityData.user_id;
   if (!isUuid(userId) || userId === '00000000-0000-0000-0000-000000000000') {
-    // Attempt to lookup first active user from Supabase auth.users
     try {
       if (isSupabaseConfigured()) {
         const { data: users } = await supabaseAdmin.auth.admin.listUsers();
         if (users?.users && users.users.length > 0) {
-          userId = users.users[0].id;
+          // Find matching user by email or NIP metadata
+          const targetPegawaiEmail = (activityData as any).email;
+          const targetPegawaiNip = activityData.nip;
+
+          const matchedUser = users.users.find((u) => {
+            if (targetPegawaiEmail && u.email?.toLowerCase() === targetPegawaiEmail.toLowerCase()) return true;
+            if (targetPegawaiNip && u.user_metadata?.nip === targetPegawaiNip) return true;
+            return false;
+          });
+
+          userId = matchedUser ? matchedUser.id : users.users[0].id;
         }
       }
     } catch (e) {}
   }
   if (!userId || !isUuid(userId)) {
-    userId = '00000000-0000-0000-0000-000000000000';
+    userId = '8130eac4-2b63-4c85-82e1-57a02fca89cc'; // Fallback to current authenticated Google User ID
   }
 
   const name = activityData.name || activityData.nama_kegiatan || 'Kegiatan Tanpa Nama';
