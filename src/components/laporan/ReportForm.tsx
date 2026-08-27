@@ -26,7 +26,7 @@ import { PDFPreviewModal } from './PDFPreviewModal';
 import { ReauthModal } from '@/components/ui/ReauthModal';
 import { VoiceInputButton } from '@/components/ui/VoiceInputButton';
 import { useToast } from '@/components/ui/Toast';
-import { Activity, ActivityType } from '@/types/laporan';
+import { Activity, ActivityType, ActivityStatus } from '@/types/laporan';
 import { checkActivityNameCollision } from '@/services/laporanService';
 
 const DRAFT_KEY = 'mamang_activity_draft';
