@@ -256,7 +256,11 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       }
 
       if (!res.ok || !result.success) {
-        throw new Error(result.error || 'Gagal menyimpan kegiatan');
+        const errorDetail = result.error || resText || 'Gagal menyimpan kegiatan ke Supabase';
+        if (typeof window !== 'undefined') {
+          alert('❌ ERROR SIMPAN SUPABASE:\n' + errorDetail);
+        }
+        throw new Error(errorDetail);
       }
 
       if (typeof window !== 'undefined' && result.data) {

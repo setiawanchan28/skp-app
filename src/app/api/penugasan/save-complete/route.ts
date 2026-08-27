@@ -109,8 +109,6 @@ export async function POST(req: NextRequest) {
     } else {
       updatedList = [penugasanRecord, ...currentList];
     }
-    saveStoredPenugasanList(updatedList);
-
     // Sync to Supabase DB via Unified Activities Model (activities, activity_people, activity_documents)
     try {
       const activityData = {
@@ -146,8 +144,9 @@ export async function POST(req: NextRequest) {
       }));
 
       await saveLaporanRecord(activityData, peopleData, photosData);
-    } catch (err) {
-      console.warn('Supabase activities sync notice for penugasan:', err);
+    } catch (err: any) {
+      console.error('❌ Supabase activities sync error for penugasan:', err);
+      throw new Error(`Gagal menyimpan ke Supabase: ${err.message}`);
     }
 
     return NextResponse.json({
