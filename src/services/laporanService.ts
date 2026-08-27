@@ -479,6 +479,7 @@ export async function saveLaporanRecord(
 
       if (error) {
         console.error('❌ Supabase upsert activities Error:', error.message, error.details, error.hint);
+        throw new Error(`Gagal menyimpan ke Supabase Database: ${error.message} (${error.details || error.hint || ''})`);
       } else if (dbData) {
         console.log('✅ Supabase upsert activities Success:', dbData.id);
         // Save People
@@ -510,8 +511,9 @@ export async function saveLaporanRecord(
           await supabaseAdmin.from('activity_documents').insert(docRows);
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('❌ Supabase save activity exception:', e);
+      throw new Error(e.message || 'Gagal menyimpan data kegiatan ke Supabase Database');
     }
   }
 
