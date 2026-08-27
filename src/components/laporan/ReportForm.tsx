@@ -176,27 +176,16 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   };
 
   // Submit Activity Form
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, targetStatus: ActivityStatus = 'DRAFT') => {
     e.preventDefault();
 
     if (!namaKegiatan.trim()) {
       showToast('Nama Kegiatan wajib diisi!', 'error');
       return;
     }
-    if (!namaPegawai.trim() || !nip.trim() || !jabatan.trim()) {
-      showToast('Nama Pegawai, NIP, dan Jabatan wajib diisi!', 'error');
-      return;
-    }
-
-    if (activityType === 'PERJALANAN_DINAS') {
-      if (!destination.trim() || !letterNumber.trim() || !spdNumber.trim()) {
-        showToast('Untuk Perjalanan Dinas, Tempat Tujuan, No Surat, dan No SPD wajib diisi!', 'error');
-        return;
-      }
-    }
 
     setIsSubmitting(true);
-    setSubmitProgress('Menyimpan data kegiatan...');
+    setSubmitProgress('Menyimpan draf kegiatan ke Supabase...');
 
     try {
       let currentUserId = undefined;
@@ -226,6 +215,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         nama_pegawai: namaPegawai,
         nip: nip,
         jabatan: jabatan,
+        status: targetStatus,
       };
 
       const validPeople = people.filter((p) => p.person_name.trim().length > 0);
@@ -281,7 +271,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         } catch (e) {}
       }
 
-      showToast('Kegiatan berhasil disimpan!', 'success');
+      showToast(targetStatus === 'DRAFT' ? 'Draf kegiatan berhasil disimpan ke Supabase cloud!' : 'Kegiatan berhasil disimpan!', 'success');
       router.push('/laporan');
       router.refresh();
     } catch (err: any) {
@@ -724,6 +714,15 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
               {submitProgress}
             </span>
           )}
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={(e) => handleSubmit(e, 'DRAFT')}
+            className="px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md flex items-center gap-2 transition-all"
+          >
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            <span>Simpan Draf</span>
+          </button>
           <button
             type="submit"
             disabled={isSubmitting}
