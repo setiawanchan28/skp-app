@@ -20,24 +20,28 @@ export async function GET(req: NextRequest) {
   let saveResult: any = null;
   let saveError: any = null;
 
-  try {
-    const testActivity = {
-      user_id: activeUserId,
-      activity_type: 'NON_PERJALANAN_DINAS' as const,
-      name: 'Tes Laporan Baru ' + new Date().toLocaleTimeString(),
-      start_date: new Date().toISOString().split('T')[0],
-      end_date: new Date().toISOString().split('T')[0],
-      start_time: '08:00',
-      end_time: '16:00',
-      description: 'Deskripsi tes pembuatan laporan',
-      nama_pegawai: 'Pegawai BPS',
-      nip: '199502282024211021',
-      jabatan: 'Pranata Komputer'
-    };
+  const runTest = req.nextUrl.searchParams.get('run') === 'true';
 
-    saveResult = await saveLaporanRecord(testActivity);
-  } catch (e: any) {
-    saveError = { message: e.message, stack: e.stack };
+  if (runTest) {
+    try {
+      const testActivity = {
+        user_id: activeUserId,
+        activity_type: 'NON_PERJALANAN_DINAS' as const,
+        name: 'Tes Laporan Baru ' + new Date().toLocaleTimeString(),
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: new Date().toISOString().split('T')[0],
+        start_time: '08:00',
+        end_time: '16:00',
+        description: 'Deskripsi tes pembuatan laporan',
+        nama_pegawai: 'Pegawai BPS',
+        nip: '199502282024211021',
+        jabatan: 'Pranata Komputer'
+      };
+
+      saveResult = await saveLaporanRecord(testActivity);
+    } catch (e: any) {
+      saveError = { message: e.message, stack: e.stack };
+    }
   }
 
   return NextResponse.json({
