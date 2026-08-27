@@ -101,17 +101,24 @@ export default function RiwayatLaporanPage() {
     try {
       const remoteData = await fetchLaporanList();
       const map = new Map<string, Activity>();
-      if (Array.isArray(remoteData)) {
-        remoteData.forEach((item) => {
-          if (item && item.id) map.set(item.id, item);
-        });
-      }
+
+      // 1. Put local items first
       localList.forEach((item) => {
         if (item && item.id) {
-          const existing = map.get(item.id);
-          map.set(item.id, { ...existing, ...item });
+          map.set(item.id, item);
         }
       });
+
+      // 2. Override with Supabase remote items (Supabase DB is Primary Source of Truth)
+      if (Array.isArray(remoteData)) {
+        remoteData.forEach((item) => {
+          if (item && item.id) {
+            const existing = map.get(item.id);
+            map.set(item.id, { ...existing, ...item });
+          }
+        });
+      }
+
       const mergedList = Array.from(map.values())
         .filter((a) => a.status !== 'TRASHED' && !a.deleted_at)
         .sort(
@@ -119,6 +126,7 @@ export default function RiwayatLaporanPage() {
             new Date(b.start_date || b.tanggal || b.created_at || Date.now()).getTime() -
             new Date(a.start_date || a.tanggal || a.created_at || Date.now()).getTime()
         );
+
       setActivities(mergedList);
       if (typeof window !== 'undefined') {
         localStorage.setItem('bps_laporan_data', JSON.stringify(mergedList));

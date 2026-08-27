@@ -6,21 +6,48 @@ const LOCAL_STORAGE_KEY = 'bps_penugasan_data';
 export async function fetchPenugasanList(): Promise<LaporanPenugasan[]> {
   let supabaseData: LaporanPenugasan[] = [];
 
-  // 1. Fetch from Supabase DB
+  // 1. Fetch from Supabase DB via Unified Activities Table
   if (isSupabaseConfigured()) {
     try {
       const client = typeof window === 'undefined' ? supabaseAdmin : supabase;
       const { data, error } = await client
-        .from('laporan_penugasan')
+        .from('activities')
         .select(`
           *,
-          petugas_ditemui:penugasan_petugas_ditemui(*),
-          fotos:penugasan_foto(*)
+          people:activity_people(*),
+          documents:activity_documents(*)
         `)
-        .order('tanggal_perjadin', { ascending: false });
+        .eq('activity_type', 'PERJALANAN_DINAS')
+        .is('deleted_at', null)
+        .order('start_date', { ascending: false });
 
       if (!error && data) {
-        supabaseData = data;
+        supabaseData = data.map((item: any) => ({
+          id: item.id,
+          nama_pegawai: item.nama_pegawai || '',
+          nip: item.nip || '',
+          jabatan: item.jabatan || '',
+          nama_kegiatan: item.name || item.nama_kegiatan || '',
+          tanggal_perjadin: item.start_date,
+          tanggal_selesai_perjadin: item.end_date,
+          tempat_tujuan: item.destination || item.tempat_tujuan || '',
+          nomor_surat: item.letter_number || item.nomor_surat || '',
+          nomor_spd: item.spd_number || item.nomor_spd || '',
+          resume_kegiatan: item.description || item.deskripsi_kegiatan || '',
+          drive_pdf_url: item.drive_pdf_url,
+          drive_pdf_file_id: item.drive_pdf_file_id,
+          drive_folder_id: item.drive_folder_id,
+          petugas_ditemui: item.people?.map((p: any) => ({ nama: p.person_name, jabatan: p.position })) || [],
+          fotos: item.documents?.map((d: any) => ({
+            id: d.id,
+            file_name: d.original_filename || d.file_name,
+            drive_file_id: d.drive_file_id,
+            web_view_url: d.web_view_url,
+            tanggal_foto: d.documentation_date,
+          })) || [],
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+        }));
       }
     } catch (err) {}
   }
