@@ -456,6 +456,7 @@ export async function saveLaporanRecord(
             drive_pdf_url: fullRecord.drive_pdf_url,
             drive_pdf_file_id: fullRecord.drive_pdf_file_id,
             drive_folder_id: fullRecord.drive_folder_id,
+            deleted_at: null,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'id' }
