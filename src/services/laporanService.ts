@@ -461,14 +461,8 @@ export async function saveLaporanRecord(
             letter_number: letterVal,
             spd_number: spdVal,
             description: fullRecord.description || '',
-            nama_pegawai: fullRecord.nama_pegawai,
-            nip: fullRecord.nip,
-            jabatan: fullRecord.jabatan,
             status: fullRecord.status,
             generated_at: fullRecord.generated_at,
-            drive_pdf_url: fullRecord.drive_pdf_url,
-            drive_pdf_file_id: fullRecord.drive_pdf_file_id,
-            drive_folder_id: fullRecord.drive_folder_id,
             deleted_at: null,
             updated_at: new Date().toISOString(),
           },
@@ -505,7 +499,7 @@ export async function saveLaporanRecord(
             file_size_bytes: p.file_size_bytes || 0,
             kind: p.kind || 'PHOTO',
             drive_file_id: p.drive_file_id || '',
-            web_view_url: p.web_view_url || p.previewUrl || p.drive_file_url || '',
+            drive_name: p.drive_name || p.original_filename || p.file_name || p.name || `foto_${idx + 1}.jpg`,
             sort_order: idx + 1,
           }));
           await supabaseAdmin.from('activity_documents').insert(docRows);
