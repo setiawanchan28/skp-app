@@ -84,6 +84,7 @@ export default function RootPage() {
             }
 
             const userSession = {
+              id: session.user.id,
               nama: matchedPegawai?.nama || googleName,
               nip: matchedPegawai?.nip || metadata.nip || '',
               jabatan: matchedPegawai?.jabatan || metadata.position || metadata.jabatan || 'Pegawai BPS',
@@ -123,12 +124,13 @@ export default function RootPage() {
             }
 
             const userSession = {
+              id: session.user.id,
               nama: matchedPegawai?.nama || googleName,
               nip: matchedPegawai?.nip || metadata.nip || '',
               jabatan: matchedPegawai?.jabatan || metadata.position || metadata.jabatan || 'Pegawai BPS',
               email: googleEmail,
-              provider_token: data.session.provider_token,
-              provider_refresh_token: data.session.provider_refresh_token,
+              provider_token: session.provider_token,
+              provider_refresh_token: session.provider_refresh_token,
             };
 
             if (typeof window !== 'undefined') {

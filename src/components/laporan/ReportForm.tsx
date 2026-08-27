@@ -199,8 +199,20 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
     setSubmitProgress('Menyimpan data kegiatan...');
 
     try {
+      let currentUserId = undefined;
+      if (typeof window !== 'undefined') {
+        const savedUserStr = localStorage.getItem('bps_auth_user') || localStorage.getItem('bps_saved_profile');
+        if (savedUserStr) {
+          try {
+            const parsed = JSON.parse(savedUserStr);
+            if (parsed.id) currentUserId = parsed.id;
+          } catch (e) {}
+        }
+      }
+
       const activityPayload: Partial<Activity> = {
         id: initialData?.id,
+        user_id: currentUserId || initialData?.user_id,
         activity_type: activityType,
         name: namaKegiatan,
         start_date: startDate,

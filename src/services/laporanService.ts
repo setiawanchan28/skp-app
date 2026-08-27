@@ -319,12 +319,28 @@ export async function saveLaporanRecord(
   peopleData?: { person_name: string; position: string }[],
   photosData?: any[]
 ): Promise<Activity> {
-  const newId =
-    activityData.id ||
-    (typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : `act_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
-  const userId = activityData.user_id || '00000000-0000-0000-0000-000000000000';
+  // Ensure ID is a valid UUID for PostgreSQL UUID column
+  const isUuid = (str?: string) => str && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+  const newId = isUuid(activityData.id)
+    ? activityData.id!
+    : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-' + Date.now().toString().padStart(12, '0'));
+
+  let userId = activityData.user_id;
+  if (!isUuid(userId) || userId === '00000000-0000-0000-0000-000000000000') {
+    // Attempt to lookup first active user from Supabase auth.users
+    try {
+      if (isSupabaseConfigured()) {
+        const { data: users } = await supabaseAdmin.auth.admin.listUsers();
+        if (users?.users && users.users.length > 0) {
+          userId = users.users[0].id;
+        }
+      }
+    } catch (e) {}
+  }
+  if (!userId || !isUuid(userId)) {
+    userId = '00000000-0000-0000-0000-000000000000';
+  }
+
   const name = activityData.name || activityData.nama_kegiatan || 'Kegiatan Tanpa Nama';
   const normalized = normalizeActivityName(name);
 
@@ -447,7 +463,10 @@ export async function saveLaporanRecord(
         .select()
         .single();
 
-      if (!error && dbData) {
+      if (error) {
+        console.error('❌ Supabase upsert activities Error:', error.message, error.details, error.hint);
+      } else if (dbData) {
+        console.log('✅ Supabase upsert activities Success:', dbData.id);
         // Save People
         if (peopleData && peopleData.length > 0) {
           await supabaseAdmin.from('activity_people').delete().eq('activity_id', dbData.id);
@@ -478,7 +497,7 @@ export async function saveLaporanRecord(
         }
       }
     } catch (e) {
-      console.warn('Supabase save activity exception:', e);
+      console.error('❌ Supabase save activity exception:', e);
     }
   }
 
