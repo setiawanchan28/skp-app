@@ -206,7 +206,28 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
       const isTrashed = Boolean(item.deleted_at || item.status === 'TRASHED');
       if (includeTrashed || !isTrashed) {
         const existing = mergedMap.get(item.id);
-        const docs = item.documents?.length ? item.documents : existing?.documents || (existing as any)?.fotos || [];
+        const existingDocs = existing?.documents || (existing as any)?.fotos || [];
+        
+        let docs = item.documents;
+        if (docs && docs.length > 0) {
+          docs = docs.map((d: any, idx: number) => {
+            const exDoc = existingDocs[idx] || {};
+            const driveId = d.drive_file_id || exDoc.drive_file_id || '';
+            const driveThumb = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1000` : '';
+            const prevUrl = d.previewUrl || driveThumb || exDoc.previewUrl || exDoc.base64 || exDoc.existingUrl || '';
+            const b64 = d.base64 || exDoc.base64 || (prevUrl.startsWith('data:image/') ? prevUrl : '');
+            return {
+              ...exDoc,
+              ...d,
+              drive_file_id: driveId,
+              previewUrl: prevUrl,
+              base64: b64,
+            };
+          });
+        } else {
+          docs = existingDocs;
+        }
+
         const people = item.people?.length ? item.people : existing?.people || (existing as any)?.petugas_ditemui || [];
         mergedMap.set(item.id, {
           ...existing,

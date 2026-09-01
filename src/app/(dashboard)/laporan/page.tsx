@@ -234,13 +234,25 @@ export default function RiwayatLaporanPage() {
 
       const cleanDocs = await Promise.all(
         (act.documents || (act as any).fotos || []).map(async (doc: any) => {
-          const rawUrl = doc.previewUrl || doc.existingUrl || doc.base64 || doc.url || '';
-          const compressedUrl = await compressBase64Image(rawUrl, 1000, 0.7);
+          const rawUrl =
+            doc.previewUrl ||
+            doc.existingUrl ||
+            doc.base64 ||
+            doc.url ||
+            (doc.drive_file_id ? `https://drive.google.com/thumbnail?id=${doc.drive_file_id}&sz=w1000` : '');
+          const compressedUrl = rawUrl.startsWith('data:image/')
+            ? await compressBase64Image(rawUrl, 1000, 0.7)
+            : rawUrl;
           return {
+            ...doc,
             id: doc.id,
-            name: doc.name || doc.file_name,
+            name: doc.name || doc.file_name || doc.original_filename || 'Foto.jpg',
+            file_name: doc.file_name || doc.original_filename || doc.name || 'Foto.jpg',
+            original_filename: doc.original_filename || doc.file_name || doc.name || 'Foto.jpg',
             previewUrl: compressedUrl,
             existingUrl: compressedUrl,
+            base64: compressedUrl,
+            drive_file_id: doc.drive_file_id || '',
             tanggal_foto: doc.tanggal_foto || doc.documentation_date || act.start_date,
           };
         })

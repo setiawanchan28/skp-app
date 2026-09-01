@@ -61,12 +61,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     // 2. Render PDF Buffer
-    const rawPhotos = activity.documents || (activity as any).fotos || [];
+    const rawPhotos =
+      body.activityData?.documents ||
+      body.activityData?.fotos ||
+      activity.documents ||
+      (activity as any).fotos ||
+      [];
+
     const mappedPhotos = rawPhotos
       .map((doc: any) => {
-        const srcUrl = typeof doc === 'string' ? doc : doc.base64 || doc.previewUrl || doc.web_view_url || doc.preview_url || doc.existingUrl || doc.url || '';
+        const srcUrl =
+          typeof doc === 'string'
+            ? doc
+            : doc.base64 ||
+              doc.previewUrl ||
+              doc.web_view_url ||
+              doc.preview_url ||
+              doc.existingUrl ||
+              doc.url ||
+              (doc.drive_file_id ? `https://drive.google.com/thumbnail?id=${doc.drive_file_id}&sz=w1000` : '');
         return {
+          id: typeof doc === 'object' ? doc.id : undefined,
+          original_filename: typeof doc === 'object' ? doc.original_filename || doc.file_name || doc.name : 'Foto.jpg',
+          name: typeof doc === 'object' ? doc.name || doc.file_name || doc.original_filename : 'Foto.jpg',
+          drive_file_id: typeof doc === 'object' ? doc.drive_file_id || '' : '',
           base64: srcUrl,
+          previewUrl: srcUrl,
           tanggal_foto: typeof doc === 'object' ? doc.tanggal_foto || doc.documentation_date || activity.start_date : activity.start_date,
         };
       })
@@ -136,15 +156,34 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // 4b. Upload separate documentation photo files to "Dokumentasi Foto" subfolder in Google Drive
     const targetFolderId = driveFolder.dokumentasiFolderId || driveFolder.activityFolderId;
+    const updatedDocuments = [...mappedPhotos];
+
     for (let pIdx = 0; pIdx < mappedPhotos.length; pIdx++) {
       const photoItem = mappedPhotos[pIdx];
-      if (photoItem.base64 && photoItem.base64.startsWith('data:image/')) {
+      const photoSrc = photoItem.base64 || photoItem.previewUrl;
+      if (photoSrc) {
         try {
-          const matches = photoItem.base64.match(/^data:(image\/\w+);base64,(.+)$/);
-          if (matches) {
-            const photoMime = matches[1];
+          let photoBuffer: Buffer | null = null;
+          let photoMime = 'image/jpeg';
+
+          if (photoSrc.startsWith('data:image/')) {
+            const matches = photoSrc.match(/^data:(image\/\w+);base64,(.+)$/);
+            if (matches) {
+              photoMime = matches[1];
+              photoBuffer = Buffer.from(matches[2], 'base64');
+            }
+          } else if (photoSrc.startsWith('http://') || photoSrc.startsWith('https://')) {
+            const resPhoto = await fetch(photoSrc);
+            if (resPhoto.ok) {
+              const arrayBuf = await resPhoto.arrayBuffer();
+              photoBuffer = Buffer.from(arrayBuf);
+              const headerMime = resPhoto.headers.get('content-type');
+              if (headerMime) photoMime = headerMime;
+            }
+          }
+
+          if (photoBuffer) {
             const ext = photoMime.includes('png') ? 'png' : 'jpg';
-            const photoBuffer = Buffer.from(matches[2], 'base64');
             const photoDate = photoItem.tanggal_foto || activity.start_date;
             const photoFileName = `${formatDrivePdfName(
               photoDate,
@@ -152,8 +191,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               startTimeVal,
               endTimeVal
             ).replace(/\.pdf$/, '')}.${ext}`;
-            const existingPhotoId = (photoItem as any).drive_file_id || (photoItem as any).id;
-            await uploadFileToDrive(
+
+            // Only reuse drive_file_id if it looks like a real Google Drive ID (not local string/UUID)
+            const rawDriveId = photoItem.drive_file_id;
+            const isRealDriveId = rawDriveId && !rawDriveId.startsWith('foto_') && !rawDriveId.startsWith('mock_') && rawDriveId.length < 45 && !rawDriveId.includes('-');
+            const existingPhotoId = isRealDriveId ? rawDriveId : undefined;
+
+            const uploadedDrivePhoto = await uploadFileToDrive(
               photoBuffer,
               photoFileName,
               photoMime,
@@ -161,6 +205,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
               existingPhotoId,
               userGoogleToken
             );
+
+            if (uploadedDrivePhoto && uploadedDrivePhoto.id) {
+              const driveThumbUrl = `https://drive.google.com/thumbnail?id=${uploadedDrivePhoto.id}&sz=w1000`;
+              updatedDocuments[pIdx] = {
+                ...updatedDocuments[pIdx],
+                drive_file_id: uploadedDrivePhoto.id,
+                drive_name: uploadedDrivePhoto.name || photoFileName,
+                web_view_url: uploadedDrivePhoto.webViewLink,
+                previewUrl: driveThumbUrl,
+                existingUrl: driveThumbUrl,
+                base64: photoSrc.startsWith('data:image/') ? photoSrc : driveThumbUrl,
+              };
+            }
           }
         } catch (photoErr) {
           console.warn(`Failed to upload separate photo ${pIdx + 1} to Drive:`, photoErr);
@@ -179,9 +236,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         drive_pdf_url: driveResult.webViewLink,
         drive_pdf_file_id: driveResult.id,
         drive_folder_id: driveFolder.activityFolderId,
+        documents: updatedDocuments,
+        fotos: updatedDocuments,
       },
       activity.people || (activity as any).petugas_ditemui,
-      activity.documents || (activity as any).fotos
+      updatedDocuments
     );
 
     // 6. Update generation status & write audit log

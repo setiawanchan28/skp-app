@@ -126,7 +126,14 @@ function extractPhotosList(data: PdfReportData): PdfReportPhoto[] {
     allPhotos = rawPhotosInput
       .map((item: any) => {
         if (typeof item === 'string') return { base64: item };
-        const b64 = item.base64 || item.previewUrl || item.web_view_url || item.preview_url || item.existingUrl || item.url || '';
+        const b64 =
+          item.base64 ||
+          item.previewUrl ||
+          item.web_view_url ||
+          item.preview_url ||
+          item.existingUrl ||
+          item.url ||
+          (item.drive_file_id ? `https://drive.google.com/thumbnail?id=${item.drive_file_id}&sz=w1000` : '');
         return {
           base64: b64,
           tanggal_foto: item.tanggal_foto || item.documentation_date || data.tanggal,
@@ -137,6 +144,28 @@ function extractPhotosList(data: PdfReportData): PdfReportPhoto[] {
     allPhotos = data.photosBase64.map((b) => ({ base64: b, tanggal_foto: data.tanggal }));
   }
   return allPhotos;
+}
+
+async function photoSrcToPngBuffer(src: string): Promise<Buffer | null> {
+  if (!src) return null;
+  try {
+    let buf: Buffer;
+    if (src.startsWith('data:image/')) {
+      const base64Clean = src.replace(/^data:image\/\w+;base64,/, '');
+      buf = Buffer.from(base64Clean, 'base64');
+    } else if (src.startsWith('http://') || src.startsWith('https://')) {
+      const res = await fetch(src);
+      if (!res.ok) return null;
+      const arrayBuf = await res.arrayBuffer();
+      buf = Buffer.from(arrayBuf);
+    } else {
+      buf = Buffer.from(src, 'base64');
+    }
+    return await sharp(buf).png().toBuffer();
+  } catch (e) {
+    console.warn('Failed to convert photo source to PNG buffer:', e);
+    return null;
+  }
 }
 
 /**
@@ -681,31 +710,32 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
       }
 
       try {
-        const base64Clean = datePhotos[0].base64.replace(/^data:image\/\w+;base64,/, '');
-        const imageBytes = Buffer.from(base64Clean, 'base64');
-        const embeddedImg = datePhotos[0].base64.includes('data:image/png') ? await pdfDoc.embedPng(imageBytes) : await pdfDoc.embedJpg(imageBytes);
+        const pngBuf = await photoSrcToPngBuffer(datePhotos[0].base64);
+        if (pngBuf) {
+          const embeddedImg = await pdfDoc.embedPng(pngBuf);
 
-        const imgWidth = embeddedImg.width;
-        const imgHeight = embeddedImg.height;
-        const imgAspectRatio = imgWidth / imgHeight;
+          const imgWidth = embeddedImg.width;
+          const imgHeight = embeddedImg.height;
+          const imgAspectRatio = imgWidth / imgHeight;
 
-        const maxSlotWidth = contentWidth - 20;
-        const maxSlotHeight = imageAreaHeight - 10;
-        const slotAspectRatio = maxSlotWidth / maxSlotHeight;
+          const maxSlotWidth = contentWidth - 20;
+          const maxSlotHeight = imageAreaHeight - 10;
+          const slotAspectRatio = maxSlotWidth / maxSlotHeight;
 
-        let renderWidth = maxSlotWidth;
-        let renderHeight = maxSlotHeight;
+          let renderWidth = maxSlotWidth;
+          let renderHeight = maxSlotHeight;
 
-        if (imgAspectRatio > slotAspectRatio) {
-          renderHeight = maxSlotWidth / imgAspectRatio;
-        } else {
-          renderWidth = maxSlotHeight * imgAspectRatio;
+          if (imgAspectRatio > slotAspectRatio) {
+            renderHeight = maxSlotWidth / imgAspectRatio;
+          } else {
+            renderWidth = maxSlotHeight * imgAspectRatio;
+          }
+
+          const offsetX = margin + (contentWidth - renderWidth) / 2;
+          const offsetY = photoInnerY + captionAreaHeight + (imageAreaHeight - renderHeight) / 2;
+
+          page.drawImage(embeddedImg, { x: offsetX, y: offsetY, width: renderWidth, height: renderHeight });
         }
-
-        const offsetX = margin + (contentWidth - renderWidth) / 2;
-        const offsetY = photoInnerY + captionAreaHeight + (imageAreaHeight - renderHeight) / 2;
-
-        page.drawImage(embeddedImg, { x: offsetX, y: offsetY, width: renderWidth, height: renderHeight });
       } catch (e) {}
 
       if (!isPenugasan) {
@@ -746,31 +776,32 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
           const slotX = margin + c * halfWidth;
 
           try {
-            const base64Clean = datePhotos[photoIdx].base64.replace(/^data:image\/\w+;base64,/, '');
-            const imageBytes = Buffer.from(base64Clean, 'base64');
-            const embeddedImg = datePhotos[photoIdx].base64.includes('data:image/png') ? await pdfDoc.embedPng(imageBytes) : await pdfDoc.embedJpg(imageBytes);
+            const pngBuf = await photoSrcToPngBuffer(datePhotos[photoIdx].base64);
+            if (pngBuf) {
+              const embeddedImg = await pdfDoc.embedPng(pngBuf);
 
-            const imgWidth = embeddedImg.width;
-            const imgHeight = embeddedImg.height;
-            const imgAspectRatio = imgWidth / imgHeight;
+              const imgWidth = embeddedImg.width;
+              const imgHeight = embeddedImg.height;
+              const imgAspectRatio = imgWidth / imgHeight;
 
-            const maxSlotWidth = halfWidth - 10;
-            const maxSlotHeight = imageAreaHeight - 10;
-            const slotAspectRatio = maxSlotWidth / maxSlotHeight;
+              const maxSlotWidth = halfWidth - 10;
+              const maxSlotHeight = imageAreaHeight - 10;
+              const slotAspectRatio = maxSlotWidth / maxSlotHeight;
 
-            let renderWidth = maxSlotWidth;
-            let renderHeight = maxSlotHeight;
+              let renderWidth = maxSlotWidth;
+              let renderHeight = maxSlotHeight;
 
-            if (imgAspectRatio > slotAspectRatio) {
-              renderHeight = maxSlotWidth / imgAspectRatio;
-            } else {
-              renderWidth = maxSlotHeight * imgAspectRatio;
+              if (imgAspectRatio > slotAspectRatio) {
+                renderHeight = maxSlotWidth / imgAspectRatio;
+              } else {
+                renderWidth = maxSlotHeight * imgAspectRatio;
+              }
+
+              const offsetX = slotX + 5 + (maxSlotWidth - renderWidth) / 2;
+              const offsetY = photoInnerY + captionAreaHeight + 5 + (maxSlotHeight - renderHeight) / 2;
+
+              page.drawImage(embeddedImg, { x: offsetX, y: offsetY, width: renderWidth, height: renderHeight });
             }
-
-            const offsetX = slotX + 5 + (maxSlotWidth - renderWidth) / 2;
-            const offsetY = photoInnerY + captionAreaHeight + 5 + (maxSlotHeight - renderHeight) / 2;
-
-            page.drawImage(embeddedImg, { x: offsetX, y: offsetY, width: renderWidth, height: renderHeight });
           } catch (e) {}
         }
 
