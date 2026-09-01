@@ -340,7 +340,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         } catch (e) {}
       }
 
-      showToast(targetStatus === 'DRAFT' ? 'Draf kegiatan berhasil disimpan ke Supabase cloud!' : 'Kegiatan berhasil disimpan!', 'success');
+      showToast(targetStatus === 'DRAFT' ? 'Draf kegiatan berhasil disimpan!' : 'Kegiatan berhasil disimpan!', 'success');
       router.push('/laporan');
       router.refresh();
     } catch (err: any) {

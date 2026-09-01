@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Laporan, LaporanFoto } from '@/types/laporan';
 import { formatDateIndonesian } from '@/utils/formatters';
 import { BPS_CONFIG, BULAN_INDONESIA, BPS_LOGO_SVG } from '@/constants/bpsConfig';
-import { ExternalLink, FileText } from 'lucide-react';
+import { ExternalLink, FileText, Copy, CheckCircle2 } from 'lucide-react';
 
 interface PDFPreviewModalProps {
   isOpen: boolean;
@@ -68,6 +68,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
   laporan,
   laporanData,
 }) => {
+  const [isCopied, setIsCopied] = useState(false);
   const [hasCustomLogo, setHasCustomLogo] = useState(false);
 
   useEffect(() => {
@@ -465,17 +466,34 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
 
         {/* Footer Drive Action Link */}
         {activeLaporan.drive_pdf_url && (
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <span className="text-xs text-slate-500">Berkas PDF resmi tersimpan di Google Drive BPS</span>
-            <a
-              href={activeLaporan.drive_pdf_url}
-              target="_blank"
-              rel="noreferrer"
-              className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>Buka Google Drive PDF</span>
-            </a>
+          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <span className="text-xs text-slate-500">Berkas PDF tersimpan di Google Drive (View Only)</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  let url = activeLaporan.drive_pdf_url || '';
+                  if (url.includes('/edit')) url = url.replace(/\/edit.*$/, '/view?usp=sharing');
+                  else if (!url.includes('/view')) url = `${url.replace(/\/+$/, '')}/view?usp=sharing`;
+                  navigator.clipboard.writeText(url);
+                  setIsCopied(true);
+                  setTimeout(() => setIsCopied(false), 2500);
+                }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                {isCopied ? <CheckCircle2 className="w-4 h-4 text-emerald-200" /> : <Copy className="w-4 h-4" />}
+                <span>{isCopied ? 'Link Disalin!' : 'Salin Link PDF'}</span>
+              </button>
+
+              <a
+                href={activeLaporan.drive_pdf_url}
+                target="_blank"
+                rel="noreferrer"
+                className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Buka PDF</span>
+              </a>
+            </div>
           </div>
         )}
       </div>
