@@ -243,54 +243,88 @@ function composeCustomParagraphNarrative(
   const isPengolahan = combined.includes('entri') || combined.includes('validasi') || combined.includes('olah') || combined.includes('peta') || combined.includes('cetak') || combined.includes('fasih');
   const isLapangan = !isRapat && (combined.includes('supervisi') || combined.includes('pendataan') || combined.includes('lapangan') || combined.includes('monitoring') || combined.includes('pencacahan'));
 
-  if (lines.length >= 2) {
-    let p1 = '';
-    let p2 = '';
-    let p3 = '';
-
-    if (isRapat) {
-      const detailFirst = lowerFirst(cleanLeadingVerb(lines[0]));
-      p1 = `Dalam kegiatan ${cleanNama}, agenda diawali dengan ${detailFirst}. Diskusi berlangsung secara aktif untuk menyelaraskan pemahaman teknis antarpeserta.`;
-      p2 = lines.slice(1).map((l) => `Selain itu, ${lowerFirst(cleanLeadingVerb(l))}.`).join(' ');
-    } else if (isPengolahan) {
-      const detailFirst = lowerFirst(cleanLeadingVerb(lines[0]));
-      p1 = `Proses ${cleanNama} dilaksanakan secara bertahap, dimulai dari ${detailFirst}.`;
-      p2 = lines.slice(1).map((l) => `Tahap berikutnya meliputi ${lowerFirst(cleanLeadingVerb(l))}.`).join(' ');
-    } else if (isLapangan) {
-      const detailFirst = lowerFirst(cleanLeadingVerb(lines[0]));
-      p1 = `Pelaksanaan ${cleanNama} diawali dengan ${detailFirst}. Langkah ini dilakukan guna memastikan kesiapan operasional dan kualitas data di lokasi target.`;
-      p2 = lines.slice(1, -1).length > 0
-        ? lines.slice(1, -1).map((l) => `Selanjutnya, ${lowerFirst(cleanLeadingVerb(l))}.`).join(' ')
-        : `Tahapan berikutnya mencakup ${lowerFirst(cleanLeadingVerb(lines[lines.length - 1]))}.`;
-      if (lines.length > 2) {
-        p3 = `Sebagai penutup rangkaian kegiatan, dilakukan ${lowerFirst(cleanLeadingVerb(lines[lines.length - 1]))} untuk menjaga kelancaran dan ketepatan target pendataan.`;
-      }
-    } else {
-      const detailFirst = lowerFirst(cleanLeadingVerb(lines[0]));
-      p1 = `Rangkaian kegiatan ${cleanNama} berfokus pada ${detailFirst}.`;
-      p2 = lines.slice(1).map((l) => `Adapun tahapan selanjutnya adalah ${lowerFirst(cleanLeadingVerb(l))}.`).join(' ');
-    }
-
-    if (jumlahParagraf === '1') {
-      return normalizeNonBakuToBaku(`${p1} ${p2}`).replace(/\.{2,}/g, '.');
-    }
-    return normalizeNonBakuToBaku(p3 ? `${p1}\n\n${p2}\n\n${p3}` : `${p1}\n\n${p2}`).replace(/\.{2,}/g, '.');
-  }
-
-  // Single line / brief input case
   const detailRaw = cleanDeskripsi || cleanNama;
   const detailClean = lowerFirst(cleanLeadingVerb(detailRaw));
-  let text = '';
 
-  if (isRapat) {
-    text = `Kegiatan ${cleanNama} dilaksanakan untuk pembahasan mengenai ${detailClean}. Pertemuan berlangsung dengan tertib demi tercapainya kesepahaman teknis dan kelancaran pelaksanaan tugas kedinasan.`;
-  } else if (isPengolahan) {
-    text = `Pelaksanaan ${cleanNama} mencakup ${detailClean} yang diselesaikan secara teliti sesuai prosedur operasional standar.`;
-  } else if (isLapangan) {
-    text = `Pelaksanaan ${cleanNama} berfokus pada ${detailClean}. Seluruh rangkaian kegiatan dilakukan secara cermat guna menjamin kualitas data di lapangan.`;
-  } else {
-    text = `Kegiatan ${cleanNama} mencakup ${detailClean}, yang dilaksanakan secara tertib dan tepat waktu.`;
+  // Determine target paragraph count (default: 1 for short input, else match user selection)
+  let targetCount = 1;
+  if (jumlahParagraf === '2') targetCount = 2;
+  if (jumlahParagraf === '3') targetCount = 3;
+  if (jumlahParagraf === 'auto') {
+    targetCount = lines.length >= 3 ? 3 : lines.length === 2 ? 2 : 1;
   }
 
-  return normalizeNonBakuToBaku(text).replace(/\*/g, '').replace(/\.{2,}/g, '.').replace(/\s+,/g, ',').replace(/\s+\./g, '.');
+  const pList: string[] = [];
+
+  if (lines.length >= 2 && targetCount > 1) {
+    // Multi-line detailed input handling
+    if (isRapat) {
+      pList.push(`Dalam kegiatan ${cleanNama}, agenda diawali dengan ${lowerFirst(cleanLeadingVerb(lines[0]))}. Diskusi berlangsung secara interaktif untuk menyelaraskan pemahaman teknis antarpeserta.`);
+      pList.push(lines.slice(1).map((l) => `Selain itu, pembahasan mencakup ${lowerFirst(cleanLeadingVerb(l))}.`).join(' '));
+      if (targetCount === 3 && lines.length >= 3) {
+        pList.push(`Seluruh hasil pembahasan dirumuskan sebagai langkah tindak lanjut bersama guna mendukung kelancaran pelaksanaan tugas.`);
+      }
+    } else if (isPengolahan) {
+      pList.push(`Proses ${cleanNama} dilaksanakan secara bertahap, dimulai dari ${lowerFirst(cleanLeadingVerb(lines[0]))}.`);
+      pList.push(lines.slice(1).map((l) => `Tahap berikutnya meliputi ${lowerFirst(cleanLeadingVerb(l))}.`).join(' '));
+      if (targetCount === 3 && lines.length >= 3) {
+        pList.push(`Hasil pengolahan akhir diverifikasi kembali untuk memastikan kualitas dan ketepatan data.`);
+      }
+    } else {
+      pList.push(`Pelaksanaan ${cleanNama} diawali dengan ${lowerFirst(cleanLeadingVerb(lines[0]))}.`);
+      pList.push(lines.slice(1).map((l) => `Tahapan selanjutnya mencakup ${lowerFirst(cleanLeadingVerb(l))}.`).join(' '));
+      if (targetCount === 3 && lines.length >= 3) {
+        pList.push(`Seluruh tahapan kegiatan diselesaikan secara terstruktur sesuai target yang telah ditetapkan.`);
+      }
+    }
+  } else {
+    // Single line / brief input - dynamically generated based on targetCount
+    if (targetCount === 1) {
+      if (isRapat) {
+        pList.push(`Pelaksanaan ${cleanNama} berfokus pada ${detailClean}, guna menyelaraskan pemahaman teknis serta merumuskan langkah operasional.`);
+      } else if (isPengolahan) {
+        pList.push(`Kegiatan ${cleanNama} mencakup ${detailClean}, yang diselesaikan secara teliti dan terstruktur sesuai standar operasional.`);
+      } else if (isLapangan) {
+        pList.push(`Pelaksanaan ${cleanNama} difokuskan pada ${detailClean} guna memastikan ketercapaian target dan kualitas hasil pelaksanaan di lokasi sasaran.`);
+      } else {
+        pList.push(`Kegiatan ${cleanNama} dilaksanakan dengan fokus utama pada ${detailClean}, guna mendukung kelancaran pelaksanaan tugas.`);
+      }
+    } else if (targetCount === 2) {
+      if (isRapat) {
+        pList.push(`Pelaksanaan ${cleanNama} diselenggarakan untuk mengulas secara mendalam mengenai ${detailClean}. Pertemuan ini menjadi wadah koordinasi dalam mengidentifikasi perkembangan serta kebutuhan teknis.`);
+        pList.push(`Dalam pembahasan tersebut, dirumuskan langkah-langkah tindak lanjut yang konkret agar pelaksanaan kegiatan dapat berjalan efektif dan tepat sasaran.`);
+      } else if (isPengolahan) {
+        pList.push(`Proses ${cleanNama} diawali dengan persiapan dan pencermatan terhadap ${detailClean}.`);
+        pList.push(`Tahap selanjutnya difokuskan pada verifikasi dan pengolahan data guna memastikan ketelitian hasil sebelum difinalisasi.`);
+      } else if (isLapangan) {
+        pList.push(`Pelaksanaan ${cleanNama} diawali dengan peninjauan di lokasi sasaran yang berfokus pada ${detailClean}.`);
+        pList.push(`Selama kegiatan berlangsung, dilakukan evaluasi serta pendampingan teknis guna memastikan seluruh proses berjalan sesuai petunjuk teknis.`);
+      } else {
+        pList.push(`Kegiatan ${cleanNama} dilaksanakan dengan mengacu pada rincian ${detailClean}.`);
+        pList.push(`Seluruh tahapan pekerjaan diselesaikan secara sistematis untuk memastikan hasil yang optimal dan tepat waktu.`);
+      }
+    } else {
+      // 3 Paragraphs
+      if (isRapat) {
+        pList.push(`Pelaksanaan ${cleanNama} diselenggarakan sebagai bentuk koordinasi teknis, dengan agenda utama pembahasan mengenai ${detailClean}.`);
+        pList.push(`Dalam sesi diskusi, dilakukan penelaahan terhadap perkembangan pencapaian, evaluasi kendala operasional, serta pembahasan opsi solusi yang efisien.`);
+        pList.push(`Hasil pertemuan merumuskan rencana tindak lanjut dan pembagian peran kerja agar implementasi kegiatan berjalan terarah dan sesuai target.`);
+      } else if (isPengolahan) {
+        pList.push(`Kegiatan ${cleanNama} dimulai dengan pencermatan berkas pendukung terkait ${detailClean}.`);
+        pList.push(`Tahap pengolahan dilanjutkan dengan validasi serta pemeriksaan konsistensi data untuk meminimalisasi potensi kesalahan.`);
+        pList.push(`Sebagai tahap akhir, data yang telah diverifikasi disimpan ke dalam sistem untuk mendukung kebutuhan penyusunan laporan.`);
+      } else if (isLapangan) {
+        pList.push(`Pelaksanaan ${cleanNama} berlangsung di lokasi sasaran dengan fokus utama pada ${detailClean}.`);
+        pList.push(`Rangkaian kegiatan mencakup pemeriksaan kualitas pelaksanaan, pendampingan petugas, serta pencatatan kendala di lapangan.`);
+        pList.push(`Hasil pemantauan ditindaklanjuti dengan pengarahan teknis agar target pelaksanaan dapat diselesaikan tepat waktu.`);
+      } else {
+        pList.push(`Rangkaian kegiatan ${cleanNama} diawali dengan tahap persiapan dan pencermatan terhadap ${detailClean}.`);
+        pList.push(`Selanjutnya, pelaksanaan tugas dilakukan secara bertahap dengan memperhatikan kecermatan pada setiap proses.`);
+        pList.push(`Seluruh rangkaian pekerjaan ditutup dengan penyusunan pelaporan hasil kegiatan.`);
+      }
+    }
+  }
+
+  const resultStr = pList.join('\n\n');
+  return normalizeNonBakuToBaku(resultStr).replace(/\*/g, '').replace(/\.{2,}/g, '.').replace(/\s+,/g, ',').replace(/\s+\./g, '.');
 }
