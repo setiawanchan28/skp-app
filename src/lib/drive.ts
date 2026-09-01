@@ -254,8 +254,8 @@ export async function uploadFileToDrive(
     throw new Error('Google Drive API tidak mengembalikan ID berkas setelah upload.');
   }
 
-  // Set permission "Anyone with the link - Viewer" for PDFs
-  if (mimeType === 'application/pdf') {
+  // Set permission "Anyone with the link - Viewer" for PDFs and Photos
+  if (mimeType === 'application/pdf' || mimeType.startsWith('image/')) {
     try {
       await drive.permissions.create({
         fileId,

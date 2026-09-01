@@ -38,12 +38,13 @@ function getDirectImageUrl(foto: any): string {
   if (base64Data) return base64Data;
 
   const src = foto.previewUrl || foto.base64 || foto.drive_file_url || foto.web_view_url || foto.url || foto.existingUrl || '';
-  if (src && (src.startsWith('data:image') || src.startsWith('blob:') || src.startsWith('http'))) {
+  if (src && (src.startsWith('data:image') || src.startsWith('blob:'))) {
     return src;
   }
+
   const fileId = foto.drive_file_id || extractDriveFileId(src);
-  if (fileId && !fileId.startsWith('preview_') && !fileId.startsWith('prev_')) {
-    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+  if (fileId && !fileId.startsWith('preview_') && !fileId.startsWith('prev_') && !fileId.startsWith('foto_') && !fileId.startsWith('mock_')) {
+    return `/api/drive/photo?id=${fileId}`;
   }
   return src;
 }
