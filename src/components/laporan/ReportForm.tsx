@@ -307,8 +307,34 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
           const local = localStorage.getItem('bps_laporan_data');
           let list = local ? JSON.parse(local) : [];
           const idx = list.findIndex((l: any) => l.id === result.data.id);
-          if (idx >= 0) list[idx] = result.data;
-          else list.unshift(result.data);
+
+          const localItem = idx >= 0 ? list[idx] : null;
+          const targetDocs = result.data.documents || result.data.fotos || [];
+          const mergedDocs = (targetDocs.length > 0 ? targetDocs : photos).map((d: any, i: number) => {
+            const formPhoto = photos[i] || {};
+            const localDoc = localItem?.documents?.[i] || localItem?.fotos?.[i] || {};
+            const b64 =
+              (d.base64 && typeof d.base64 === 'string' && d.base64.startsWith('data:image/'))
+                ? d.base64
+                : formPhoto.previewUrl || formPhoto.existingUrl || (formPhoto as any).base64 || localDoc.base64 || localDoc.previewUrl || '';
+            return {
+              ...localDoc,
+              ...formPhoto,
+              ...d,
+              base64: b64,
+              previewUrl: b64 || d.previewUrl || formPhoto.previewUrl || '',
+              existingUrl: b64 || d.existingUrl || formPhoto.existingUrl || '',
+            };
+          });
+
+          const mergedActivity = {
+            ...result.data,
+            documents: mergedDocs,
+            fotos: mergedDocs,
+          };
+
+          if (idx >= 0) list[idx] = mergedActivity;
+          else list.unshift(mergedActivity);
           localStorage.setItem('bps_laporan_data', JSON.stringify(list));
           window.dispatchEvent(new Event('bps_laporan_updated'));
         } catch (e) {}

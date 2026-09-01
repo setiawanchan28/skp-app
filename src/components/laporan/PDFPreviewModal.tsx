@@ -26,6 +26,17 @@ function extractDriveFileId(url?: string): string | null {
 function getDirectImageUrl(foto: any): string {
   if (!foto) return '';
   if (typeof foto === 'string') return foto;
+  const base64Data =
+    (foto.base64 && typeof foto.base64 === 'string' && foto.base64.startsWith('data:image/'))
+      ? foto.base64
+      : (foto.previewUrl && typeof foto.previewUrl === 'string' && foto.previewUrl.startsWith('data:image/'))
+      ? foto.previewUrl
+      : (foto.existingUrl && typeof foto.existingUrl === 'string' && foto.existingUrl.startsWith('data:image/'))
+      ? foto.existingUrl
+      : null;
+
+  if (base64Data) return base64Data;
+
   const src = foto.previewUrl || foto.base64 || foto.drive_file_url || foto.web_view_url || foto.url || foto.existingUrl || '';
   if (src && (src.startsWith('data:image') || src.startsWith('blob:') || src.startsWith('http'))) {
     return src;
