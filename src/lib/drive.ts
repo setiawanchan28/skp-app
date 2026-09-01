@@ -309,9 +309,9 @@ export async function renameDriveResource(resourceId: string, newName: string): 
 /**
  * Delete file from Google Drive
  */
-export async function deleteFileFromDrive(fileId: string): Promise<boolean> {
-  const drive = getDriveClient();
-  if (!drive || !fileId || fileId.startsWith('file_') || fileId.startsWith('mock_')) {
+export async function deleteFileFromDrive(fileId: string, userAccessToken?: string): Promise<boolean> {
+  const drive = getDriveClient(userAccessToken);
+  if (!drive || !fileId || fileId.startsWith('file_') || fileId.startsWith('mock_') || fileId.startsWith('foto_') || fileId.startsWith('prev_')) {
     return true;
   }
 
