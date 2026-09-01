@@ -893,8 +893,8 @@ export default function RiwayatLaporanPage() {
             nama_pegawai: previewActivity.nama_pegawai || savedProfile.nama || 'Pegawai BPS',
             nip: previewActivity.nip || savedProfile.nip || '',
             jabatan: previewActivity.jabatan || savedProfile.jabatan || 'Pegawai BPS',
-            documents: previewActivity.documents || (previewActivity as any).fotos || [],
-            fotos: previewActivity.documents || (previewActivity as any).fotos || [],
+            documents: (previewActivity.documents && previewActivity.documents.length > 0) ? previewActivity.documents : (previewActivity as any).fotos || [],
+            fotos: (previewActivity.fotos && previewActivity.fotos.length > 0) ? previewActivity.fotos : previewActivity.documents || [],
           }}
         />
       )}

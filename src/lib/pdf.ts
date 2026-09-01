@@ -812,14 +812,17 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     }
   }
 
-  // 4. FOOTER AT BOTTOM OF PAGE
-  const footer1 = BPS_CONFIG.alamatFooter;
-  const footer1Width = fontRegular.widthOfTextAtSize(footer1, 9);
-  page.drawText(footer1, { x: (pageWidth - footer1Width) / 2, y: 35, size: 9, font: fontRegular, color: black });
+  // 4. FOOTER AT BOTTOM OF EVERY PAGE
+  const allPdfPages = pdfDoc.getPages();
+  for (const pdfPage of allPdfPages) {
+    const footer1 = BPS_CONFIG.alamatFooter;
+    const footer1Width = fontRegular.widthOfTextAtSize(footer1, 8);
+    pdfPage.drawText(footer1, { x: (pageWidth - footer1Width) / 2, y: 25, size: 8, font: fontRegular, color: black });
 
-  const footer2 = BPS_CONFIG.contactFooter;
-  const footer2Width = fontRegular.widthOfTextAtSize(footer2, 9);
-  page.drawText(footer2, { x: (pageWidth - footer2Width) / 2, y: 22, size: 9, font: fontRegular, color: black });
+    const footer2 = BPS_CONFIG.contactFooter;
+    const footer2Width = fontRegular.widthOfTextAtSize(footer2, 8);
+    pdfPage.drawText(footer2, { x: (pageWidth - footer2Width) / 2, y: 14, size: 8, font: fontRegular, color: black });
+  }
 
   const pdfBytes = await pdfDoc.save();
   return Buffer.from(pdfBytes);

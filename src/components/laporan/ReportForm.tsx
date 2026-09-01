@@ -354,13 +354,36 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
     nomor_surat: letterNumber,
     nomor_spd: spdNumber,
     petugas_ditemui: people.filter((p) => p.person_name.trim().length > 0).map((p) => ({ nama: p.person_name, jabatan: p.position })),
-    documents: photos.map((p, idx) => ({
-      id: p.id,
-      drive_file_id: p.drive_file_id || `prev_${idx}`,
-      web_view_url: p.previewUrl || p.drive_file_url || '',
-      file_name: p.name,
-      tanggal_foto: p.tanggal_foto || startDate,
-    })),
+    documents: photos.map((p, idx) => {
+      const srcUrl = p.previewUrl || p.existingUrl || (p as any).base64 || (p as any).url || p.drive_file_url || '';
+      return {
+        id: p.id,
+        name: p.name,
+        file_name: p.name,
+        original_filename: p.name,
+        previewUrl: srcUrl,
+        base64: srcUrl,
+        existingUrl: srcUrl,
+        drive_file_id: p.drive_file_id || '',
+        web_view_url: p.drive_file_url || srcUrl,
+        tanggal_foto: p.tanggal_foto || startDate,
+      };
+    }),
+    fotos: photos.map((p, idx) => {
+      const srcUrl = p.previewUrl || p.existingUrl || (p as any).base64 || (p as any).url || p.drive_file_url || '';
+      return {
+        id: p.id,
+        name: p.name,
+        file_name: p.name,
+        original_filename: p.name,
+        previewUrl: srcUrl,
+        base64: srcUrl,
+        existingUrl: srcUrl,
+        drive_file_id: p.drive_file_id || '',
+        web_view_url: p.drive_file_url || srcUrl,
+        tanggal_foto: p.tanggal_foto || startDate,
+      };
+    }),
   };
 
   return (

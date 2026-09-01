@@ -442,6 +442,12 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                 </div>
               </>
             )}
+
+            {/* Official BPS Document Footer */}
+            <div className="pt-4 mt-6 border-t border-slate-300 text-center space-y-0.5 text-[10px] text-slate-600 font-sans">
+              <div>{BPS_CONFIG.alamatFooter}</div>
+              <div>{BPS_CONFIG.contactFooter}</div>
+            </div>
           </div>
         </div>
 
