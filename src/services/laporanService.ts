@@ -283,8 +283,9 @@ export async function fetchLaporanById(id: string): Promise<Activity | null> {
           id: d.id,
           name: d.original_filename || d.file_name || d.name || 'Foto.jpg',
           file_name: d.original_filename || d.file_name || d.name || 'Foto.jpg',
-          previewUrl: d.web_view_url || d.preview_url || d.previewUrl || (d.drive_file_id ? `https://drive.google.com/thumbnail?id=${d.drive_file_id}&sz=w1000` : ''),
-          web_view_url: d.web_view_url || d.preview_url || d.previewUrl || '',
+          previewUrl: d.previewUrl || d.base64 || d.existingUrl || d.url || d.web_view_url || d.preview_url || (d.drive_file_id ? `https://drive.google.com/thumbnail?id=${d.drive_file_id}&sz=w1000` : ''),
+          base64: d.base64 || d.previewUrl || (d.drive_file_id ? `https://drive.google.com/thumbnail?id=${d.drive_file_id}&sz=w1000` : ''),
+          web_view_url: d.web_view_url || d.preview_url || d.previewUrl || (d.drive_file_id ? `https://drive.google.com/file/d/${d.drive_file_id}/view` : ''),
           drive_file_id: d.drive_file_id || '',
           tanggal_foto: d.documentation_date || d.tanggal_foto || data.start_date,
         }));

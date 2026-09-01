@@ -27,7 +27,14 @@ import { ReauthModal } from '@/components/ui/ReauthModal';
 import { VoiceInputButton } from '@/components/ui/VoiceInputButton';
 import { useToast } from '@/components/ui/Toast';
 import { Activity, ActivityType, ActivityStatus } from '@/types/laporan';
-import { checkActivityNameCollision } from '@/services/laporanService';
+function extractDriveFileId(url?: string): string | null {
+  if (!url) return null;
+  const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (match) return match[1];
+  const matchId = url.match(/id=([a-zA-Z0-9_-]+)/);
+  if (matchId) return matchId[1];
+  return null;
+}
 
 const DRAFT_KEY = 'mamang_activity_draft';
 
@@ -117,15 +124,35 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         setPeople((initialData as any).petugas_ditemui.map((p: any) => ({ person_name: p.nama, position: p.jabatan })));
       }
 
-      if (initialData.documents && Array.isArray(initialData.documents)) {
-        const mapped: PhotoItem[] = initialData.documents.map((d: any, idx: number) => ({
-          id: d.id || `foto_${idx}`,
-          name: d.original_filename || d.file_name || `Foto_${idx + 1}.jpg`,
-          previewUrl: d.drive_file_id ? `https://drive.google.com/thumbnail?id=${d.drive_file_id}&sz=w1000` : d.previewUrl || '',
-          tanggal_foto: d.documentation_date || d.tanggal_foto || initialData.start_date,
-          drive_file_id: d.drive_file_id,
-          drive_file_url: d.web_view_url || d.drive_file_url,
-        }));
+      const rawDocs =
+        initialData.documents && initialData.documents.length > 0
+          ? initialData.documents
+          : (initialData as any).fotos && (initialData as any).fotos.length > 0
+          ? (initialData as any).fotos
+          : (initialData as any).photos && (initialData as any).photos.length > 0
+          ? (initialData as any).photos
+          : [];
+
+      if (rawDocs.length > 0) {
+        const mapped: PhotoItem[] = rawDocs.map((d: any, idx: number) => {
+          const driveId = d.drive_file_id || extractDriveFileId(d.previewUrl || d.web_view_url || d.drive_file_url || '');
+          const srcUrl =
+            d.previewUrl ||
+            d.base64 ||
+            d.existingUrl ||
+            d.url ||
+            d.web_view_url ||
+            (driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1000` : '');
+          return {
+            id: d.id || `foto_${idx}`,
+            name: d.original_filename || d.file_name || d.name || `Foto_${idx + 1}.jpg`,
+            previewUrl: srcUrl,
+            existingUrl: srcUrl,
+            tanggal_foto: d.documentation_date || d.tanggal_foto || initialData.start_date,
+            drive_file_id: driveId || undefined,
+            drive_file_url: d.web_view_url || d.drive_file_url,
+          };
+        });
         setPhotos(mapped);
       }
     }

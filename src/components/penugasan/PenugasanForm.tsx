@@ -112,20 +112,35 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
       }
       setResumeKegiatan(initialData.resume_kegiatan || '');
 
-      if (initialData.fotos && Array.isArray(initialData.fotos) && initialData.fotos.length > 0) {
-        const mappedPhotos: PhotoItem[] = initialData.fotos.map((f: any, idx: number) => {
+      const rawPenugasanPhotos =
+        initialData.fotos && initialData.fotos.length > 0
+          ? initialData.fotos
+          : (initialData as any).documents && (initialData as any).documents.length > 0
+          ? (initialData as any).documents
+          : (initialData as any).photos && (initialData as any).photos.length > 0
+          ? (initialData as any).photos
+          : [];
+
+      if (rawPenugasanPhotos.length > 0) {
+        const mappedPhotos: PhotoItem[] = rawPenugasanPhotos.map((f: any, idx: number) => {
           const driveId = f.drive_file_id;
-          const preview = driveId
-            ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1000`
-            : f.drive_file_url || f.previewUrl || '';
+          const preview =
+            f.previewUrl ||
+            f.base64 ||
+            f.existingUrl ||
+            f.url ||
+            f.drive_file_url ||
+            f.web_view_url ||
+            (driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1000` : '');
 
           return {
             id: f.id || `foto_${idx}_${Date.now()}`,
-            name: f.file_name || `Foto Penugasan ${idx + 1}.jpg`,
+            name: f.file_name || f.original_filename || f.name || `Foto Penugasan ${idx + 1}.jpg`,
             previewUrl: preview,
-            tanggal_foto: f.tanggal_foto || initialData.tanggal_perjadin,
+            existingUrl: preview,
+            tanggal_foto: f.tanggal_foto || f.documentation_date || initialData.tanggal_perjadin,
             drive_file_id: driveId,
-            drive_file_url: f.drive_file_url,
+            drive_file_url: f.drive_file_url || f.web_view_url,
           };
         });
         setPhotos(mappedPhotos);

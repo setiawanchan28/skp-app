@@ -537,17 +537,12 @@ export async function generateBpsPdfBuffer(data: PdfReportData): Promise<Buffer>
     page.drawText('I. KETERANGAN PELAKSANA', { x: (pageWidth - fontBold.widthOfTextAtSize('I. KETERANGAN PELAKSANA', 11)) / 2, y: y - 15, size: 11, font: fontBold, color: black });
     y -= headerHeight;
 
-    const startTimeVal = data.startTime || (data as any).start_time || (data as any).jam_mulai;
-    const endTimeVal = data.endTime || (data as any).end_time || (data as any).jam_selesai;
-    const timeDisplay = (startTimeVal || endTimeVal) ? ` (${startTimeVal || '08:00'} - ${endTimeVal || '16:00'} WIB)` : '';
-    const dateWithTimeVal = `${formattedDate}${timeDisplay}`;
-
     const rows = [
       { no: '1.', label: 'NAMA', val: cleanNamaPegawai },
       { no: '2.', label: 'JABATAN', val: cleanJabatan },
       { no: '3.', label: 'NIP', val: cleanNip },
       { no: '4.', label: 'KEGIATAN', val: cleanNamaKegiatan },
-      { no: '5.', label: 'TANGGAL', val: dateWithTimeVal },
+      { no: '5.', label: 'TANGGAL', val: formattedDate },
       { no: '6.', label: 'RINGKASAN', val: cleanRingkasan },
     ];
 

@@ -26,7 +26,7 @@ function extractDriveFileId(url?: string): string | null {
 function getDirectImageUrl(foto: any): string {
   if (!foto) return '';
   if (typeof foto === 'string') return foto;
-  const src = foto.previewUrl || foto.drive_file_url || foto.web_view_url || foto.url || foto.existingUrl || '';
+  const src = foto.previewUrl || foto.base64 || foto.drive_file_url || foto.web_view_url || foto.url || foto.existingUrl || '';
   if (src && (src.startsWith('data:image') || src.startsWith('blob:') || src.startsWith('http'))) {
     return src;
   }
@@ -75,7 +75,14 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
 
   const dateYear = new Date(startDate).getFullYear();
   const isPenugasan = activeLaporan.jenis_laporan === 'penugasan' || activeLaporan.activity_type === 'PERJALANAN_DINAS';
-  const allPhotos = activeLaporan.fotos || activeLaporan.documents || [];
+  const allPhotos =
+    activeLaporan.documents && activeLaporan.documents.length > 0
+      ? activeLaporan.documents
+      : activeLaporan.fotos && activeLaporan.fotos.length > 0
+      ? activeLaporan.fotos
+      : activeLaporan.photos && activeLaporan.photos.length > 0
+      ? activeLaporan.photos
+      : [];
   const petugasList = activeLaporan.petugas_ditemui || activeLaporan.people?.map((p: any) => ({ nama: p.person_name, jabatan: p.position })) || [];
 
   const photoGroups = groupPhotosByDate(allPhotos, startDate);
@@ -341,11 +348,6 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                         <td className="p-1.5 sm:p-2 text-center border-r border-black font-bold">:</td>
                         <td className="p-1.5 sm:p-2 font-medium">
                           {formatDateIndonesian(startDate, endDate)}
-                          {(activeLaporan.start_time || activeLaporan.startTime || activeLaporan.jam_mulai) && (
-                            <span>
-                              {` (${activeLaporan.start_time || activeLaporan.startTime || activeLaporan.jam_mulai || '08:00'} - ${activeLaporan.end_time || activeLaporan.endTime || activeLaporan.jam_selesai || '16:00'} WIB)`}
-                            </span>
-                          )}
                         </td>
                       </tr>
                       <tr>
