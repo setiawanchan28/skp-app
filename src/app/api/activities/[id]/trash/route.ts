@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { trashLaporanRecord, restoreLaporanRecord, permanentDeleteLaporanRecord } from '@/services/laporanService';
+import { trashLaporanRecord, restoreLaporanRecord, permanentDeleteLaporanRecord, fetchLaporanById } from '@/services/laporanService';
+import { deleteFileFromDrive } from '@/lib/drive';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -12,7 +13,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const ok = await restoreLaporanRecord(id);
       return NextResponse.json({ success: ok });
     } else if (action === 'permanent') {
-      const ok = await permanentDeleteLaporanRecord(id, userToken);
+      try {
+        const existing = await fetchLaporanById(id);
+        if (existing) {
+          if (existing.drive_pdf_file_id) {
+            await deleteFileFromDrive(existing.drive_pdf_file_id, userToken);
+          }
+          const docs = existing.documents || (existing as any).fotos || [];
+          for (const d of docs) {
+            if (d.drive_file_id) {
+              await deleteFileFromDrive(d.drive_file_id, userToken);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to delete Drive files on permanent delete:', e);
+      }
+
+      const ok = await permanentDeleteLaporanRecord(id);
       return NextResponse.json({ success: ok });
     } else {
       const ok = await trashLaporanRecord(id);

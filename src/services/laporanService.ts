@@ -5,8 +5,6 @@ import { getStoredLaporanListServer, saveStoredLaporanListServer } from '@/lib/l
 import { getStoredPenugasanList, saveStoredPenugasanList } from '@/lib/penugasanStore';
 import { LaporanPenugasan } from '@/types/penugasan';
 
-import { deleteFileFromDrive } from '@/lib/drive';
-
 export function mapPenugasanToActivity(p: LaporanPenugasan): Activity {
   const docs = (p.fotos || []).map((f: any) => ({
     id: f.id || f.drive_file_id || Math.random().toString(36).slice(2),
@@ -800,22 +798,7 @@ export async function permanentDeleteLaporanRecord(id: string, userAccessToken?:
     return true;
   }
 
-  // Server-side: delete Google Drive files
-  try {
-    const existing = await fetchLaporanById(id);
-    if (existing) {
-      if (existing.drive_pdf_file_id) {
-        await deleteFileFromDrive(existing.drive_pdf_file_id, userAccessToken);
-      }
-      const docs = existing.documents || (existing as any).fotos || [];
-      for (const d of docs) {
-        if (d.drive_file_id) {
-          await deleteFileFromDrive(d.drive_file_id, userAccessToken);
-        }
-      }
-    }
-  } catch (e) {}
-
+  // Server-side
   try {
     const serverList = getStoredLaporanListServer();
     const filtered = serverList.filter((l: any) => l.id !== id);
