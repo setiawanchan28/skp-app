@@ -160,7 +160,7 @@ Rincian Catatan Input:
 ${cleanDeskripsiKegiatan || cleanNamaKegiatan}`;
 
   try {
-    if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy') || !apiKey.startsWith('AIzaSy')) {
+    if (!apiKey || apiKey.includes('DummyKey') || apiKey.includes('AIzaSyDummy') || apiKey.length < 15) {
       return composeCustomParagraphNarrative(cleanNamaKegiatan, cleanDeskripsiKegiatan, jumlahParagraf, modePanjang);
     }
 
@@ -168,7 +168,7 @@ ${cleanDeskripsiKegiatan || cleanNamaKegiatan}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-    const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+    const modelsToTry = ['gemini-3.6-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
     for (const modelName of modelsToTry) {
       try {
         const restRes = await fetch(
@@ -203,7 +203,7 @@ ${cleanDeskripsiKegiatan || cleanNamaKegiatan}`;
     // SDK Fallback
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
       const result = await model.generateContent(prompt);
       const response = await result.response;
       let text = response.text();
