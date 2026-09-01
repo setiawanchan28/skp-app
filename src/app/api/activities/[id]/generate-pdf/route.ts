@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchLaporanById, saveLaporanRecord } from '@/services/laporanService';
 import { generateBpsPdfBuffer } from '@/lib/pdf';
-import { getOrCreateActivityDriveFolder, uploadFileToDrive } from '@/lib/drive';
+import { getOrCreateActivityDriveFolder, uploadFileToDrive, downloadDriveFileBuffer } from '@/lib/drive';
 import { formatDrivePdfName, formatDrivePhotoName } from '@/utils/sanitizeFilename';
 import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -161,24 +161,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     for (let pIdx = 0; pIdx < mappedPhotos.length; pIdx++) {
       const photoItem = mappedPhotos[pIdx];
       const photoSrc = photoItem.base64 || photoItem.previewUrl;
-      if (photoSrc) {
+      const rawDriveId = photoItem.drive_file_id;
+      const isRealDriveId = rawDriveId && !rawDriveId.startsWith('foto_') && !rawDriveId.startsWith('mock_') && rawDriveId.length < 45 && !rawDriveId.includes('-');
+
+      if (photoSrc || isRealDriveId) {
         try {
           let photoBuffer: Buffer | null = null;
           let photoMime = 'image/jpeg';
 
-          if (photoSrc.startsWith('data:image/')) {
+          if (photoSrc && photoSrc.startsWith('data:image/')) {
             const matches = photoSrc.match(/^data:(image\/\w+);base64,(.+)$/);
             if (matches) {
               photoMime = matches[1];
               photoBuffer = Buffer.from(matches[2], 'base64');
             }
-          } else if (photoSrc.startsWith('http://') || photoSrc.startsWith('https://')) {
+          } else if (isRealDriveId) {
+            const downloaded = await downloadDriveFileBuffer(rawDriveId, userGoogleToken);
+            if (downloaded) {
+              photoBuffer = downloaded.buffer;
+              photoMime = downloaded.mimeType;
+            }
+          } else if (photoSrc && (photoSrc.startsWith('http://') || photoSrc.startsWith('https://'))) {
             const resPhoto = await fetch(photoSrc);
-            if (resPhoto.ok) {
+            const contentType = resPhoto.headers.get('content-type') || '';
+            if (resPhoto.ok && !contentType.includes('text/html')) {
               const arrayBuf = await resPhoto.arrayBuffer();
-              photoBuffer = Buffer.from(arrayBuf);
-              const headerMime = resPhoto.headers.get('content-type');
-              if (headerMime) photoMime = headerMime;
+              const tempBuf = Buffer.from(arrayBuf);
+              const headerStr = tempBuf.toString('utf-8', 0, 100);
+              if (!headerStr.toLowerCase().includes('<!doctype') && !headerStr.toLowerCase().includes('<html')) {
+                photoBuffer = tempBuf;
+                if (contentType) photoMime = contentType;
+              }
             }
           }
 

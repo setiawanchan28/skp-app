@@ -322,6 +322,31 @@ export async function deleteFileFromDrive(fileId: string, userAccessToken?: stri
 }
 
 /**
+ * Download file buffer directly from Google Drive API
+ */
+export async function downloadDriveFileBuffer(fileId: string, userAccessToken?: string): Promise<{ buffer: Buffer; mimeType: string } | null> {
+  const drive = getDriveClient(userAccessToken);
+  if (!drive || !fileId || fileId.startsWith('foto_') || fileId.startsWith('mock_') || fileId.startsWith('prev_') || fileId.startsWith('preview_')) {
+    return null;
+  }
+  try {
+    const meta = await drive.files.get({ fileId, fields: 'mimeType,name' });
+    const mimeType = meta.data.mimeType || 'image/jpeg';
+    const res = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'arraybuffer' });
+    const buffer = Buffer.from(res.data as ArrayBuffer);
+    
+    const headerStr = buffer.toString('utf-8', 0, 100);
+    if (headerStr.toLowerCase().includes('<!doctype') || headerStr.toLowerCase().includes('<html')) {
+      return null;
+    }
+    return { buffer, mimeType };
+  } catch (err) {
+    console.warn('Failed to download file from Drive API:', err);
+    return null;
+  }
+}
+
+/**
  * Legacy stubs for backward compatibility
  */
 export async function fetchLaporanFromDriveCloud(): Promise<Activity[]> {

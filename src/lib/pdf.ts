@@ -155,9 +155,14 @@ async function photoSrcToPngBuffer(src: string): Promise<Buffer | null> {
       buf = Buffer.from(base64Clean, 'base64');
     } else if (src.startsWith('http://') || src.startsWith('https://')) {
       const res = await fetch(src);
-      if (!res.ok) return null;
+      const contentType = res.headers.get('content-type') || '';
+      if (!res.ok || contentType.includes('text/html')) return null;
       const arrayBuf = await res.arrayBuffer();
       buf = Buffer.from(arrayBuf);
+      const headerStr = buf.toString('utf-8', 0, 100);
+      if (headerStr.toLowerCase().includes('<!doctype') || headerStr.toLowerCase().includes('<html')) {
+        return null;
+      }
     } else {
       buf = Buffer.from(src, 'base64');
     }
