@@ -369,22 +369,41 @@ export async function saveLaporanRecord(
     }
   }
 
+  const startDate = activityData.start_date || activityData.tanggal || new Date().toISOString().split('T')[0];
+  const endDate = activityData.end_date || activityData.tanggal_selesai || startDate;
+
   const existingRecord = activityData.id ? await fetchLaporanById(activityData.id) : null;
   
-  // Enforce locking rule: Server/Service rejection if generated and attempting identity change without Force Change
-  if (existingRecord && existingRecord.status === 'GENERATED') {
-    const nameChanged = existingRecord.name !== name;
-    const startDateChanged = existingRecord.start_date !== (activityData.start_date || activityData.tanggal);
-    const endDateChanged = existingRecord.end_date !== (activityData.end_date || activityData.tanggal_selesai);
-    const spdChanged = existingRecord.spd_number !== activityData.spd_number;
+  const isForceChange = Boolean(
+    (activityData as any).isForceChange ||
+    (activityData as any).is_force_change ||
+    (activityData as any).forceChange
+  );
+
+  // Enforce locking rule: Rejection if status GENERATED and attempting identity change without Force Change
+  if (!isForceChange && existingRecord && existingRecord.status === 'GENERATED') {
+    const norm = (str?: string | null) => (str || '').trim();
+    const normDate = (str?: string | null) => (str || '').split('T')[0].trim();
+
+    const existingName = norm(existingRecord.name || existingRecord.nama_kegiatan);
+    const newName = norm(name);
+    const existingStart = normDate(existingRecord.start_date || existingRecord.tanggal);
+    const newStart = normDate(startDate);
+    const existingEnd = normDate(existingRecord.end_date || existingRecord.tanggal_selesai);
+    const newEnd = normDate(endDate);
+    const existingSpd = norm(existingRecord.spd_number || (existingRecord as any).nomor_spd);
+    const newSpd = norm(activityData.spd_number || (activityData as any).nomor_spd);
+
+    const nameChanged = existingName !== newName;
+    const startDateChanged = existingStart !== newStart;
+    const endDateChanged = existingEnd !== newEnd;
+    const spdChanged = existingSpd !== newSpd;
 
     if (nameChanged || startDateChanged || endDateChanged || spdChanged) {
-      throw new Error('Identitas kegiatan telah terkunci karena PDF telah ter-generate. Gunakan opsi "Ganti Paksa" untuk mengubah identitas.');
+      throw new Error('Identitas kegiatan (Nama, Tanggal, atau No. SPD) telah terkunci karena PDF telah ter-generate. Aktifkan opsi "Ganti Paksa" untuk merestrukturisasi folder Drive & PDF jika ingin mengubah identitas.');
     }
   }
 
-  const startDate = activityData.start_date || activityData.tanggal || new Date().toISOString().split('T')[0];
-  const endDate = activityData.end_date || activityData.tanggal_selesai || startDate;
   const startTime = activityData.start_time || '08:00';
   const endTime = activityData.end_time || '16:00';
   let actType: any = activityData.activity_type;

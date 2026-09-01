@@ -75,6 +75,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState<string>('');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isForceChange, setIsForceChange] = useState(false);
 
   // Status State
   const isGenerated = initialData?.status === 'GENERATED';
@@ -199,7 +200,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         }
       }
 
-      const activityPayload: Partial<Activity> = {
+      const activityPayload: Partial<Activity> & { isForceChange?: boolean } = {
         id: initialData?.id,
         user_id: currentUserId || initialData?.user_id,
         activity_type: activityType,
@@ -216,6 +217,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         nip: nip,
         jabatan: jabatan,
         status: targetStatus,
+        isForceChange: isForceChange,
       };
 
       const validPeople = people.filter((p) => p.person_name.trim().length > 0);
@@ -354,6 +356,31 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
           </p>
         </div>
       </div>
+
+      {/* Force Change Notice when status is GENERATED */}
+      {isGenerated && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800/60 rounded-2xl space-y-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+              <span>🔒 Status Kegiatan: GENERATED (PDF Tersimpan)</span>
+            </span>
+            <label className="flex items-center gap-2 cursor-pointer bg-white dark:bg-amber-900/60 px-3 py-1.5 rounded-xl border border-amber-300 dark:border-amber-700 shadow-sm hover:border-amber-500 transition-colors">
+              <input
+                type="checkbox"
+                checked={isForceChange}
+                onChange={(e) => setIsForceChange(e.target.checked)}
+                className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+              />
+              <span className="text-xs font-extrabold text-amber-900 dark:text-amber-100">
+                Ganti Paksa Identitas (Ubah Nama / Tanggal / No. SPD)
+              </span>
+            </label>
+          </div>
+          <p className="text-[11px] text-amber-700 dark:text-amber-400">
+            Edit deskripsi, jam, foto, atau petugas ditemui dapat langsung disimpan. Jika Anda mengubah <strong>Nama Kegiatan, Tanggal, atau No. SPD</strong>, centang opsi <strong>Ganti Paksa Identitas</strong> di atas.
+          </p>
+        </div>
+      )}
 
       {/* Section 0: Pelaksana Kegiatan (Nama, NIP, Jabatan) */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
