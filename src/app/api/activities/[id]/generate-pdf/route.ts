@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchLaporanById, saveLaporanRecord } from '@/services/laporanService';
 import { generateBpsPdfBuffer } from '@/lib/pdf';
 import { getOrCreateActivityDriveFolder, uploadFileToDrive } from '@/lib/drive';
-import { formatDrivePdfName } from '@/utils/sanitizeFilename';
+import { formatDrivePdfName, formatDrivePhotoName } from '@/utils/sanitizeFilename';
 import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -111,9 +111,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       nomorSurat: activity.letter_number,
       nomorSpd: activity.spd_number,
       petugasDitemui: activity.people?.map((p) => ({ nama: p.person_name, jabatan: p.position })),
-      namaPegawai: activity.nama_pegawai || 'Dede Setiawan, S.Tr.Stat.',
-      nip: activity.nip || '199502282024211021',
-      jabatan: activity.jabatan || 'Pranata Komputer Ahli Pertama',
+      namaPegawai: body.namaPegawai || body.nama_pegawai || body.activityData?.namaPegawai || body.activityData?.nama_pegawai || activity.nama_pegawai || 'Dede Setiawan, A.Md.',
+      nip: body.nip || body.activityData?.nip || activity.nip || '199502282024211021',
+      jabatan: body.jabatan || body.activityData?.jabatan || activity.jabatan || 'Pranata Komputer Ahli Pertama',
       photos: mappedPhotos,
       fotos: mappedPhotos,
     };
@@ -185,12 +185,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           if (photoBuffer) {
             const ext = photoMime.includes('png') ? 'png' : 'jpg';
             const photoDate = photoItem.tanggal_foto || activity.start_date;
-            const photoFileName = `${formatDrivePdfName(
+            const photoFileName = formatDrivePhotoName(
               photoDate,
-              `${activity.name} - Foto ${pIdx + 1}`,
+              activity.name,
+              pIdx,
+              ext,
               startTimeVal,
               endTimeVal
-            ).replace(/\.pdf$/, '')}.${ext}`;
+            );
 
             // Only reuse drive_file_id if it looks like a real Google Drive ID (not local string/UUID)
             const rawDriveId = photoItem.drive_file_id;

@@ -1,7 +1,7 @@
 import { google } from 'googleapis';
 import { Readable } from 'stream';
 import { DriveFolderStructure, DriveUploadResult } from '@/types/drive';
-import { formatDriveFolderName, formatDrivePdfName } from '@/utils/sanitizeFilename';
+import { formatDriveFolderName, formatDrivePdfName, formatDrivePhotoName } from '@/utils/sanitizeFilename';
 import { Activity } from '@/types/laporan';
 
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
@@ -80,8 +80,23 @@ export async function getOrCreateActivityDriveFolder(
   const drive = getDriveClient(userAccessToken);
   const date = new Date(startDateString || Date.now());
   const yearStr = isNaN(date.getFullYear()) ? String(new Date().getFullYear()) : String(date.getFullYear());
-  const monthStr = isNaN(date.getMonth()) ? '01' : String(date.getMonth() + 1).padStart(2, '0');
-  const activityFolderName = formatDriveFolderName(startDateString, activityName, startTime, endTime);
+
+  const monthNames = [
+    '01-Januari',
+    '02-Februari',
+    '03-Maret',
+    '04-April',
+    '05-Mei',
+    '06-Juni',
+    '07-Juli',
+    '08-Agustus',
+    '09-September',
+    '10-Oktober',
+    '11-November',
+    '12-Desember',
+  ];
+  const monthIdx = isNaN(date.getMonth()) ? 0 : date.getMonth();
+  const monthStr = monthNames[monthIdx] || String(monthIdx + 1).padStart(2, '0');
 
   const rootParentId = extractRawDriveFolderId(process.env.GOOGLE_DRIVE_FOLDER_ID);
 
@@ -92,20 +107,18 @@ export async function getOrCreateActivityDriveFolder(
   try {
     let mainRootId = userAccessToken ? '' : (rootParentId || '');
     if (!mainRootId) {
-      mainRootId = await findOrCreateFolder(drive, 'Laporan Kegiatan', 'root');
+      mainRootId = await findOrCreateFolder(drive, 'Laporan Harian', 'root');
     }
 
     const yearFolderId = await findOrCreateFolder(drive, yearStr, mainRootId);
     const monthFolderId = await findOrCreateFolder(drive, monthStr, yearFolderId);
-    const activityFolderId = await findOrCreateFolder(drive, activityFolderName, monthFolderId);
-    const dokumentasiFolderId = await findOrCreateFolder(drive, 'Dokumentasi Foto', activityFolderId);
 
     return {
       rootFolderId: mainRootId,
       yearFolderId,
       monthFolderId,
-      activityFolderId,
-      dokumentasiFolderId,
+      activityFolderId: monthFolderId,
+      dokumentasiFolderId: monthFolderId,
     };
   } catch (err: any) {
     console.error('Google Drive folder hierarchy creation error:', err);
@@ -368,12 +381,14 @@ export async function syncDraftPhotosToDrive(
             const photoBuffer = Buffer.from(matches[2], 'base64');
             const ext = photoMime.includes('png') ? 'png' : 'jpg';
             const photoDate = p.tanggal_foto || p.documentation_date || startDate;
-            const photoFileName = `${formatDrivePdfName(
+            const photoFileName = formatDrivePhotoName(
               photoDate,
-              `${name} - Foto ${pIdx + 1}`,
+              name,
+              pIdx,
+              ext,
               startTime,
               endTime
-            ).replace(/\.pdf$/, '')}.${ext}`;
+            );
 
             const rawDriveId = p.drive_file_id;
             const isRealDriveId =

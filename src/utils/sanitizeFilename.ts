@@ -66,7 +66,7 @@ export function formatDriveFolderName(
 }
 
 /**
- * Generate Drive PDF filename: YYYYMMDD - Nama Kegiatan (08.00-16.00).pdf
+ * Generate Drive PDF filename: YYYYMMDD_Nama Kegiatan (10.00-11.00).pdf
  */
 export function formatDrivePdfName(
   startDate: string,
@@ -77,11 +77,29 @@ export function formatDrivePdfName(
   const prefix = getYYYYMMDDPrefix(startDate);
   const safeName = sanitizeFilename(activityName);
   const timeSuffix = formatTimeRangeForFilename(startTime, endTime);
-  return `${prefix} - ${safeName}${timeSuffix}.pdf`;
+  return `${prefix}_${safeName}${timeSuffix}.pdf`;
 }
 
 /**
- * Generate Drive documentation filename: YYYYMMDD - Nama Kegiatan (08.00-16.00) - OriginalFilename
+ * Generate Drive photo filename: YYYYMMDD_Nama Kegiatan (10.00-11.00)-1.jpg
+ */
+export function formatDrivePhotoName(
+  startDate: string,
+  activityName: string,
+  index: number,
+  ext: string = 'jpg',
+  startTime?: string,
+  endTime?: string
+): string {
+  const prefix = getYYYYMMDDPrefix(startDate);
+  const safeName = sanitizeFilename(activityName);
+  const timeSuffix = formatTimeRangeForFilename(startTime, endTime);
+  const cleanExt = ext.replace(/^\./, '') || 'jpg';
+  return `${prefix}_${safeName}${timeSuffix}-${index + 1}.${cleanExt}`;
+}
+
+/**
+ * Generate Drive documentation filename
  */
 export function formatDriveDocName(
   docDate: string,
@@ -90,11 +108,8 @@ export function formatDriveDocName(
   startTime?: string,
   endTime?: string
 ): string {
-  const prefix = getYYYYMMDDPrefix(docDate);
-  const safeName = sanitizeFilename(activityName);
-  const safeOriginal = sanitizeFilename(originalFilename);
-  const timeSuffix = formatTimeRangeForFilename(startTime, endTime);
-  return `${prefix} - ${safeName}${timeSuffix} - ${safeOriginal}`;
+  const ext = originalFilename ? originalFilename.split('.').pop() || 'jpg' : 'jpg';
+  return formatDrivePhotoName(docDate, activityName, 0, ext, startTime, endTime);
 }
 
 /**
