@@ -105,10 +105,7 @@ export async function getOrCreateActivityDriveFolder(
   }
 
   try {
-    let mainRootId = userAccessToken ? '' : (rootParentId || '');
-    if (!mainRootId) {
-      mainRootId = await findOrCreateFolder(drive, 'Laporan Harian', 'root');
-    }
+    const mainRootId = await findOrCreateFolder(drive, 'Laporan Harian', 'root');
 
     const yearFolderId = await findOrCreateFolder(drive, yearStr, mainRootId);
     const monthFolderId = await findOrCreateFolder(drive, monthStr, yearFolderId);
