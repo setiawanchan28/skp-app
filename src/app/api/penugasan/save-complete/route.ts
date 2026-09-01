@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generatePenugasanPdfBuffer } from '@/lib/pdfPenugasan';
 import { generatePenugasanDocxBuffer } from '@/lib/docxPenugasan';
-import { uploadFileToDrive, extractRawDriveFolderId } from '@/lib/drive';
+import { uploadFileToDrive, extractRawDriveFolderId, getOrCreateActivityDriveFolder } from '@/lib/drive';
+import { formatDrivePdfName } from '@/utils/sanitizeFilename';
 import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 import { saveLaporanRecord } from '@/services/laporanService';
 import { getStoredPenugasanList, saveStoredPenugasanList } from '@/lib/penugasanStore';
@@ -85,10 +86,11 @@ export async function POST(req: NextRequest) {
     const pdfBuffer = await generatePenugasanPdfBuffer(penugasanRecord, photosToEmbed);
     const docxBuffer = await generatePenugasanDocxBuffer(penugasanRecord, photosToEmbed);
 
-    // Upload PDF to Google Drive
-    const targetFolderId = extractRawDriveFolderId(process.env.GOOGLE_DRIVE_FOLDER_ID) || 'root';
-    const pdfFileName = `Laporan_Penugasan_${namaPegawai.replace(/\s+/g, '_')}_${tanggalPerjadin}.pdf`;
-    const docxFileName = `Laporan_Penugasan_${namaPegawai.replace(/\s+/g, '_')}_${tanggalPerjadin}.docx`;
+    // Upload PDF to Google Drive Month Folder
+    const driveFolder = await getOrCreateActivityDriveFolder(tanggalPerjadin, namaKegiatan);
+    const targetFolderId = driveFolder.monthFolderId;
+    const pdfFileName = formatDrivePdfName(tanggalPerjadin, namaKegiatan);
+    const docxFileName = formatDrivePdfName(tanggalPerjadin, namaKegiatan).replace(/\.pdf$/, '.docx');
 
     const drivePdf = await uploadFileToDrive(pdfBuffer, pdfFileName, 'application/pdf', targetFolderId);
     await uploadFileToDrive(docxBuffer, docxFileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', targetFolderId);

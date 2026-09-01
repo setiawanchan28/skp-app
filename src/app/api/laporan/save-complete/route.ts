@@ -3,7 +3,7 @@ import { getOrCreateFolderHierarchy, uploadFileToDrive, deleteFileFromDrive, syn
 import { generateBpsPdfBuffer } from '@/lib/pdf';
 import { generateBpsDocxBuffer } from '@/lib/docx';
 import { saveLaporanRecord, fetchLaporanById } from '@/services/laporanService';
-import { generatePhotoFilename, generatePdfFilename, sanitizeFilename } from '@/utils/sanitizeFilename';
+import { generatePhotoFilename, generatePdfFilename, sanitizeFilename, formatDrivePdfName, formatDrivePhotoName } from '@/utils/sanitizeFilename';
 import { LaporanFoto } from '@/types/laporan';
 import { getStoredLaporanList, saveStoredLaporanList } from '@/lib/laporanStore';
 
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     // 1. Resolve Drive Hierarchy
     const folderStructure = await getOrCreateFolderHierarchy(tanggal);
 
-    // 2. Extract and Upload Photos to Drive "Dokumentasi" folder
+    // 2. Extract and Upload Photos to Drive Month folder
     const photoFiles = formData.getAll('photos') as File[];
     const photosData: LaporanFoto[] = [];
     const photoObjects: { base64: string; tanggal_foto?: string }[] = [];
@@ -55,7 +55,8 @@ export async function POST(req: NextRequest) {
       const file = photoFiles[i];
       if (file && file.size > 0) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const photoName = generatePhotoFilename(tanggal, i, file.name);
+        const ext = file.name ? file.name.split('.').pop() || 'jpg' : 'jpg';
+        const photoName = formatDrivePhotoName(tanggal, nama_kegiatan, i, ext);
         
         const base64Str = `data:${file.type};base64,${buffer.toString('base64')}`;
         const meta = photoMetadataParsed.find((m) => m.index === i);
@@ -108,7 +109,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Upload PDF & Word Document to Google Drive
-    const pdfFileName = generatePdfFilename(tanggal, nama_kegiatan);
+    const pdfFileName = formatDrivePdfName(tanggal, nama_kegiatan);
     const pdfDriveRes = await uploadFileToDrive(
       pdfBuffer,
       pdfFileName,
