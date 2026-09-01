@@ -86,9 +86,9 @@ export async function POST(req: NextRequest) {
     const pdfBuffer = await generatePenugasanPdfBuffer(penugasanRecord, photosToEmbed);
     const docxBuffer = await generatePenugasanDocxBuffer(penugasanRecord, photosToEmbed);
 
-    // Upload PDF to Google Drive Month Folder
+    // Upload PDF to Google Drive PDF Folder
     const driveFolder = await getOrCreateActivityDriveFolder(tanggalPerjadin, namaKegiatan);
-    const targetFolderId = driveFolder.monthFolderId;
+    const targetFolderId = driveFolder.activityFolderId;
     const pdfFileName = formatDrivePdfName(tanggalPerjadin, namaKegiatan);
     const docxFileName = formatDrivePdfName(tanggalPerjadin, namaKegiatan).replace(/\.pdf$/, '.docx');
 

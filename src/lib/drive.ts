@@ -110,12 +110,15 @@ export async function getOrCreateActivityDriveFolder(
     const yearFolderId = await findOrCreateFolder(drive, yearStr, mainRootId);
     const monthFolderId = await findOrCreateFolder(drive, monthStr, yearFolderId);
 
+    const pdfFolderId = await findOrCreateFolder(drive, 'PDF', monthFolderId);
+    const dokumentasiFolderId = await findOrCreateFolder(drive, 'Dokumentasi', monthFolderId);
+
     return {
       rootFolderId: mainRootId,
       yearFolderId,
       monthFolderId,
-      activityFolderId: monthFolderId,
-      dokumentasiFolderId: monthFolderId,
+      activityFolderId: pdfFolderId,
+      dokumentasiFolderId: dokumentasiFolderId,
     };
   } catch (err: any) {
     console.error('Google Drive folder hierarchy creation error:', err);
@@ -131,7 +134,7 @@ export async function getOrCreateFolderHierarchy(dateString: string): Promise<Dr
   return {
     yearFolderId: res.yearFolderId,
     monthFolderId: res.monthFolderId,
-    dokumentasiFolderId: res.activityFolderId,
+    dokumentasiFolderId: res.dokumentasiFolderId,
     pdfFolderId: res.activityFolderId,
   };
 }
