@@ -321,3 +321,102 @@ export async function fetchLaporanFromDriveCloud(): Promise<Activity[]> {
 export async function syncLaporanToDriveCloud(laporanItem: any): Promise<boolean> {
   return true;
 }
+
+/**
+ * Upload draft photo buffers to Google Drive and update photos array with real drive_file_ids & thumbnails
+ */
+export async function syncDraftPhotosToDrive(
+  activityData: Partial<Activity>,
+  photosData: any[],
+  userAccessToken?: string
+): Promise<any[]> {
+  if (!photosData || photosData.length === 0) return photosData || [];
+
+  const hasNewBase64Photos = photosData.some((p: any) => {
+    const src = p.previewUrl || p.base64 || p.existingUrl || '';
+    return src && typeof src === 'string' && src.startsWith('data:image/');
+  });
+
+  if (!hasNewBase64Photos) return photosData;
+
+  try {
+    const startDate = activityData.start_date || (activityData as any).tanggal || new Date().toISOString().split('T')[0];
+    const name = activityData.name || (activityData as any).nama_kegiatan || 'Kegiatan';
+    const startTime = activityData.start_time || (activityData as any).jam_mulai;
+    const endTime = activityData.end_time || (activityData as any).jam_selesai;
+
+    const driveFolder = await getOrCreateActivityDriveFolder(
+      startDate,
+      name,
+      userAccessToken,
+      startTime,
+      endTime
+    );
+
+    const targetFolderId = driveFolder.dokumentasiFolderId || driveFolder.activityFolderId;
+    const updatedPhotos = [...photosData];
+
+    for (let pIdx = 0; pIdx < photosData.length; pIdx++) {
+      const p = photosData[pIdx];
+      const photoSrc = p.previewUrl || p.base64 || p.existingUrl;
+
+      if (photoSrc && typeof photoSrc === 'string' && photoSrc.startsWith('data:image/')) {
+        try {
+          const matches = photoSrc.match(/^data:(image\/\w+);base64,(.+)$/);
+          if (matches) {
+            const photoMime = matches[1];
+            const photoBuffer = Buffer.from(matches[2], 'base64');
+            const ext = photoMime.includes('png') ? 'png' : 'jpg';
+            const photoDate = p.tanggal_foto || p.documentation_date || startDate;
+            const photoFileName = `${formatDrivePdfName(
+              photoDate,
+              `${name} - Foto ${pIdx + 1}`,
+              startTime,
+              endTime
+            ).replace(/\.pdf$/, '')}.${ext}`;
+
+            const rawDriveId = p.drive_file_id;
+            const isRealDriveId =
+              rawDriveId &&
+              !rawDriveId.startsWith('foto_') &&
+              !rawDriveId.startsWith('mock_') &&
+              !rawDriveId.startsWith('prev_') &&
+              !rawDriveId.startsWith('preview_') &&
+              rawDriveId.length < 50 &&
+              !rawDriveId.includes('-');
+            const existingPhotoId = isRealDriveId ? rawDriveId : undefined;
+
+            const uploaded = await uploadFileToDrive(
+              photoBuffer,
+              photoFileName,
+              photoMime,
+              targetFolderId,
+              existingPhotoId,
+              userAccessToken
+            );
+
+            if (uploaded && uploaded.id) {
+              const driveThumbUrl = `https://drive.google.com/thumbnail?id=${uploaded.id}&sz=w1000`;
+              updatedPhotos[pIdx] = {
+                ...updatedPhotos[pIdx],
+                drive_file_id: uploaded.id,
+                drive_name: uploaded.name || photoFileName,
+                web_view_url: uploaded.webViewLink || driveThumbUrl,
+                previewUrl: driveThumbUrl,
+                existingUrl: driveThumbUrl,
+                base64: photoSrc,
+              };
+            }
+          }
+        } catch (photoErr) {
+          console.warn(`Failed to upload draft photo ${pIdx + 1} to Drive:`, photoErr);
+        }
+      }
+    }
+
+    return updatedPhotos;
+  } catch (err) {
+    console.warn('Failed to sync draft photos to Drive:', err);
+    return photosData;
+  }
+}

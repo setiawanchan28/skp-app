@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchLaporanList, saveLaporanRecord, checkActivityNameCollision } from '@/services/laporanService';
+import { syncDraftPhotosToDrive } from '@/lib/drive';
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,7 +31,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const saved = await saveLaporanRecord(activity, people, photos);
+    const userToken = req.headers.get('x-google-token') || body.user_drive_token || body.provider_token || undefined;
+    const syncedPhotos = await syncDraftPhotosToDrive(activity, photos || [], userToken);
+
+    const saved = await saveLaporanRecord(activity, people, syncedPhotos);
     return NextResponse.json({ success: true, data: saved });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

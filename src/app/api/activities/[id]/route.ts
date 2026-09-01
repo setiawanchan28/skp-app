@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchLaporanById, saveLaporanRecord } from '@/services/laporanService';
-import { renameDriveResource } from '@/lib/drive';
+import { renameDriveResource, syncDraftPhotosToDrive } from '@/lib/drive';
 import { formatDriveFolderName, formatDrivePdfName } from '@/utils/sanitizeFilename';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -50,7 +50,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       }
     }
 
-    const saved = await saveLaporanRecord({ ...activity, id, isForceChange }, people, photos);
+    const userToken = req.headers.get('x-google-token') || body.user_drive_token || body.provider_token || undefined;
+    const syncedPhotos = await syncDraftPhotosToDrive(activity, photos || [], userToken);
+
+    const saved = await saveLaporanRecord({ ...activity, id, isForceChange }, people, syncedPhotos);
     return NextResponse.json({ success: true, data: saved });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 400 });

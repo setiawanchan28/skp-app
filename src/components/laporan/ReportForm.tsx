@@ -249,14 +249,22 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
 
       const validPeople = people.filter((p) => p.person_name.trim().length > 0);
 
+      const googleToken = typeof window !== 'undefined'
+        ? localStorage.getItem('bps_google_token') || sessionStorage.getItem('bps_google_token') || ''
+        : '';
+
       const res = await fetch(
         initialData?.id ? `/api/activities/${initialData.id}` : '/api/activities',
         {
           method: initialData?.id ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-google-token': googleToken || '',
+          },
           body: JSON.stringify({
             activity: activityPayload,
             people: validPeople,
+            user_drive_token: googleToken || undefined,
             photos: photos.map((p) => ({
               id: p.id,
               documentation_date: p.tanggal_foto || startDate,
@@ -266,6 +274,8 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
               name: p.name,
               mime_type: 'image/jpeg',
               previewUrl: p.previewUrl || p.drive_file_url || (p as any).web_view_url || '',
+              base64: p.previewUrl || p.existingUrl || (p as any).base64 || '',
+              existingUrl: p.previewUrl || p.existingUrl || '',
               web_view_url: p.drive_file_url || (p as any).web_view_url || p.previewUrl || '',
               drive_file_id: p.drive_file_id || '',
             })),
