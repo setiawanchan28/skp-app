@@ -83,13 +83,15 @@ export default function RiwayatLaporanPage() {
 
   const loadData = async () => {
     setLoading(true);
+    let localList: Activity[] = [];
     if (typeof window !== 'undefined') {
       const local = localStorage.getItem('bps_laporan_data');
       if (local) {
         try {
           const parsed = JSON.parse(local);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            setActivities(parsed.filter((a: any) => a.status !== 'TRASHED' && !a.deleted_at));
+            localList = parsed.filter((a: any) => a.status !== 'TRASHED' && !a.deleted_at);
+            setActivities(localList);
           }
         } catch (e) {}
       }
@@ -98,17 +100,49 @@ export default function RiwayatLaporanPage() {
     try {
       const remoteData = await fetchLaporanList();
       if (Array.isArray(remoteData)) {
-        const cleanList = remoteData
+        const mergedList = remoteData
           .filter((a) => a.status !== 'TRASHED' && !a.deleted_at)
+          .map((remoteAct) => {
+            const localAct = localList.find((l) => l.id === remoteAct.id);
+            if (!localAct) return remoteAct;
+
+            const localDocs = localAct.documents || (localAct as any).fotos || [];
+            const remoteDocs = remoteAct.documents || (remoteAct as any).fotos || [];
+
+            const targetDocs = remoteDocs.length > 0 ? remoteDocs : localDocs;
+            const mergedDocs = targetDocs.map((rDoc: any, idx: number) => {
+              const lDoc = localDocs[idx] || {};
+              const driveId = rDoc.drive_file_id || lDoc.drive_file_id || '';
+              const driveThumb = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w1000` : '';
+              const prevUrl = rDoc.previewUrl || driveThumb || lDoc.previewUrl || lDoc.base64 || lDoc.existingUrl || '';
+              const b64 = rDoc.base64 || lDoc.base64 || (prevUrl.startsWith('data:image/') ? prevUrl : '');
+
+              return {
+                ...lDoc,
+                ...rDoc,
+                drive_file_id: driveId,
+                previewUrl: prevUrl,
+                base64: b64,
+                existingUrl: prevUrl,
+              };
+            });
+
+            return {
+              ...localAct,
+              ...remoteAct,
+              documents: mergedDocs,
+              fotos: mergedDocs,
+            };
+          })
           .sort(
             (a, b) =>
               new Date(b.start_date || b.tanggal || b.created_at || Date.now()).getTime() -
               new Date(a.start_date || a.tanggal || a.created_at || Date.now()).getTime()
           );
 
-        setActivities(cleanList);
+        setActivities(mergedList);
         if (typeof window !== 'undefined') {
-          localStorage.setItem('bps_laporan_data', JSON.stringify(cleanList));
+          localStorage.setItem('bps_laporan_data', JSON.stringify(mergedList));
         }
       }
     } catch (e) {
