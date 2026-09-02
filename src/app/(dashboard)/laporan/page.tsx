@@ -40,6 +40,25 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { ReauthModal } from '@/components/ui/ReauthModal';
 import { LoadingModal } from '@/components/ui/LoadingModal';
 
+function getDrivePdfUrl(act?: Partial<Activity> | null): string | undefined {
+  if (!act) return undefined;
+  if (act.drive_pdf_url && typeof act.drive_pdf_url === 'string' && act.drive_pdf_url.trim()) {
+    return act.drive_pdf_url.trim();
+  }
+  const anyAct = act as any;
+  if (anyAct.pdf_url && typeof anyAct.pdf_url === 'string' && anyAct.pdf_url.trim()) {
+    return anyAct.pdf_url.trim();
+  }
+  if (anyAct.drive_file_url && typeof anyAct.drive_file_url === 'string' && anyAct.drive_file_url.trim()) {
+    return anyAct.drive_file_url.trim();
+  }
+  const driveId = anyAct.drive_pdf_file_id || anyAct.drive_file_id;
+  if (driveId && typeof driveId === 'string' && driveId.trim()) {
+    return `https://drive.google.com/file/d/${driveId.trim()}/view?usp=sharing`;
+  }
+  return undefined;
+}
+
 const ActionDropdownMenu = ({
   act,
   isGen,
@@ -62,18 +81,35 @@ const ActionDropdownMenu = ({
   const buttonRef = React.useRef<HTMLButtonElement>(null);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
+  const calculatePosition = () => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const menuWidth = 208; // 52 * 4 = 208px
+    const menuHeight = 220;
+
+    let leftPos = rect.right - menuWidth;
+    if (leftPos < 8) leftPos = 8;
+    if (leftPos + menuWidth > window.innerWidth - 8) {
+      leftPos = window.innerWidth - menuWidth - 8;
+    }
+
+    // Determine top vs bottom positioning relative to viewport
+    const spaceBelow = window.innerHeight - rect.bottom;
+    let topPos = rect.bottom + 6;
+    if (spaceBelow < menuHeight && rect.top > menuHeight) {
+      topPos = rect.top - menuHeight - 6;
+    }
+
+    setPosition({
+      top: topPos,
+      left: leftPos,
+    });
+  };
+
   const toggleDropdown = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isOpen && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      const menuWidth = 208; // 52 * 4 = 208px
-      let leftPos = rect.right - menuWidth;
-      if (leftPos < 8) leftPos = 8;
-
-      setPosition({
-        top: rect.bottom + window.scrollY + 6,
-        left: leftPos + window.scrollX,
-      });
+    if (!isOpen) {
+      calculatePosition();
     }
     setIsOpen(!isOpen);
   };
@@ -81,7 +117,9 @@ const ActionDropdownMenu = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClickOutside = (e: MouseEvent) => {
+    calculatePosition();
+
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (
         buttonRef.current && !buttonRef.current.contains(e.target as Node) &&
         dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
@@ -91,15 +129,17 @@ const ActionDropdownMenu = ({
     };
 
     const handleScrollOrResize = () => {
-      setIsOpen(false);
+      calculatePosition();
     };
 
     document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
     window.addEventListener('scroll', handleScrollOrResize, true);
     window.addEventListener('resize', handleScrollOrResize);
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
       window.removeEventListener('scroll', handleScrollOrResize, true);
       window.removeEventListener('resize', handleScrollOrResize);
     };
@@ -710,6 +750,7 @@ export default function RiwayatLaporanPage() {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {paginatedList.map((act, index) => {
                   const isGen = act.status === 'GENERATED';
+                  const driveUrl = getDrivePdfUrl(act);
                   return (
                     <tr key={act.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="py-2.5 px-3 text-center font-bold text-slate-400 text-xs">{startIndex + index + 1}</td>
@@ -761,14 +802,14 @@ export default function RiwayatLaporanPage() {
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-center">
-                        {act.drive_pdf_url ? (
+                        {driveUrl ? (
                           <button
-                            onClick={() => handleCopyPdfUrl(act.drive_pdf_url, act.id)}
+                            onClick={() => handleCopyPdfUrl(driveUrl, act.id)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-[11px] font-extrabold transition-all shadow-2xs"
                             title="Salin Link Google Drive PDF"
                           >
                             <Link2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span>Salin Link</span>
+                            <span>{copiedId === act.id ? 'Tersalin! ✓' : 'Salin Link'}</span>
                           </button>
                         ) : (
                           <span className="text-[11px] text-slate-400 font-medium italic">Belum Ada</span>
@@ -797,6 +838,7 @@ export default function RiwayatLaporanPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {paginatedList.map((act) => {
             const isGen = act.status === 'GENERATED';
+            const driveUrl = getDrivePdfUrl(act);
             return (
               <div
                 key={act.id}
@@ -842,7 +884,7 @@ export default function RiwayatLaporanPage() {
                       </div>
                       {(act.start_time || (act as any).jam_mulai) && (
                         <div className="flex items-center gap-1 text-sky-600 dark:text-sky-400 font-mono font-bold text-[11px]">
-                          <Clock className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                          <Clock className="w-3 h-3 text-sky-500 shrink-0" />
                           <span>{act.start_time || (act as any).jam_mulai} - {act.end_time || (act as any).jam_selesai || '16:00'} WIB</span>
                         </div>
                       )}
@@ -861,7 +903,7 @@ export default function RiwayatLaporanPage() {
                       {act.documents?.length || act.fotos?.length || 0} Foto
                     </span>
 
-                    {act.drive_pdf_url && (
+                    {driveUrl && (
                       <span className="flex items-center gap-1 text-emerald-600 font-bold">
                         <CheckCircle2 className="w-3.5 h-3.5" /> PDF Drive Valid
                       </span>
@@ -885,14 +927,14 @@ export default function RiwayatLaporanPage() {
                       <span>{isGen ? 'Regenerate' : 'Cetak PDF'}</span>
                     </button>
 
-                    {act.drive_pdf_url && (
+                    {driveUrl && (
                       <button
-                        onClick={() => handleCopyPdfUrl(act.drive_pdf_url, act.id)}
+                        onClick={() => handleCopyPdfUrl(driveUrl, act.id)}
                         className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
                         title="Salin Link Google Drive PDF"
                       >
                         <Link2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                        <span>Salin Link</span>
+                        <span>{copiedId === act.id ? 'Tersalin! ✓' : 'Salin Link'}</span>
                       </button>
                     )}
                   </div>
