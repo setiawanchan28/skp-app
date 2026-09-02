@@ -22,6 +22,7 @@ import { fetchPegawaiList } from '@/services/pegawaiService';
 import { Pegawai } from '@/types/pegawai';
 import { PhotoUploader, PhotoItem, DateGroupOption } from '../laporan/PhotoUploader';
 import { PDFPreviewModal } from '../laporan/PDFPreviewModal';
+import { LoadingModal } from '@/components/ui/LoadingModal';
 import { VoiceInputButton } from '@/components/ui/VoiceInputButton';
 import { useToast } from '@/components/ui/Toast';
 import { LaporanPenugasan, PetugasDitemui } from '@/types/penugasan';
@@ -842,6 +843,22 @@ export const PenugasanForm: React.FC<PenugasanFormProps> = ({ initialData }) => 
           </div>
         </div>
       )}
+
+      {/* Loading Overlay Modals */}
+      <LoadingModal
+        isOpen={isGeneratingAi}
+        type="ai"
+        title="Sedang Generasi Resume dengan Gemini AI..."
+        message="Mohon tunggu sejenak, Gemini AI sedang menyusun Resume Perjalanan Dinas BPS yang komprehensif..."
+      />
+
+      <LoadingModal
+        isOpen={isSubmitting}
+        type="submit"
+        title="Sedang Menyimpan Laporan Penugasan..."
+        message="Mohon tunggu sejenak, data penugasan dan dokumen resmi sedang diproses..."
+        subMessage={submitProgress || undefined}
+      />
 
       {/* PDF Transient Preview Modal for Laporan Penugasan */}
       <PDFPreviewModal

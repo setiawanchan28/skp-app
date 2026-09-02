@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -37,6 +38,7 @@ import { BULAN_INDONESIA } from '@/constants/bpsConfig';
 import { compressBase64Image } from '@/lib/image';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { ReauthModal } from '@/components/ui/ReauthModal';
+import { LoadingModal } from '@/components/ui/LoadingModal';
 
 const ActionDropdownMenu = ({
   act,
@@ -45,7 +47,6 @@ const ActionDropdownMenu = ({
   onPreview,
   onCopyActivity,
   onGeneratePdf,
-  onCopyPdfUrl,
   onDelete,
 }: {
   act: Activity;
@@ -54,98 +55,129 @@ const ActionDropdownMenu = ({
   onPreview: () => void;
   onCopyActivity: () => void;
   onGeneratePdf: () => void;
-  onCopyPdfUrl: () => void;
   onDelete: () => void;
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const menuRef = React.useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  const toggleDropdown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const menuWidth = 208; // 52 * 4 = 208px
+      let leftPos = rect.right - menuWidth;
+      if (leftPos < 8) leftPos = 8;
+
+      setPosition({
+        top: rect.bottom + window.scrollY + 6,
+        left: leftPos + window.scrollX,
+      });
+    }
+    setIsOpen(!isOpen);
+  };
 
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (
+        buttonRef.current && !buttonRef.current.contains(e.target as Node) &&
+        dropdownRef.current && !dropdownRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
       }
     };
+
+    const handleScrollOrResize = () => {
+      setIsOpen(false);
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, [isOpen]);
+
+  const dropdownMenu = (
+    <div
+      ref={dropdownRef}
+      style={{ top: `${position.top}px`, left: `${position.left}px` }}
+      className="fixed z-[9999] w-52 rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-1.5 focus:outline-none divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-100"
+    >
+      <div className="py-1">
+        <button
+          onClick={() => { setIsOpen(false); onPreview(); }}
+          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/30 hover:text-sky-600 flex items-center gap-2.5 transition-colors"
+        >
+          <Eye className="w-4 h-4 text-sky-500 shrink-0" />
+          <span>Pratinjau PDF</span>
+        </button>
+
+        <Link
+          href={`/laporan/edit/${act.id}`}
+          onClick={() => setIsOpen(false)}
+          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:text-amber-600 flex items-center gap-2.5 transition-colors"
+        >
+          <Edit2 className="w-4 h-4 text-amber-500 shrink-0" />
+          <span>Edit Laporan</span>
+        </Link>
+
+        <button
+          onClick={() => { setIsOpen(false); onCopyActivity(); }}
+          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:text-indigo-600 flex items-center gap-2.5 transition-colors"
+        >
+          <Copy className="w-4 h-4 text-indigo-500 shrink-0" />
+          <span>Duplikat Kegiatan</span>
+        </button>
+      </div>
+
+      <div className="py-1">
+        <button
+          onClick={() => { setIsOpen(false); onGeneratePdf(); }}
+          disabled={isGenerating}
+          className="w-full text-left px-3.5 py-2 text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 flex items-center gap-2.5 transition-colors"
+        >
+          {isGenerating ? (
+            <Loader2 className="w-4 h-4 animate-spin text-sky-500 shrink-0" />
+          ) : (
+            <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+          )}
+          <span>{isGen ? 'Regenerate PDF' : 'Cetak / Generate PDF'}</span>
+        </button>
+      </div>
+
+      <div className="py-1">
+        <button
+          onClick={() => { setIsOpen(false); onDelete(); }}
+          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2.5 transition-colors"
+        >
+          <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
+          <span>Pindahkan ke Sampah</span>
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="relative inline-block text-left" ref={menuRef}>
+    <>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        ref={buttonRef}
+        onClick={toggleDropdown}
         className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl transition-all border border-slate-200 dark:border-slate-800 flex items-center justify-center gap-1 shadow-2xs"
         title="Menu Aksi"
       >
         <MoreVertical className="w-4 h-4 text-slate-600 dark:text-slate-300" />
       </button>
 
-      {isOpen && (
-        <div className="origin-top-right absolute right-0 mt-2 w-52 rounded-2xl shadow-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 z-50 py-1.5 focus:outline-none divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-100">
-          <div className="py-1">
-            <button
-              onClick={() => { setIsOpen(false); onPreview(); }}
-              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/30 hover:text-sky-600 flex items-center gap-2.5 transition-colors"
-            >
-              <Eye className="w-4 h-4 text-sky-500 shrink-0" />
-              <span>Pratinjau PDF</span>
-            </button>
-
-            <Link
-              href={`/laporan/edit/${act.id}`}
-              onClick={() => setIsOpen(false)}
-              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:text-amber-600 flex items-center gap-2.5 transition-colors"
-            >
-              <Edit2 className="w-4 h-4 text-amber-500 shrink-0" />
-              <span>Edit Laporan</span>
-            </Link>
-
-            <button
-              onClick={() => { setIsOpen(false); onCopyActivity(); }}
-              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:text-indigo-600 flex items-center gap-2.5 transition-colors"
-            >
-              <Copy className="w-4 h-4 text-indigo-500 shrink-0" />
-              <span>Duplikat Kegiatan</span>
-            </button>
-          </div>
-
-          <div className="py-1">
-            <button
-              onClick={() => { setIsOpen(false); onGeneratePdf(); }}
-              disabled={isGenerating}
-              className="w-full text-left px-3.5 py-2 text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 flex items-center gap-2.5 transition-colors"
-            >
-              {isGenerating ? (
-                <Loader2 className="w-4 h-4 animate-spin text-sky-500 shrink-0" />
-              ) : (
-                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-              )}
-              <span>{isGen ? 'Regenerate PDF' : 'Cetak / Generate PDF'}</span>
-            </button>
-
-            {act.drive_pdf_url && (
-              <button
-                onClick={() => { setIsOpen(false); onCopyPdfUrl(); }}
-                className="w-full text-left px-3.5 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 flex items-center gap-2.5 transition-colors"
-              >
-                <Link2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span>Salin Link PDF Drive</span>
-              </button>
-            )}
-          </div>
-
-          <div className="py-1">
-            <button
-              onClick={() => { setIsOpen(false); onDelete(); }}
-              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2.5 transition-colors"
-            >
-              <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
-              <span>Pindahkan ke Sampah</span>
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+      {isOpen && typeof window !== 'undefined' && createPortal(dropdownMenu, document.body)}
+    </>
   );
 };
 
@@ -669,9 +701,10 @@ export default function RiwayatLaporanPage() {
                   <th className="py-2.5 px-3 w-10 text-center">No</th>
                   <th className="py-2.5 px-3 w-40">Tanggal & Jam</th>
                   <th className="py-2.5 px-3">Nama Kegiatan & Jenis</th>
-                  <th className="py-2.5 px-3 w-24 text-center">Foto</th>
-                  <th className="py-2.5 px-3 w-28 text-center">Status</th>
-                  <th className="py-2.5 px-3 w-40 text-center">Aksi</th>
+                  <th className="py-2.5 px-3 w-20 text-center">Foto</th>
+                  <th className="py-2.5 px-3 w-24 text-center">Status</th>
+                  <th className="py-2.5 px-3 w-36 text-center">Link Drive PDF</th>
+                  <th className="py-2.5 px-3 w-20 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -728,6 +761,20 @@ export default function RiwayatLaporanPage() {
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-center">
+                        {act.drive_pdf_url ? (
+                          <button
+                            onClick={() => handleCopyPdfUrl(act.drive_pdf_url, act.id)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-[11px] font-extrabold transition-all shadow-2xs"
+                            title="Salin Link Google Drive PDF"
+                          >
+                            <Link2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Salin Link</span>
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 font-medium italic">Belum Ada</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
                         <ActionDropdownMenu
                           act={act}
                           isGen={isGen}
@@ -735,7 +782,6 @@ export default function RiwayatLaporanPage() {
                           onPreview={() => setPreviewActivity(act)}
                           onCopyActivity={() => handleCopyActivity(act.id)}
                           onGeneratePdf={() => handleGeneratePdf(act)}
-                          onCopyPdfUrl={() => handleCopyPdfUrl(act.drive_pdf_url, act.id)}
                           onDelete={() => setDeletingId(act.id)}
                         />
                       </td>
@@ -825,18 +871,31 @@ export default function RiwayatLaporanPage() {
 
                 {/* Card Action Buttons */}
                 <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => handleGeneratePdf(act)}
-                    disabled={generatingPdfId === act.id}
-                    className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-colors"
-                  >
-                    {generatingPdfId === act.id ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleGeneratePdf(act)}
+                      disabled={generatingPdfId === act.id}
+                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-2xs transition-colors"
+                    >
+                      {generatingPdfId === act.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      )}
+                      <span>{isGen ? 'Regenerate' : 'Cetak PDF'}</span>
+                    </button>
+
+                    {act.drive_pdf_url && (
+                      <button
+                        onClick={() => handleCopyPdfUrl(act.drive_pdf_url, act.id)}
+                        className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                        title="Salin Link Google Drive PDF"
+                      >
+                        <Link2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>Salin Link</span>
+                      </button>
                     )}
-                    <span>{isGen ? 'Regenerate' : 'Cetak PDF'}</span>
-                  </button>
+                  </div>
 
                   <ActionDropdownMenu
                     act={act}
@@ -845,7 +904,6 @@ export default function RiwayatLaporanPage() {
                     onPreview={() => setPreviewActivity(act)}
                     onCopyActivity={() => handleCopyActivity(act.id)}
                     onGeneratePdf={() => handleGeneratePdf(act)}
-                    onCopyPdfUrl={() => handleCopyPdfUrl(act.drive_pdf_url, act.id)}
                     onDelete={() => setDeletingId(act.id)}
                   />
                 </div>
@@ -973,6 +1031,14 @@ export default function RiwayatLaporanPage() {
         isOpen={isReauthOpen}
         onClose={() => setIsReauthOpen(false)}
         message={reauthMessage}
+      />
+
+      {/* PDF Generation Loading Modal */}
+      <LoadingModal
+        isOpen={!!generatingPdfId}
+        type="pdf"
+        title="Sedang Memproses & Mencetak PDF..."
+        message="Mohon tunggu sejenak, dokumen PDF resmi BPS sedang di-generate dan diunggah ke Google Drive..."
       />
     </div>
   );

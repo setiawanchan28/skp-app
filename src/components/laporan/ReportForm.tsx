@@ -24,6 +24,7 @@ import {
 import { PhotoUploader, PhotoItem } from './PhotoUploader';
 import { PDFPreviewModal } from './PDFPreviewModal';
 import { ReauthModal } from '@/components/ui/ReauthModal';
+import { LoadingModal } from '@/components/ui/LoadingModal';
 import { VoiceInputButton } from '@/components/ui/VoiceInputButton';
 import { useToast } from '@/components/ui/Toast';
 import { Activity, ActivityType, ActivityStatus } from '@/types/laporan';
@@ -815,41 +816,48 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
       />
 
       {/* Bottom Sticky Action Bar */}
-      <div className="sticky bottom-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 z-40">
+      <div className="sticky bottom-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 z-40">
         <button
           type="button"
           onClick={() => setIsPreviewOpen(true)}
-          className="px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center gap-2 transition-colors"
+          className="w-full sm:w-auto px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shrink-0"
         >
-          <Eye className="w-4 h-4 text-sky-600" />
+          <Eye className="w-4 h-4 text-sky-600 shrink-0" />
           <span>Pratinjau PDF (Preview)</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
           {submitProgress && (
-            <span className="text-xs font-bold text-sky-600 dark:text-sky-400 animate-pulse hidden sm:inline">
+            <span className="text-xs font-bold text-sky-600 dark:text-sky-400 animate-pulse hidden md:inline truncate">
               {submitProgress}
             </span>
           )}
           <button
-            type="button"
-            disabled={isSubmitting}
-            onClick={(e) => handleSubmit(e, 'DRAFT')}
-            className="px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md flex items-center gap-2 transition-all"
-          >
-            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            <span>Simpan Draf</span>
-          </button>
-          <button
             type="submit"
             disabled={isSubmitting}
-            className="px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 flex items-center gap-2 transition-all"
+            className="w-full sm:w-auto px-6 py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl text-xs shadow-md shadow-sky-600/20 flex items-center justify-center gap-2 transition-all"
           >
-            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            <span>{isSubmitting ? 'Menyimpan...' : 'Simpan Kegiatan'}</span>
+            {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Save className="w-4 h-4 shrink-0" />}
+            <span>{isSubmitting ? 'Menyimpan Kegiatan...' : 'Simpan Kegiatan'}</span>
           </button>
         </div>
       </div>
+
+      {/* Loading Overlay Modals */}
+      <LoadingModal
+        isOpen={isGeneratingAi}
+        type="ai"
+        title="Sedang Merapikan Narasi dengan Gemini AI..."
+        message="Mohon tunggu sejenak, AI sedang mengolah poin-poin kegiatan menjadi narasi resmi BPS yang formal dan terstruktur."
+      />
+
+      <LoadingModal
+        isOpen={isSubmitting}
+        type="submit"
+        title="Sedang Menyimpan Laporan Kegiatan..."
+        message="Mohon tunggu sejenak, data kegiatan dan berkas foto sedang diunggah dan disimpan ke database..."
+        subMessage={submitProgress || undefined}
+      />
 
       {/* Preview PDF Modal */}
       {isPreviewOpen && (
