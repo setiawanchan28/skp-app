@@ -27,6 +27,7 @@ import {
   ArrowUpDown,
   Filter,
   MoreVertical,
+  X,
 } from 'lucide-react';
 import { fetchLaporanList, trashLaporanRecord, copyActivityRecord } from '@/services/laporanService';
 import { Activity } from '@/types/laporan';
@@ -93,7 +94,6 @@ const ActionDropdownMenu = ({
       leftPos = window.innerWidth - menuWidth - 8;
     }
 
-    // Determine top vs bottom positioning relative to viewport
     const spaceBelow = window.innerHeight - rect.bottom;
     let topPos = rect.bottom + 6;
     if (spaceBelow < menuHeight && rect.top > menuHeight) {
@@ -145,64 +145,142 @@ const ActionDropdownMenu = ({
     };
   }, [isOpen]);
 
-  const dropdownMenu = (
-    <div
-      ref={dropdownRef}
-      style={{ top: `${position.top}px`, left: `${position.left}px` }}
-      className="fixed z-[9999] w-52 rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-1.5 focus:outline-none divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-100"
-    >
-      <div className="py-1">
-        <button
-          onClick={() => { setIsOpen(false); onPreview(); }}
-          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/30 hover:text-sky-600 flex items-center gap-2.5 transition-colors"
+  const dropdownContent = (
+    <>
+      {/* MOBILE BOTTOM SHEET MODAL (HP View < 640px) */}
+      <div
+        className="fixed inset-0 z-[9999] sm:hidden bg-slate-900/60 backdrop-blur-xs flex items-end justify-center p-0 animate-fadeIn"
+        onClick={() => setIsOpen(false)}
+      >
+        <div
+          ref={dropdownRef}
+          className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 rounded-t-3xl w-full p-5 space-y-3 shadow-2xl animate-in slide-in-from-bottom duration-200"
+          onClick={(e) => e.stopPropagation()}
         >
-          <Eye className="w-4 h-4 text-sky-500 shrink-0" />
-          <span>Pratinjau PDF</span>
-        </button>
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <MoreVertical className="w-5 h-5 text-sky-600 shrink-0" />
+              <h4 className="font-extrabold text-sm text-slate-900 dark:text-white truncate max-w-[240px]">
+                {act.name}
+              </h4>
+            </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-        <Link
-          href={`/laporan/edit/${act.id}`}
-          onClick={() => setIsOpen(false)}
-          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:text-amber-600 flex items-center gap-2.5 transition-colors"
-        >
-          <Edit2 className="w-4 h-4 text-amber-500 shrink-0" />
-          <span>Edit Laporan</span>
-        </Link>
+          <div className="space-y-1.5 pt-1">
+            <button
+              onClick={() => { setIsOpen(false); onPreview(); }}
+              className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/30 rounded-2xl flex items-center gap-3 transition-colors"
+            >
+              <Eye className="w-4.5 h-4.5 text-sky-500 shrink-0" />
+              <span>Pratinjau PDF</span>
+            </button>
 
-        <button
-          onClick={() => { setIsOpen(false); onCopyActivity(); }}
-          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:text-indigo-600 flex items-center gap-2.5 transition-colors"
-        >
-          <Copy className="w-4 h-4 text-indigo-500 shrink-0" />
-          <span>Duplikat Kegiatan</span>
-        </button>
+            <Link
+              href={`/laporan/edit/${act.id}`}
+              onClick={() => setIsOpen(false)}
+              className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded-2xl flex items-center gap-3 transition-colors"
+            >
+              <Edit2 className="w-4.5 h-4.5 text-amber-500 shrink-0" />
+              <span>Edit Laporan</span>
+            </Link>
+
+            <button
+              onClick={() => { setIsOpen(false); onCopyActivity(); }}
+              className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-2xl flex items-center gap-3 transition-colors"
+            >
+              <Copy className="w-4.5 h-4.5 text-indigo-500 shrink-0" />
+              <span>Duplikat Kegiatan</span>
+            </button>
+
+            <button
+              onClick={() => { setIsOpen(false); onGeneratePdf(); }}
+              disabled={isGenerating}
+              className="w-full text-left px-4 py-3 text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 rounded-2xl flex items-center gap-3 transition-colors"
+            >
+              {isGenerating ? (
+                <Loader2 className="w-4.5 h-4.5 animate-spin text-sky-500 shrink-0" />
+              ) : (
+                <Sparkles className="w-4.5 h-4.5 text-amber-400 shrink-0" />
+              )}
+              <span>{isGen ? 'Regenerate PDF' : 'Cetak / Generate PDF'}</span>
+            </button>
+
+            <button
+              onClick={() => { setIsOpen(false); onDelete(); }}
+              className="w-full text-left px-4 py-3 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-2xl flex items-center gap-3 transition-colors"
+            >
+              <Trash2 className="w-4.5 h-4.5 text-rose-500 shrink-0" />
+              <span>Pindahkan ke Sampah</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="py-1">
-        <button
-          onClick={() => { setIsOpen(false); onGeneratePdf(); }}
-          disabled={isGenerating}
-          className="w-full text-left px-3.5 py-2 text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 flex items-center gap-2.5 transition-colors"
-        >
-          {isGenerating ? (
-            <Loader2 className="w-4 h-4 animate-spin text-sky-500 shrink-0" />
-          ) : (
-            <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
-          )}
-          <span>{isGen ? 'Regenerate PDF' : 'Cetak / Generate PDF'}</span>
-        </button>
-      </div>
+      {/* DESKTOP DROPDOWN MENU (PC View >= 640px) */}
+      <div
+        ref={dropdownRef}
+        style={{ top: `${position.top}px`, left: `${position.left}px` }}
+        className="hidden sm:block fixed z-[9999] w-52 rounded-2xl shadow-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 py-1.5 focus:outline-none divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in zoom-in-95 duration-100"
+      >
+        <div className="py-1">
+          <button
+            onClick={() => { setIsOpen(false); onPreview(); }}
+            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/30 hover:text-sky-600 flex items-center gap-2.5 transition-colors"
+          >
+            <Eye className="w-4 h-4 text-sky-500 shrink-0" />
+            <span>Pratinjau PDF</span>
+          </button>
 
-      <div className="py-1">
-        <button
-          onClick={() => { setIsOpen(false); onDelete(); }}
-          className="w-full text-left px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2.5 transition-colors"
-        >
-          <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
-          <span>Pindahkan ke Sampah</span>
-        </button>
+          <Link
+            href={`/laporan/edit/${act.id}`}
+            onClick={() => setIsOpen(false)}
+            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:text-amber-600 flex items-center gap-2.5 transition-colors"
+          >
+            <Edit2 className="w-4 h-4 text-amber-500 shrink-0" />
+            <span>Edit Laporan</span>
+          </Link>
+
+          <button
+            onClick={() => { setIsOpen(false); onCopyActivity(); }}
+            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 hover:text-indigo-600 flex items-center gap-2.5 transition-colors"
+          >
+            <Copy className="w-4 h-4 text-indigo-500 shrink-0" />
+            <span>Duplikat Kegiatan</span>
+          </button>
+        </div>
+
+        <div className="py-1">
+          <button
+            onClick={() => { setIsOpen(false); onGeneratePdf(); }}
+            disabled={isGenerating}
+            className="w-full text-left px-3.5 py-2 text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30 flex items-center gap-2.5 transition-colors"
+          >
+            {isGenerating ? (
+              <Loader2 className="w-4 h-4 animate-spin text-sky-500 shrink-0" />
+            ) : (
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+            )}
+            <span>{isGen ? 'Regenerate PDF' : 'Cetak / Generate PDF'}</span>
+          </button>
+        </div>
+
+        <div className="py-1">
+          <button
+            onClick={() => { setIsOpen(false); onDelete(); }}
+            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 flex items-center gap-2.5 transition-colors"
+          >
+            <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
+            <span>Pindahkan ke Sampah</span>
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   );
 
   return (
@@ -216,7 +294,7 @@ const ActionDropdownMenu = ({
         <MoreVertical className="w-4 h-4 text-slate-600 dark:text-slate-300" />
       </button>
 
-      {isOpen && typeof window !== 'undefined' && createPortal(dropdownMenu, document.body)}
+      {isOpen && typeof window !== 'undefined' && createPortal(dropdownContent, document.body)}
     </>
   );
 };
