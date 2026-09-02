@@ -556,15 +556,20 @@ export default function RiwayatLaporanPage() {
 
       const cleanDocs = await Promise.all(
         (act.documents || (act as any).fotos || []).map(async (doc: any) => {
+          const driveThumb = doc.drive_file_id ? `https://drive.google.com/thumbnail?id=${doc.drive_file_id}&sz=w1000` : '';
           const rawUrl =
+            driveThumb ||
             doc.previewUrl ||
             doc.existingUrl ||
             doc.base64 ||
             doc.url ||
-            (doc.drive_file_id ? `https://drive.google.com/thumbnail?id=${doc.drive_file_id}&sz=w1000` : '');
-          const compressedUrl = rawUrl.startsWith('data:image/')
-            ? await compressBase64Image(rawUrl, 1000, 0.7)
-            : rawUrl;
+            '';
+
+          const isDataUrl = rawUrl.startsWith('data:image/');
+          const compressedUrl = isDataUrl
+            ? await compressBase64Image(rawUrl, 800, 0.6)
+            : (doc.drive_file_id ? driveThumb : rawUrl);
+
           return {
             ...doc,
             id: doc.id,
@@ -573,7 +578,7 @@ export default function RiwayatLaporanPage() {
             original_filename: doc.original_filename || doc.file_name || doc.name || 'Foto.jpg',
             previewUrl: compressedUrl,
             existingUrl: compressedUrl,
-            base64: compressedUrl,
+            base64: doc.drive_file_id ? '' : (isDataUrl ? compressedUrl : ''),
             drive_file_id: doc.drive_file_id || '',
             tanggal_foto: doc.tanggal_foto || doc.documentation_date || act.start_date,
           };
@@ -643,7 +648,10 @@ export default function RiwayatLaporanPage() {
       showToast('PDF berhasil dibuat!', 'success');
       loadData();
     } catch (err: any) {
-      const errMsg = err.message || '';
+      let errMsg = err.message || '';
+      if (errMsg === 'Failed to fetch' || errMsg.includes('Failed to fetch')) {
+        errMsg = 'Koneksi terputus atau ukuran payload foto terlalu besar (Failed to fetch). Silakan coba klik Generate PDF sekali lagi.';
+      }
       showToast(`Gagal membuat PDF: ${errMsg}`, 'error');
 
       const isAuthError = /token|kredensial|login|logout|401|403|google|oauth|permission|unauthorized|drive/i.test(errMsg);
