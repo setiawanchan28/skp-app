@@ -263,13 +263,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       try {
         await supabaseAdmin
           .from('activity_generations')
-          .update({
-            status: 'SUCCESS',
-            pdf_drive_file_id: driveResult.id,
-            completed_at: nowIso,
-          })
-          .eq('activity_id', id)
-          .eq('idempotency_key', idempotencyKey);
+          .upsert(
+            {
+              activity_id: id,
+              idempotency_key: idempotencyKey,
+              status: 'SUCCESS',
+              pdf_drive_file_id: driveResult.id,
+              completed_at: nowIso,
+            },
+            { onConflict: 'activity_id,idempotency_key' }
+          );
+
+        await supabaseAdmin.from('activity_documents').insert({
+          activity_id: id,
+          documentation_date: nowIso,
+          original_filename: `${activity.name || 'Laporan'}.pdf`,
+          mime_type: 'application/pdf',
+          file_size_bytes: 0,
+          kind: 'PDF',
+          drive_file_id: driveResult.id,
+          drive_name: `${activity.name || 'Laporan'}.pdf`,
+          sort_order: 0,
+        });
 
         await supabaseAdmin.from('activity_audit_log').insert({
           user_id: activity.user_id,
@@ -281,7 +296,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             timestamp: nowIso,
           },
         });
-      } catch (e) {}
+      } catch (e) {
+        console.warn('Supabase PDF generation audit record warning:', e);
+      }
     }
 
     return NextResponse.json({

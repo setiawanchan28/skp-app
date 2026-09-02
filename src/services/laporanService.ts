@@ -113,7 +113,8 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
         .select(`
           *,
           people:activity_people(*),
-          documents:activity_documents(*)
+          documents:activity_documents(*),
+          generations:activity_generations(*)
         `)
         .order('start_date', { ascending: false });
 
@@ -124,7 +125,13 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
       const { data, error } = await query;
       if (!error && data) {
         supabaseData = data.map((item: any) => {
-          const docs = (item.documents || []).map((d: any) => ({
+          const rawDocs = item.documents || [];
+          const pdfDoc = rawDocs.find((d: any) => d.kind === 'PDF' || d.mime_type === 'application/pdf' || String(d.original_filename || '').endsWith('.pdf'));
+          const pdfGen = (item.generations || []).find((g: any) => g.pdf_drive_file_id || g.pdf_url);
+          const pdfDriveId = pdfDoc?.drive_file_id || pdfGen?.pdf_drive_file_id || item.drive_pdf_file_id;
+          const drivePdfUrl = pdfDriveId ? `https://drive.google.com/file/d/${pdfDriveId}/view?usp=sharing` : (pdfGen?.pdf_url || item.drive_pdf_url);
+
+          const docs = rawDocs.map((d: any) => ({
             id: d.id,
             name: d.original_filename || d.file_name || d.name || 'Foto.jpg',
             file_name: d.original_filename || d.file_name || d.name || 'Foto.jpg',
@@ -132,10 +139,14 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
             web_view_url: d.web_view_url || d.preview_url || d.previewUrl || '',
             drive_file_id: d.drive_file_id || '',
             tanggal_foto: d.documentation_date || d.tanggal_foto || item.start_date,
+            kind: d.kind,
           }));
 
           return {
             ...item,
+            status: drivePdfUrl ? 'GENERATED' : (item.status || 'DRAFT'),
+            drive_pdf_url: drivePdfUrl,
+            drive_pdf_file_id: pdfDriveId,
             nama_kegiatan: item.name || item.nama_kegiatan,
             deskripsi_kegiatan: item.description || item.deskripsi_kegiatan || '',
             ringkasan_kegiatan: item.description || item.ringkasan_kegiatan || '',

@@ -57,6 +57,17 @@ function getDrivePdfUrl(act?: Partial<Activity> | null): string | undefined {
   if (driveId && typeof driveId === 'string' && driveId.trim()) {
     return `https://drive.google.com/file/d/${driveId.trim()}/view?usp=sharing`;
   }
+  const docs = act.documents || anyAct.fotos || [];
+  if (Array.isArray(docs)) {
+    const pdfDoc = docs.find(
+      (d: any) =>
+        (d.kind === 'PDF' || d.mime_type === 'application/pdf' || String(d.file_name || d.name || d.original_filename || '').endsWith('.pdf')) &&
+        d.drive_file_id
+    );
+    if (pdfDoc && pdfDoc.drive_file_id) {
+      return `https://drive.google.com/file/d/${pdfDoc.drive_file_id}/view?usp=sharing`;
+    }
+  }
   return undefined;
 }
 
