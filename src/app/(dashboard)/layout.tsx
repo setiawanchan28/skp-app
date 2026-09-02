@@ -17,14 +17,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Authentication Guard Check for Dashboard
   useEffect(() => {
+    let isMounted = true;
+
     const verifySession = async () => {
       if (typeof window !== 'undefined') {
-        const savedUser = localStorage.getItem('bps_auth_user');
-        if (savedUser) {
+        const savedUserStr =
+          localStorage.getItem('bps_auth_user') ||
+          localStorage.getItem('bps_saved_profile') ||
+          localStorage.getItem('bps_user_profile');
+
+        if (savedUserStr) {
           try {
-            const parsed = JSON.parse(savedUser);
-            if (parsed && parsed.nama) {
-              setIsCheckingAuth(false);
+            const parsed = JSON.parse(savedUserStr);
+            if (parsed && (parsed.nama || parsed.nama_pegawai || parsed.nip || parsed.email || parsed.id)) {
+              if (isMounted) setIsCheckingAuth(false);
               return;
             }
           } catch (e) {}
@@ -33,19 +39,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       if (isSupabaseConfigured()) {
         try {
-          const { data } = await supabase.auth.getSession();
-          if (data?.session) {
-            setIsCheckingAuth(false);
+          const sessionPromise = supabase.auth.getSession();
+          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 2000));
+          const result: any = await Promise.race([sessionPromise, timeoutPromise]);
+          if (result?.data?.session) {
+            if (isMounted) setIsCheckingAuth(false);
             return;
           }
         } catch (e) {}
       }
 
+      if (typeof window !== 'undefined') {
+        const localData = localStorage.getItem('bps_laporan_data');
+        if (localData) {
+          if (isMounted) setIsCheckingAuth(false);
+          return;
+        }
+      }
+
       // Not authenticated -> Redirect to Login Page
+      if (isMounted) setIsCheckingAuth(false);
       router.replace('/login');
     };
 
     verifySession();
+
+    return () => {
+      isMounted = false;
+    };
   }, [router]);
 
   if (isCheckingAuth) {
