@@ -75,7 +75,6 @@ const ActionDropdownMenu = ({
   act,
   isGen,
   isGenerating,
-  onPreview,
   onCopyActivity,
   onGeneratePdf,
   onDelete,
@@ -83,7 +82,6 @@ const ActionDropdownMenu = ({
   act: Activity;
   isGen: boolean;
   isGenerating: boolean;
-  onPreview: () => void;
   onCopyActivity: () => void;
   onGeneratePdf: () => void;
   onDelete: () => void;
@@ -186,15 +184,6 @@ const ActionDropdownMenu = ({
         </div>
 
         <div className="space-y-1.5 pt-1">
-          <button
-            type="button"
-            onClick={() => { setIsOpen(false); onPreview(); }}
-            className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/30 rounded-2xl flex items-center gap-3 transition-colors"
-          >
-            <Eye className="w-4.5 h-4.5 text-sky-500 shrink-0" />
-            <span>Pratinjau PDF</span>
-          </button>
-
           <Link
             href={`/laporan/edit/${act.id}`}
             onClick={() => setIsOpen(false)}
@@ -245,15 +234,6 @@ const ActionDropdownMenu = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="py-1">
-          <button
-            type="button"
-            onClick={() => { setIsOpen(false); onPreview(); }}
-            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-sky-50 dark:hover:bg-sky-950/30 hover:text-sky-600 flex items-center gap-2.5 transition-colors"
-          >
-            <Eye className="w-4 h-4 text-sky-500 shrink-0" />
-            <span>Pratinjau PDF</span>
-          </button>
-
           <Link
             href={`/laporan/edit/${act.id}`}
             onClick={() => setIsOpen(false)}
@@ -914,25 +894,33 @@ export default function RiwayatLaporanPage() {
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-center">
-                        {driveUrl ? (
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
                           <button
-                            onClick={() => handleCopyPdfUrl(driveUrl, act.id)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-[11px] font-extrabold transition-all shadow-2xs"
-                            title="Salin Link Google Drive PDF"
+                            onClick={() => setPreviewActivity(act)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/80 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-lg text-[11px] font-extrabold transition-all shadow-2xs"
+                            title="Pratinjau Dokumen PDF"
                           >
-                            <Link2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span>{copiedId === act.id ? 'Tersalin! ✓' : 'Salin Link'}</span>
+                            <Eye className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                            <span>Pratinjau</span>
                           </button>
-                        ) : (
-                          <span className="text-[11px] text-slate-400 font-medium italic">Belum Ada</span>
-                        )}
+
+                          {driveUrl ? (
+                            <button
+                              onClick={() => handleCopyPdfUrl(driveUrl, act.id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-[11px] font-extrabold transition-all shadow-2xs"
+                              title="Salin Link Google Drive PDF"
+                            >
+                              <Link2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>{copiedId === act.id ? 'Tersalin! ✓' : 'Salin Link'}</span>
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="py-2.5 px-3 text-center">
                         <ActionDropdownMenu
                           act={act}
                           isGen={isGen}
                           isGenerating={generatingPdfId === act.id}
-                          onPreview={() => setPreviewActivity(act)}
                           onCopyActivity={() => handleCopyActivity(act.id)}
                           onGeneratePdf={() => handleGeneratePdf(act)}
                           onDelete={() => setDeletingId(act.id)}
@@ -1024,8 +1012,8 @@ export default function RiwayatLaporanPage() {
                 </div>
 
                 {/* Card Action Buttons */}
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       onClick={() => handleGeneratePdf(act)}
                       disabled={generatingPdfId === act.id}
@@ -1037,6 +1025,15 @@ export default function RiwayatLaporanPage() {
                         <Sparkles className="w-3.5 h-3.5 text-amber-300" />
                       )}
                       <span>{isGen ? 'Regenerate' : 'Cetak PDF'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setPreviewActivity(act)}
+                      className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/60 dark:hover:bg-sky-900/80 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors"
+                      title="Pratinjau Dokumen PDF"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                      <span>Pratinjau</span>
                     </button>
 
                     {driveUrl && (
@@ -1055,7 +1052,6 @@ export default function RiwayatLaporanPage() {
                     act={act}
                     isGen={isGen}
                     isGenerating={generatingPdfId === act.id}
-                    onPreview={() => setPreviewActivity(act)}
                     onCopyActivity={() => handleCopyActivity(act.id)}
                     onGeneratePdf={() => handleGeneratePdf(act)}
                     onDelete={() => setDeletingId(act.id)}
