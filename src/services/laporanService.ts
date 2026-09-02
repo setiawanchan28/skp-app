@@ -229,9 +229,18 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
         }
 
         const people = item.people?.length ? item.people : existing?.people || (existing as any)?.petugas_ditemui || [];
+        const drivePdfUrl = existing?.drive_pdf_url || (existing as any)?.pdf_url || (existing as any)?.drive_file_url || item.drive_pdf_url || (item as any)?.pdf_url || (item as any)?.drive_file_url;
+        const drivePdfId = existing?.drive_pdf_file_id || item.drive_pdf_file_id;
+        const driveFolderId = existing?.drive_folder_id || item.drive_folder_id;
+        const status = drivePdfUrl || existing?.status === 'GENERATED' || item.status === 'GENERATED' ? 'GENERATED' : (item.status || existing?.status || 'DRAFT');
+
         mergedMap.set(item.id, {
           ...existing,
           ...item,
+          status: status,
+          drive_pdf_url: drivePdfUrl,
+          drive_pdf_file_id: drivePdfId,
+          drive_folder_id: driveFolderId,
           documents: docs,
           fotos: docs,
           people: people,

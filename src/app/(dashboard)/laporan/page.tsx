@@ -30,7 +30,7 @@ import {
   X,
 } from 'lucide-react';
 import { fetchLaporanList, trashLaporanRecord, copyActivityRecord } from '@/services/laporanService';
-import { Activity } from '@/types/laporan';
+import { Activity, ActivityStatus } from '@/types/laporan';
 import { formatDateIndonesian } from '@/utils/formatters';
 import { PDFPreviewModal } from '@/components/laporan/PDFPreviewModal';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
@@ -343,8 +343,7 @@ export default function RiwayatLaporanPage() {
     }
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (isInitial = false) => {
     let localList: Activity[] = [];
     if (typeof window !== 'undefined') {
       const local = localStorage.getItem('bps_laporan_data');
@@ -357,6 +356,10 @@ export default function RiwayatLaporanPage() {
           }
         } catch (e) {}
       }
+    }
+
+    if (localList.length === 0 && activities.length === 0) {
+      setLoading(true);
     }
 
     try {
@@ -389,9 +392,14 @@ export default function RiwayatLaporanPage() {
               };
             });
 
+            const targetDrivePdfUrl = getDrivePdfUrl(localAct) || getDrivePdfUrl(remoteAct);
+            const targetStatus: ActivityStatus = (targetDrivePdfUrl || localAct.status === 'GENERATED' || remoteAct.status === 'GENERATED') ? 'GENERATED' : ((remoteAct.status as ActivityStatus) || (localAct.status as ActivityStatus) || 'DRAFT');
+
             return {
-              ...localAct,
               ...remoteAct,
+              ...localAct,
+              status: targetStatus,
+              drive_pdf_url: targetDrivePdfUrl,
               documents: mergedDocs,
               fotos: mergedDocs,
             };
@@ -415,16 +423,14 @@ export default function RiwayatLaporanPage() {
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
     const handleUpdate = () => loadData();
     if (typeof window !== 'undefined') {
-      window.addEventListener('focus', handleUpdate);
       window.addEventListener('storage', handleUpdate);
       window.addEventListener('bps_laporan_updated', handleUpdate);
     }
     return () => {
       if (typeof window !== 'undefined') {
-        window.removeEventListener('focus', handleUpdate);
         window.removeEventListener('storage', handleUpdate);
         window.removeEventListener('bps_laporan_updated', handleUpdate);
       }
@@ -682,7 +688,7 @@ export default function RiwayatLaporanPage() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={loadData}
+            onClick={() => loadData()}
             disabled={loading}
             className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-semibold rounded-xl text-xs transition-colors flex items-center gap-1.5"
             title="Refresh Data"
