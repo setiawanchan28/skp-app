@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import { fetchLaporanList, trashLaporanRecord, copyActivityRecord } from '@/services/laporanService';
 import { Activity, ActivityStatus } from '@/types/laporan';
-import { formatDateIndonesian } from '@/utils/formatters';
+import { formatDateIndonesian, getActivityTimestamp } from '@/utils/formatters';
 import { PDFPreviewModal } from '@/components/laporan/PDFPreviewModal';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { useToast } from '@/components/ui/Toast';
@@ -404,11 +404,12 @@ export default function RiwayatLaporanPage() {
               fotos: mergedDocs,
             };
           })
-          .sort(
-            (a, b) =>
-              new Date(b.start_date || b.tanggal || b.created_at || Date.now()).getTime() -
-              new Date(a.start_date || a.tanggal || a.created_at || Date.now()).getTime()
-          );
+          .sort((a, b) => {
+            const timeA = getActivityTimestamp(a);
+            const timeB = getActivityTimestamp(b);
+            if (timeA !== timeB) return timeB - timeA;
+            return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+          });
 
         setActivities(mergedList);
         if (typeof window !== 'undefined') {
@@ -494,10 +495,15 @@ export default function RiwayatLaporanPage() {
       if (sortOrder === 'NAME_ASC') {
         return nameA.localeCompare(nameB);
       }
-      const timeA = new Date(a.start_date || a.tanggal || a.created_at || 0).getTime();
-      const timeB = new Date(b.start_date || b.tanggal || b.created_at || 0).getTime();
-      if (sortOrder === 'OLDEST') return timeA - timeB;
-      return timeB - timeA; // NEWEST
+      const timeA = getActivityTimestamp(a);
+      const timeB = getActivityTimestamp(b);
+      if (sortOrder === 'OLDEST') {
+        if (timeA !== timeB) return timeA - timeB;
+        return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+      }
+      // NEWEST
+      if (timeA !== timeB) return timeB - timeA;
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
     });
 
   // Reset to page 1 whenever filters change
@@ -1164,8 +1170,8 @@ export default function RiwayatLaporanPage() {
             spd_number: previewActivity.spd_number || (previewActivity as any).nomor_spd,
             nomorSpd: previewActivity.spd_number || (previewActivity as any).nomor_spd,
             people: previewActivity.people || [],
-            petugasDitemui: previewActivity.people?.map((p) => ({ nama: p.person_name, jabatan: p.position })) || (previewActivity as any).petugas_ditemui || [],
-            petugas_ditemui: previewActivity.people?.map((p) => ({ nama: p.person_name, jabatan: p.position })) || (previewActivity as any).petugas_ditemui || [],
+            petugasDitemui: previewActivity.people?.map((p: any) => ({ nama: p.person_name, jabatan: p.position })) || (previewActivity as any).petugas_ditemui || [],
+            petugas_ditemui: previewActivity.people?.map((p: any) => ({ nama: p.person_name, jabatan: p.position })) || (previewActivity as any).petugas_ditemui || [],
             namaPegawai: previewActivity.nama_pegawai || savedProfile.nama || 'Pegawai BPS',
             nama_pegawai: previewActivity.nama_pegawai || savedProfile.nama || 'Pegawai BPS',
             nip: previewActivity.nip || savedProfile.nip || '',

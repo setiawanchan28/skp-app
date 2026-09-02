@@ -71,3 +71,64 @@ export function truncateText(text: string, maxLength: number = 60): string {
   if (!text || text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
 }
+
+/**
+ * Extract timestamp (in milliseconds) from activity object using date and time fields.
+ * Includes time (jam_mulai / start_time) so sorting by newest/oldest respects time of day.
+ */
+export function getActivityTimestamp(act: any): number {
+  if (!act) return 0;
+
+  const rawDate = act.start_date || act.tanggal || act.tanggal_perjadin || act.created_at || '';
+  if (!rawDate) return 0;
+
+  const rawTime = act.start_time || act.jam_mulai || act.startTime || act.jamMulai || '';
+
+  let year = 0, month = 0, day = 0;
+
+  if (typeof rawDate === 'string') {
+    const match = rawDate.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (match) {
+      year = parseInt(match[1], 10);
+      month = parseInt(match[2], 10) - 1; // Date month is 0-indexed
+      day = parseInt(match[3], 10);
+    }
+  }
+
+  if (!year) {
+    const d = new Date(rawDate);
+    if (!isNaN(d.getTime())) {
+      year = d.getFullYear();
+      month = d.getMonth();
+      day = d.getDate();
+    }
+  }
+
+  if (year) {
+    let hours = 0;
+    let minutes = 0;
+    let seconds = 0;
+
+    if (rawTime && typeof rawTime === 'string') {
+      const timeMatch = rawTime.trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+      if (timeMatch) {
+        hours = parseInt(timeMatch[1], 10);
+        minutes = parseInt(timeMatch[2], 10);
+        seconds = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+      }
+    } else if (typeof rawDate === 'string' && rawDate.includes('T')) {
+      const d = new Date(rawDate);
+      if (!isNaN(d.getTime())) {
+        hours = d.getHours();
+        minutes = d.getMinutes();
+        seconds = d.getSeconds();
+      }
+    }
+
+    return new Date(year, month, day, hours, minutes, seconds).getTime();
+  }
+
+  const fallback = new Date(rawDate).getTime();
+  return isNaN(fallback) ? 0 : fallback;
+}
+

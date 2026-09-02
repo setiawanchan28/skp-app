@@ -1,6 +1,7 @@
 import { supabase, supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 import { Activity, ActivityPerson, ActivityDocument, ActivityStatus } from '@/types/laporan';
 import { normalizeActivityName } from '@/utils/sanitizeFilename';
+import { getActivityTimestamp } from '@/utils/formatters';
 import { getStoredLaporanListServer, saveStoredLaporanListServer } from '@/lib/laporanStoreServer';
 import { getStoredPenugasanList, saveStoredPenugasanList } from '@/lib/penugasanStore';
 import { LaporanPenugasan } from '@/types/penugasan';
@@ -260,9 +261,12 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
     }
   });
 
-  return Array.from(mergedMap.values()).sort(
-    (a, b) => new Date(b.start_date || b.created_at || Date.now()).getTime() - new Date(a.start_date || a.created_at || Date.now()).getTime()
-  );
+  return Array.from(mergedMap.values()).sort((a, b) => {
+    const timeA = getActivityTimestamp(a);
+    const timeB = getActivityTimestamp(b);
+    if (timeA !== timeB) return timeB - timeA;
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+  });
 }
 
 /**

@@ -3,6 +3,7 @@ import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabase';
 import { getStoredLaporanList } from '@/lib/laporanStore';
 import { fetchLaporanFromDriveCloud } from '@/lib/drive';
 import { Laporan } from '@/types/laporan';
+import { getActivityTimestamp } from '@/utils/formatters';
 
 export async function GET() {
   let supabaseData: Laporan[] = [];
@@ -50,9 +51,12 @@ export async function GET() {
   cleanDriveData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
   cleanSupabaseData.forEach((item) => { if (item && item.id) mergedMap.set(item.id, item); });
 
-  const finalResult = Array.from(mergedMap.values()).sort(
-    (a, b) => new Date(b.tanggal || Date.now()).getTime() - new Date(a.tanggal || Date.now()).getTime()
-  );
+  const finalResult = Array.from(mergedMap.values()).sort((a, b) => {
+    const timeA = getActivityTimestamp(a);
+    const timeB = getActivityTimestamp(b);
+    if (timeA !== timeB) return timeB - timeA;
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+  });
 
   return NextResponse.json({ success: true, data: finalResult });
 }
