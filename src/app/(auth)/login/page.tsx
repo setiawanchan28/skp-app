@@ -249,7 +249,7 @@ export default function LoginPage() {
     const demoUser = {
       nama: savedProfile?.nama || 'Dede Setiawan, A.Md.',
       nip: savedProfile?.nip || '199502282024211021',
-      jabatan: savedProfile?.jabatan || 'Pranata Komputer Ahli Pertama',
+      jabatan: savedProfile?.jabatan || 'Pranata Komputer Terampil',
       email: savedProfile?.email || 'ddsetiawan28@gmail.com',
     };
     if (typeof window !== 'undefined') {

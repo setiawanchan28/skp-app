@@ -111,9 +111,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       nomorSurat: activity.letter_number,
       nomorSpd: activity.spd_number,
       petugasDitemui: activity.people?.map((p) => ({ nama: p.person_name, jabatan: p.position })),
-      namaPegawai: body.namaPegawai || body.nama_pegawai || body.activityData?.namaPegawai || body.activityData?.nama_pegawai || activity.nama_pegawai || 'Dede Setiawan, A.Md.',
-      nip: body.nip || body.activityData?.nip || activity.nip || '199502282024211021',
-      jabatan: body.jabatan || body.activityData?.jabatan || activity.jabatan || 'Pranata Komputer Ahli Pertama',
+      namaPegawai: body.namaPegawai || body.nama_pegawai || body.activityData?.namaPegawai || body.activityData?.nama_pegawai || activity.nama_pegawai || (activity as any)?.nama_pegawai || 'Dede Setiawan, A.Md.',
+      nip: body.nip || body.activityData?.nip || activity.nip || (activity as any)?.nip || '199502282024211021',
+      jabatan: body.jabatan || body.activityData?.jabatan || body.activityData?.position || activity.jabatan || (activity as any)?.jabatan || 'Pranata Komputer Terampil',
       photos: mappedPhotos,
       fotos: mappedPhotos,
     };
