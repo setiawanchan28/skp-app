@@ -80,6 +80,7 @@ const ActionDropdownMenu = ({
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const buttonRef = React.useRef<HTMLButtonElement>(null);
+  const openTimeRef = React.useRef<number>(0);
 
   const calculatePosition = () => {
     if (!buttonRef.current) return;
@@ -109,8 +110,11 @@ const ActionDropdownMenu = ({
     e.stopPropagation();
     if (!isOpen) {
       calculatePosition();
+      openTimeRef.current = Date.now();
+      setIsOpen(true);
+    } else {
+      setIsOpen(false);
     }
-    setIsOpen(!isOpen);
   };
 
   useEffect(() => {
@@ -144,6 +148,7 @@ const ActionDropdownMenu = ({
         className="fixed inset-0 bg-slate-900/60 sm:bg-transparent backdrop-blur-xs sm:backdrop-blur-none transition-opacity"
         onClick={(e) => {
           e.stopPropagation();
+          if (Date.now() - openTimeRef.current < 250) return;
           setIsOpen(false);
         }}
       />
