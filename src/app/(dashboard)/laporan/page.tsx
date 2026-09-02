@@ -412,8 +412,8 @@ export default function RiwayatLaporanPage() {
               };
             });
 
-            const targetDrivePdfUrl = getDrivePdfUrl(localAct) || getDrivePdfUrl(remoteAct);
-            const targetStatus: ActivityStatus = (targetDrivePdfUrl || localAct.status === 'GENERATED' || remoteAct.status === 'GENERATED') ? 'GENERATED' : ((remoteAct.status as ActivityStatus) || (localAct.status as ActivityStatus) || 'DRAFT');
+            const targetStatus: ActivityStatus = (localAct.status as ActivityStatus) || (remoteAct.status as ActivityStatus) || 'DRAFT';
+            const targetDrivePdfUrl = targetStatus === 'DRAFT' ? undefined : (getDrivePdfUrl(localAct) || getDrivePdfUrl(remoteAct));
 
             return {
               ...remoteAct,

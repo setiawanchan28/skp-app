@@ -240,10 +240,10 @@ export async function fetchLaporanList(includeTrashed: boolean = false): Promise
         }
 
         const people = item.people?.length ? item.people : existing?.people || (existing as any)?.petugas_ditemui || [];
-        const drivePdfUrl = existing?.drive_pdf_url || (existing as any)?.pdf_url || (existing as any)?.drive_file_url || item.drive_pdf_url || (item as any)?.pdf_url || (item as any)?.drive_file_url;
-        const drivePdfId = existing?.drive_pdf_file_id || item.drive_pdf_file_id;
+        const status: ActivityStatus = (item.status as ActivityStatus) || (existing?.status as ActivityStatus) || 'DRAFT';
+        const drivePdfUrl = status === 'DRAFT' ? undefined : (existing?.drive_pdf_url || (existing as any)?.pdf_url || item.drive_pdf_url);
+        const drivePdfId = status === 'DRAFT' ? undefined : (existing?.drive_pdf_file_id || item.drive_pdf_file_id);
         const driveFolderId = existing?.drive_folder_id || item.drive_folder_id;
-        const status = drivePdfUrl || existing?.status === 'GENERATED' || item.status === 'GENERATED' ? 'GENERATED' : (item.status || existing?.status || 'DRAFT');
 
         mergedMap.set(item.id, {
           ...existing,
@@ -452,9 +452,9 @@ export async function saveLaporanRecord(
     spd_number: activityData.spd_number || activityData.nomor_spd,
     description: activityData.description || activityData.deskripsi_kegiatan || activityData.ringkasan_kegiatan || '',
     status: status,
-    generated_at: activityData.generated_at || existingRecord?.generated_at,
-    drive_pdf_url: activityData.drive_pdf_url || existingRecord?.drive_pdf_url,
-    drive_pdf_file_id: activityData.drive_pdf_file_id || existingRecord?.drive_pdf_file_id,
+    generated_at: status === 'DRAFT' ? undefined : (activityData.generated_at || existingRecord?.generated_at),
+    drive_pdf_url: status === 'DRAFT' ? undefined : (activityData.drive_pdf_url || existingRecord?.drive_pdf_url),
+    drive_pdf_file_id: status === 'DRAFT' ? undefined : (activityData.drive_pdf_file_id || existingRecord?.drive_pdf_file_id),
     drive_folder_id: activityData.drive_folder_id || existingRecord?.drive_folder_id,
     people: peopleData || existingRecord?.people || [],
     documents: photosData || existingRecord?.documents || [],
