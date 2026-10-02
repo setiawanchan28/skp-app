@@ -25,6 +25,7 @@ import { PhotoUploader, PhotoItem } from './PhotoUploader';
 import { PDFPreviewModal } from './PDFPreviewModal';
 import { ReauthModal } from '@/components/ui/ReauthModal';
 import { LoadingModal } from '@/components/ui/LoadingModal';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { VoiceInputButton } from '@/components/ui/VoiceInputButton';
 import { useToast } from '@/components/ui/Toast';
 import { Activity, ActivityType, ActivityStatus } from '@/types/laporan';
@@ -84,9 +85,13 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   const [submitProgress, setSubmitProgress] = useState<string>('');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isForceChange, setIsForceChange] = useState(false);
+  const [showForceChangeModal, setShowForceChangeModal] = useState(false);
 
-  // Status State
-  const isGenerated = initialData?.status === 'GENERATED';
+  // Status State: consider generated if status is GENERATED or if there is already a generated drive_pdf_url / file
+  const isGenerated =
+    initialData?.status === 'GENERATED' ||
+    Boolean(initialData?.drive_pdf_url) ||
+    Boolean(initialData?.drive_pdf_file_id);
 
   // Load User Profile & Initial Data
   useEffect(() => {
@@ -205,13 +210,19 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
   };
 
   // Submit Activity Form
-  const handleSubmit = async (e: React.FormEvent, targetStatus: ActivityStatus = 'DRAFT') => {
-    e.preventDefault();
+  const handleSubmit = async (
+    e?: React.FormEvent,
+    targetStatus: ActivityStatus = 'DRAFT',
+    overrideForceChange?: boolean
+  ) => {
+    if (e) e.preventDefault();
 
     if (!namaKegiatan.trim()) {
       showToast('Nama Kegiatan wajib diisi!', 'error');
       return;
     }
+
+    const effectiveForceChange = overrideForceChange !== undefined ? overrideForceChange : isForceChange;
 
     setIsSubmitting(true);
     setSubmitProgress('Menyimpan draf kegiatan ke Supabase...');
@@ -245,7 +256,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         nip: nip,
         jabatan: jabatan,
         status: targetStatus,
-        isForceChange: isForceChange,
+        isForceChange: effectiveForceChange,
       };
 
       const validPeople = people.filter((p) => p.person_name.trim().length > 0);
@@ -266,6 +277,8 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
             activity: activityPayload,
             people: validPeople,
             user_drive_token: googleToken || undefined,
+            isForceChange: effectiveForceChange,
+            is_force_change: effectiveForceChange,
             photos: photos.map((p) => ({
               id: p.id,
               documentation_date: p.tanggal_foto || startDate,
@@ -297,6 +310,18 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
 
       if (!res.ok || !result.success) {
         const errorDetail = result.error || resText || 'Gagal menyimpan kegiatan ke Supabase';
+        
+        // If error is about locked identity / PDF generated, trigger interactive ConfirmModal
+        const isLockedError =
+          errorDetail.includes('Ganti Paksa') ||
+          errorDetail.includes('terkunci') ||
+          errorDetail.includes('Identitas kegiatan');
+
+        if (isLockedError) {
+          setShowForceChangeModal(true);
+          return;
+        }
+
         if (typeof window !== 'undefined') {
           alert('❌ ERROR SIMPAN SUPABASE:\n' + errorDetail);
         }
@@ -817,14 +842,40 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
 
       {/* Bottom Sticky Action Bar */}
       <div className="sticky bottom-4 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 z-40">
-        <button
-          type="button"
-          onClick={() => setIsPreviewOpen(true)}
-          className="w-full sm:w-auto px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shrink-0"
-        >
-          <Eye className="w-4 h-4 text-sky-600 shrink-0" />
-          <span>Pratinjau PDF (Preview)</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsPreviewOpen(true)}
+            className="w-full sm:w-auto px-4 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shrink-0"
+          >
+            <Eye className="w-4 h-4 text-sky-600 shrink-0" />
+            <span>Pratinjau PDF (Preview)</span>
+          </button>
+
+          {isGenerated && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsForceChange(!isForceChange);
+                showToast(
+                  !isForceChange
+                    ? 'Opsi Ganti Paksa AKTIF. Identitas (Nama/Tanggal/SPD) dapat diubah.'
+                    : 'Opsi Ganti Paksa dinonaktifkan.',
+                  !isForceChange ? 'success' : 'info'
+                );
+              }}
+              className={`w-full sm:w-auto px-3.5 py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all border ${
+                isForceChange
+                  ? 'bg-amber-500 text-white border-amber-600 shadow-md shadow-amber-500/20'
+                  : 'bg-amber-50 hover:bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 dark:border-amber-800'
+              }`}
+              title="Aktifkan jika ingin mengubah Nama Kegiatan, Tanggal, atau No. SPD yang sudah memiliki PDF"
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0" />
+              <span>{isForceChange ? '✓ Ganti Paksa: AKTIF' : 'Mode Ganti Paksa'}</span>
+            </button>
+          )}
+        </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
           {submitProgress && (
@@ -843,6 +894,23 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         </div>
       </div>
 
+      {/* Interactive Confirm Modal when Identity is Locked */}
+      <ConfirmModal
+        isOpen={showForceChangeModal}
+        onClose={() => setShowForceChangeModal(false)}
+        onConfirm={async () => {
+          setShowForceChangeModal(false);
+          setIsForceChange(true);
+          await handleSubmit(undefined, initialData?.status || 'DRAFT', true);
+        }}
+        title="Identitas Kegiatan Terkunci"
+        message="Identitas kegiatan (Nama, Tanggal, atau No. SPD) telah terkunci karena dokumen PDF sudah terbit. Apakah Anda ingin melakukan 'Ganti Paksa' untuk memperbarui identitas dan menyelaraskan folder Google Drive & PDF?"
+        confirmText="Ya, Ganti Paksa & Simpan"
+        cancelText="Batal"
+        isDangerous={false}
+        isLoading={isSubmitting}
+      />
+
       {/* Loading Overlay Modals */}
       <LoadingModal
         isOpen={isGeneratingAi}
@@ -851,6 +919,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({ initialData }) => {
         message="Mohon tunggu sejenak, AI sedang mengolah poin-poin kegiatan menjadi narasi resmi BPS yang formal dan terstruktur."
       />
 
+      {/* Loading Overlay Modals */}
       <LoadingModal
         isOpen={isSubmitting}
         type="submit"
